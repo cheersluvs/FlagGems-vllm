@@ -45,7 +45,8 @@ deep_opt.md are absent in this checkout.
 | Unsupported | Required imports/tools/headers missing | Report missing prerequisites and exit 2 | No device execution | Installed wheel may lack source-JIT entry |
 
 The custom Cube function owns all local allocation via one TPipe. Its enclosing
-Triton wrapper forwards scalar GM pointers (rank-one memref C ABI), with no local
+Triton wrapper forwards static one-dimensional GM block-pointer views (rank-one
+memref C ABI) within an explicit Cube scope, with no local
 tensor calculation or other Cube work. This restricts allocation/event ownership
 to the micro probe; it does not establish safe composability with other local
 Triton allocations or a mixed Cube/Vector production kernel.
@@ -150,3 +151,21 @@ and require the sentinel-initialized GM destination to match all CPU QK and
 full-chain fixtures. A deleted/no-op custom call must fail those checks. This
 isolated wrapper contains no other device work with which it could be reordered.
 This does not establish alias/scheduling correctness for a future mixed kernel.
+
+## Static GM views and explicit Cube scope
+
+Report 702817077248ee5bc3be7fda3f9ae3f2c5fb39f3 (20261113-010627) passed
+TTIR verification with the destination as a fifth ordinary argument. BiSheng
+then aborted with "Failed to obtain op buffer shape size which should be
+static". Its captured input shows dynamic memref<?> custom arguments and an
+outer mix_mode="aiv" despite the custom op's CUBE annotation. No device code ran.
+
+The wrapper now creates rank-one block pointers with static element counts
+2048/8192/256/1024 for Q/K/W/destination. These remain ordinary custom inputs;
+no tensor DPS outputs, local allocation or GM loads/stores are added around the
+external function. The C++ ranked-memref signature, packing, math and expected
+results are unchanged. An explicit al.scope(core_mode="cube") expresses the
+required core placement. Record compiled launch metadata and reject an explicit
+aiv-only mode before executing the Cube function. Whether these expressions
+resolve the installed backend's shape/core handling remains a card-run question;
+do not edit compiler IR or force launch metadata to claim support.

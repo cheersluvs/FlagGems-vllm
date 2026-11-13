@@ -320,6 +320,7 @@ def wrapper_source(entry):
     return f"""
 import triton
 import triton.language as tl
+import triton.language.extra.cann.extension as al
 {imports}
 
 @triton.jit
@@ -327,12 +328,18 @@ def custom(Q, Key, Weight, Out, SCALE_BITS:tl.constexpr, CHAIN:tl.constexpr):
     # All five arguments are external-function operands. Out is a GM pointer,
     # not a tensor-valued DPS result: the custom op has no outs/results. Leave
     # no_side_effect unset so its opaque memory writes remain conservative.
-    q, key, weight, output = Q, Key, Weight, Out
-    bits = tl.full((), SCALE_BITS, tl.int64)
-    if CHAIN:
-        {chain}
-    else:
-        {qk}
+    with al.scope(core_mode="cube"):
+        # Block pointers describe static views of caller-owned GM. They do not
+        # load the tiles or allocate local storage in the surrounding wrapper.
+        q = tl.make_block_ptr(Q, (2048,), (1,), (0,), (2048,), (0,))
+        key = tl.make_block_ptr(Key, (8192,), (1,), (0,), (8192,), (0,))
+        weight = tl.make_block_ptr(Weight, (256,), (1,), (0,), (256,), (0,))
+        output = tl.make_block_ptr(Out, (1024,), (1,), (0,), (1024,), (0,))
+        bits = tl.full((), SCALE_BITS, tl.int64)
+        if CHAIN:
+            {chain}
+        else:
+            {qk}
 
 @triton.jit
 def reference(Q, Key, Weight, Out, SCALE:tl.constexpr):
@@ -391,6 +398,22 @@ def save_asm(kernel, report, label):
     return inventory
 
 
+def record_launch_mode(kernel):
+    metadata = kernel.metadata
+    mode = (
+        metadata.get("mix_mode")
+        if isinstance(metadata, dict)
+        else getattr(metadata, "mix_mode", None)
+    )
+    entry = dict(mix_mode=mode, metadata=str(metadata))
+    if mode == "aiv":
+        raise RuntimeError(
+            "Cube custom-op wrapper still reports mix_mode=aiv; refusing device execution. "
+            + str(entry)
+        )
+    return entry
+
+
 def execute(args, report, result, save):
     import torch
     import torch_npu  # noqa: F401
@@ -415,7 +438,9 @@ def execute(args, report, result, save):
         )
     bindings = bind_ops(report / "custom-plain.bc", result)
     result["call_abi"] = dict(
-        operands="Q GM pointer, K GM pointer, W GM pointer, i64 scale bits, destination GM pointer",
+        operands="Four static GM block-pointer views plus i64 scale bits; Q,K,W,scale,destination order",
+        static_elements=dict(q=2048, key=8192, weight=256, destination=1024),
+        core_scope="cube",
         dps_outputs=0,
         results=0,
         destination="Fifth ordinary operand; C++ writes it through rank-one GM memref ABI",
@@ -510,6 +535,7 @@ def execute(args, report, result, save):
                         status="compiled",
                         compiler_calls=capture.calls,
                         asm=save_asm(kernel, report, label),
+                        launch=record_launch_mode(kernel),
                     )
                 )
                 save()
@@ -546,6 +572,7 @@ def execute(args, report, result, save):
                         status="compiled",
                         compiler_calls=capture.calls,
                         asm=save_asm(compiled, report, label),
+                        launch=record_launch_mode(compiled),
                     )
                 )
                 save()
