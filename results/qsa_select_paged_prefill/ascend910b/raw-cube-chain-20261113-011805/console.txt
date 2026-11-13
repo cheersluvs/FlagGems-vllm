@@ -1,0 +1,61 @@
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+ENVIRONMENT {"torch": "2.10.0+cpu", "triton": "3.5.1", "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py", "device": "Ascend910B4-1", "ascend_home": "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0", "opp": "/opt/qsa-opp-910b-qw4qRghU"}
+CUSTOM_ENTRY dialect-cann-bitcode
+BUILD ccec-version: /opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/ccec
+BUILD ccec-version: passed
+BUILD ccec-plain: /opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/ccec
+BUILD ccec-plain: passed
+BUILD llvm-link-text: /opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/llvm-link
+BUILD llvm-link-text: passed
+BITCODE_STRUCTURE {"exported_symbols": true, "candidate_structure_present": true, "int8_mad_static_sites": 1, "half_mad_static_sites": 1, "direct_l1_static_sites": 8, "scope": "Static call sites, not executed instruction counts"}
+COMPILE qk-seed13
+Traceback (most recent call last):
+  File "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/compiler.py", line 330, in compile
+    next_module = compile_ir(module, metadata)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/compiler.py", line 1137, in <lambda>
+    stages["npubin"] = (lambda src, metadata: _compile_linalg_to_npu_bin(src, metadata, options))
+                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/compiler.py", line 651, in _compile_linalg_to_npu_bin
+    return linalg_to_bin_enable_npu_compile_A2_A3(linalg, metadata, opt)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/compiler.py", line 835, in linalg_to_bin_enable_npu_compile_A2_A3
+    ret = subprocess.run(cmd_list, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-raw-static.keNI1VaC/tools/diagnose_qsa_structural_mixed_compile_910b.py", line 45, in run
+    result = subprocess.run(command, *args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.local/share/uv/python/cpython-3.11.15-linux-aarch64-gnu/lib/python3.11/subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/bishengir-compile', '/tmp/tmpxk10zsmo/kernel.mlir', '--target=Ascend910B4-1', '--enable-auto-multi-buffer=True', '--enable-auto-bind-sub-block=True', '--link-aicore-bitcode=/tmp/qsa-raw-cube-chain.H1MN3hsi/custom-plain.bc', '--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc', '--enable-hfusion-compile=true', '--enable-hivm-compile=true', '--enable-triton-kernel-compile=true', '-o', '/tmp/tmpxk10zsmo/kernel']' died with <Signals.SIGABRT: 6>.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/tmp/flaggems-qsa-raw-static.keNI1VaC/tools/probe_qsa_raw_cube_chain_910b.py", line 693, in main
+    execute(args, args.report, result, save)
+  File "/tmp/flaggems-qsa-raw-static.keNI1VaC/tools/probe_qsa_raw_cube_chain_910b.py", line 526, in execute
+    kernel = module.custom.warmup(
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/runtime/jit.py", line 804, in warmup
+    return self.run(grid=grid, warmup=True, *map(MockTensor.wrap_dtype, args), **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/runtime/jit.py", line 736, in run
+    kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/runtime/jit.py", line 864, in _do_compile
+    kernel = self.compile(src, target=target, options=options.__dict__)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/__init__.py", line 83, in tle_compile
+    compiled_kernel = original_compile_fn(src, target, options)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/compiler.py", line 351, in compile
+    raise MLIRCompilationError(stage_name, error_detail) from e
+triton.compiler.errors.MLIRCompilationError: 
+///------------------[ERROR][Triton][BEG]------------------
+[ConvertLinalgIRToBinary] encounters error:
+LLVM ERROR: PlanMemory Traverse IR Failed! 
+PLEASE submit a bug report to https://github.com/llvm/llvm-project/issues/ and include the crash backtrace.
+///------------------[ERROR][Triton][END]------------------
+
+RAW_CUBE_SUMMARY {"status": "failed", "phase": "qk-seed13", "entry": "dialect-cann-bitcode", "error": "MLIRCompilationError('ConvertLinalgIRToBinary', 'LLVM ERROR: PlanMemory Traverse IR Failed! \\nPLEASE submit a bug report to https://github.com/llvm/llvm-project/issues/ and include the crash backtrace.\\nStack dump without symbol names (ensure you have llvm-symbolizer in your PATH or set the environment var `LLVM_SYMBOLIZER_PATH` to point to it):\\n0  bishengir-compile 0x0000aaabdb522a70\\n1  bishengir-compile 0x0000aaabdb5205e4\\n2  bishengir-compile 0x0000aaabdb523238\\n3  linux-vdso.so.1   0x0000fffc957807c0 __kernel_rt_sigreturn + 0\\n4  libc.so.6         0x0000fffc951d7608\\n5  libc.so.6         0x0000fffc9518cb3c gsignal + 28\\n6  libc.so.6         0x0000fffc95177e00 abort + 244\\n7  bishengir-compile 0x0000aaabdb4ca66c\\n8  bishengir-compile 0x0000aaabdb4ca47c\\n9  bishengir-compile 0x0000aaabd9698ac0\\n10 bishengir-compile 0x0000aaabd96b524c\\n11 bishengir-compile 0x0000aaabda91edf8\\n12 bishengir-compile 0x0000aaabda91f60c\\n13 bishengir-compile 0x0000aaabda924f5c\\n14 bishengir-compile 0x0000aaabda837224\\n15 bishengir-compile 0x0000aaabda837154\\n16 libc.so.6         0x0000fffc951dabdc\\n17 bishengir-compile 0x0000aaabda8376e0\\n18 bishengir-compile 0x0000aaabda837810\\n19 bishengir-compile 0x0000aaabdb4eec04\\n20 bishengir-compile 0x0000aaabdb4efa0c\\n21 libc.so.6         0x0000fffc951d595c\\n22 libc.so.6         0x0000fffc9523b8dc\\n\\n\\n[INFO]: The compiled kernel cache is in /tmp/qsa-raw-cube-chain.H1MN3hsi/triton-cache/5RUMYDTJLJ5T5NGD4YCD4BHMLI5NWTGKQMTZC5ZUHMVHTYN7NT5A\\n\\n')", "pipeline_proven": false, "exit_code": 1, "report": "/tmp/qsa-raw-cube-chain.H1MN3hsi/raw-cube-chain.json"}

@@ -1,0 +1,152 @@
+{
+  "status": "failed",
+  "phase": "qk-seed13",
+  "pipeline_proven": false,
+  "scope": "Operator-owned native custom-op feasibility, no production changes",
+  "environment": {
+    "torch": "2.10.0+cpu",
+    "triton": "3.5.1",
+    "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py",
+    "device": "Ascend910B4-1",
+    "ascend_home": "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0",
+    "opp": "/opt/qsa-opp-910b-qw4qRghU"
+  },
+  "object_entry": {
+    "available": true,
+    "runtime": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/raw/cann/runtime.py",
+    "signature": "(fn: 'Any', file, format: 'Optional[str]' = None, extern_func_name: 'str' = '', pipeline: 'Optional[Dict[str, str]]' = None, arch: 'Optional[str]' = None, includes: 'Sequence' = (), extra_buffers=None, *args, **kwargs) -> 'None'"
+  },
+  "entry": "dialect-cann-bitcode",
+  "entry_scope": "Operator-owned C++ compiled above; object bitcode path, not built-in source-JIT validation",
+  "call_abi": {
+    "operands": "Four static GM block-pointer views plus i64 scale bits; Q,K,W,scale,destination order",
+    "static_elements": {
+      "q": 2048,
+      "key": 8192,
+      "weight": 256,
+      "destination": 1024
+    },
+    "core_scope": "cube",
+    "dps_outputs": 0,
+    "results": 0,
+    "destination": "Fifth ordinary operand; C++ writes it through rank-one GM memref ABI",
+    "side_effects": "Opaque custom op; no no_side_effect annotation; inspect retained op and validate destination writes"
+  },
+  "toolchain": {
+    "ccec": "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/ccec",
+    "llvm_dis": null,
+    "llvm_link": "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/llvm-link",
+    "includes": [
+      "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/aarch64-linux/asc/include/interface",
+      "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/aarch64-linux/asc/include/interface",
+      "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/aarch64-linux/ascendc/include/basic_api/impl",
+      "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/aarch64-linux/ascendc/include/basic_api/impl",
+      "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/aarch64-linux/include",
+      "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/aarch64-linux/include/ascendc",
+      "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/aarch64-linux/include/ascendc/basic_api",
+      "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/aarch64-linux/tikcpp",
+      "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/aarch64-linux/tikcpp",
+      "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/aarch64-linux/tikcpp/tikcfw",
+      "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/aarch64-linux/tikcpp/tikcfw"
+    ],
+    "bitcode_mode": "ordinary-AIC-only",
+    "mix_bitcode_merged": false,
+    "version": "2026-07-30T20:53:21+08:00 clang version 15.0.5 (clang-5c68a1cb1231 flang-5c68a1cb1231)\nTarget: aarch64-unknown-linux-gnu\nThread model: posix\nInstalledDir: /opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin\n",
+    "llvm_text_method": "llvm-link-S-single-module"
+  },
+  "source_sha256": "deecdb256012e0ab10b278ace8a8d80dc7717a212c26ace2c6ef59a657ec4dfd",
+  "bitcode_sha256": "45253a1c43dec3f3e5eae0e971bcdaeff50065f1d53979a64eb0cfe361a315bb",
+  "bitcode_structure": {
+    "exported_symbols": true,
+    "matrix_calls": [
+      "call void @_ZN7AscendC10MmadParamsC1Ev(ptr noundef nonnull align 4 dereferenceable(19) %29)",
+      "call void @_ZN7AscendC4MmadIiaaEEvRKNS_11LocalTensorIT_EERKNS1_IT0_EERKNS1_IT1_EERKNS_10MmadParamsE(ptr noundef nonnull align 8 dereferenceable(24) %23, ptr noundef nonnull align 8 dereferenceable(24) %21, ptr noundef nonnull align 8 dereferenceable(24) %22, ptr noundef nonnull align 4 dereferenceable(19) %29)",
+      "call void @_ZN7AscendC10MmadParamsC2Ev(ptr noundef nonnull align 4 dereferenceable(19) %3)",
+      "call void @_ZN7AscendC8MmadImplIiaaEEvRKNS_11LocalTensorIT_EERKNS1_IT0_EERKNS1_IT1_EERKNS_10MmadParamsE(ptr noundef nonnull align 8 dereferenceable(24) %9, ptr noundef nonnull align 8 dereferenceable(24) %10, ptr noundef nonnull align 8 dereferenceable(24) %11, ptr noundef nonnull align 4 dereferenceable(19) %12)",
+      "call void @_ZN7AscendC7MmadCalIiaaEEvPU3AS5T_PU3AS3T0_PU3AS4T1_RKNS_10MmadParamsE(ptr addrspace(5) noundef %11, ptr addrspace(3) noundef %14, ptr addrspace(4) noundef %17, ptr noundef nonnull align 4 dereferenceable(19) %18)",
+      "call void @llvm.hivm.MAD.s8(ptr addrspace(5) %23, ptr addrspace(3) %24, ptr addrspace(4) %25, i64 %81)",
+      "call void @_ZN7AscendC10MmadParamsC1Ev(ptr noundef nonnull align 4 dereferenceable(19) %31)",
+      "call void @_ZN7AscendC4MmadIiaaEEvRKNS_11LocalTensorIT_EERKNS1_IT0_EERKNS1_IT1_EERKNS_10MmadParamsE(ptr noundef nonnull align 8 dereferenceable(24) %23, ptr noundef nonnull align 8 dereferenceable(24) %21, ptr noundef nonnull align 8 dereferenceable(24) %22, ptr noundef nonnull align 4 dereferenceable(19) %31)",
+      "call void @_ZN7AscendC4MmadIfDhDhEEvRKNS_11LocalTensorIT_EERKNS1_IT0_EERKNS1_IT1_EERKNS_10MmadParamsE(ptr noundef nonnull align 8 dereferenceable(24) %39, ptr noundef nonnull align 8 dereferenceable(24) %34, ptr noundef nonnull align 8 dereferenceable(24) %35, ptr noundef nonnull align 4 dereferenceable(19) %31)",
+      "call void @_ZN7AscendC8MmadImplIfDhDhEEvRKNS_11LocalTensorIT_EERKNS1_IT0_EERKNS1_IT1_EERKNS_10MmadParamsE(ptr noundef nonnull align 8 dereferenceable(24) %9, ptr noundef nonnull align 8 dereferenceable(24) %10, ptr noundef nonnull align 8 dereferenceable(24) %11, ptr noundef nonnull align 4 dereferenceable(19) %12)",
+      "call void @_ZN7AscendC7MmadCalIfDhDhEEvPU3AS5T_PU3AS3T0_PU3AS4T1_RKNS_10MmadParamsE(ptr addrspace(5) noundef %11, ptr addrspace(3) noundef %14, ptr addrspace(4) noundef %17, ptr noundef nonnull align 4 dereferenceable(19) %18)",
+      "call void @llvm.hivm.MAD.f162f32(ptr addrspace(5) %23, ptr addrspace(3) %24, ptr addrspace(4) %25, i64 %81)"
+    ],
+    "int8_matrix_calls": [
+      "call void @llvm.hivm.MAD.s8(ptr addrspace(5) %23, ptr addrspace(3) %24, ptr addrspace(4) %25, i64 %81)"
+    ],
+    "half_matrix_calls": [
+      "call void @llvm.hivm.MAD.f162f32(ptr addrspace(5) %23, ptr addrspace(3) %24, ptr addrspace(4) %25, i64 %81)"
+    ],
+    "cc_to_cbuf": [
+      "call void @llvm.hivm.FIX.L0C.TO.L1.s322f16(ptr addrspace(2) %11, ptr addrspace(5) %12, i64 %69, i64 %84)",
+      "call void @llvm.hivm.FIX.L0C.TO.L1.s322f16(ptr addrspace(2) %86, ptr addrspace(5) %87, i64 %144, i64 %159)",
+      "call void @llvm.hivm.FIX.L0C.TO.L1.s322f16(ptr addrspace(2) %161, ptr addrspace(5) %162, i64 %219, i64 %234)",
+      "call void @llvm.hivm.FIX.L0C.TO.L1.s322f16(ptr addrspace(2) %236, ptr addrspace(5) %237, i64 %294, i64 %309)",
+      "call void @llvm.hivm.FIX.L0C.TO.L1.s322f16(ptr addrspace(2) %311, ptr addrspace(5) %312, i64 %369, i64 %384)",
+      "call void @llvm.hivm.FIX.L0C.TO.L1.s322f16(ptr addrspace(2) %386, ptr addrspace(5) %387, i64 %444, i64 %459)",
+      "call void @llvm.hivm.FIX.L0C.TO.L1.s322f16(ptr addrspace(2) %461, ptr addrspace(5) %462, i64 %519, i64 %534)",
+      "call void @llvm.hivm.FIX.L0C.TO.L1.s322f16(ptr addrspace(2) %536, ptr addrspace(5) %537, i64 %594, i64 %609)"
+    ],
+    "prequant": [
+      "call void @_ZN7AscendC22SetFixpipePreQuantFlagEm(i64 noundef %69)",
+      "call void @_ZN7AscendC26SetFixpipePreQuantFlagImplEm(i64 noundef %3)",
+      "call void @llvm.hivm.SET.QUANT.PRE(i64 %3)"
+    ],
+    "direct_int32_to_half_l1": [
+      "call void @llvm.hivm.FIX.L0C.TO.L1.s322f16(ptr addrspace(2) %11, ptr addrspace(5) %12, i64 %69, i64 %84)",
+      "call void @llvm.hivm.FIX.L0C.TO.L1.s322f16(ptr addrspace(2) %86, ptr addrspace(5) %87, i64 %144, i64 %159)",
+      "call void @llvm.hivm.FIX.L0C.TO.L1.s322f16(ptr addrspace(2) %161, ptr addrspace(5) %162, i64 %219, i64 %234)",
+      "call void @llvm.hivm.FIX.L0C.TO.L1.s322f16(ptr addrspace(2) %236, ptr addrspace(5) %237, i64 %294, i64 %309)",
+      "call void @llvm.hivm.FIX.L0C.TO.L1.s322f16(ptr addrspace(2) %311, ptr addrspace(5) %312, i64 %369, i64 %384)",
+      "call void @llvm.hivm.FIX.L0C.TO.L1.s322f16(ptr addrspace(2) %386, ptr addrspace(5) %387, i64 %444, i64 %459)",
+      "call void @llvm.hivm.FIX.L0C.TO.L1.s322f16(ptr addrspace(2) %461, ptr addrspace(5) %462, i64 %519, i64 %534)",
+      "call void @llvm.hivm.FIX.L0C.TO.L1.s322f16(ptr addrspace(2) %536, ptr addrspace(5) %537, i64 %594, i64 %609)"
+    ],
+    "candidate_structure_present": true,
+    "relu_mode": "Requested by C++ DataCopyCO12DstParams.reluPre=1; retain LLVM arguments for review",
+    "scope": "Custom bitcode structure, not a hardware traffic or overlap measurement"
+  },
+  "timer": {
+    "name": "triton.backends.ascend.testing.do_bench_npu",
+    "signature": "(funcs, warmup=5, active=30, clear_l2_cache=False, prof_dir=None, keep_res=False, target_kernel_name: Optional[str] = None)",
+    "options": {
+      "warmup": 3,
+      "active": 10,
+      "clear_l2_cache": false
+    },
+    "scope": "Single-program diagnostic; prepared NZ weights/inputs; not QSA acceptance"
+  },
+  "checks": [],
+  "timings": [],
+  "last_compiler_calls": [
+    {
+      "command": [
+        "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/bishengir-compile",
+        "/tmp/tmpxk10zsmo/kernel.mlir",
+        "--target=Ascend910B4-1",
+        "--enable-auto-multi-buffer=True",
+        "--enable-auto-bind-sub-block=True",
+        "--link-aicore-bitcode=/tmp/qsa-raw-cube-chain.H1MN3hsi/custom-plain.bc",
+        "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc",
+        "--enable-hfusion-compile=true",
+        "--enable-hivm-compile=true",
+        "--enable-triton-kernel-compile=true",
+        "-o",
+        "/tmp/tmpxk10zsmo/kernel"
+      ],
+      "input_ir": "qk-seed13-compiler-1-input.mlir.txt",
+      "returncode": -6,
+      "output_artifacts": [],
+      "output_capture_limit_bytes": 2097152,
+      "stderr": {
+        "file": "qk-seed13-compiler-1-stderr.txt",
+        "bytes": 1268,
+        "truncated": false
+      }
+    }
+  ],
+  "error": "MLIRCompilationError('ConvertLinalgIRToBinary', 'LLVM ERROR: PlanMemory Traverse IR Failed! \\nPLEASE submit a bug report to https://github.com/llvm/llvm-project/issues/ and include the crash backtrace.\\nStack dump without symbol names (ensure you have llvm-symbolizer in your PATH or set the environment var `LLVM_SYMBOLIZER_PATH` to point to it):\\n0  bishengir-compile 0x0000aaabdb522a70\\n1  bishengir-compile 0x0000aaabdb5205e4\\n2  bishengir-compile 0x0000aaabdb523238\\n3  linux-vdso.so.1   0x0000fffc957807c0 __kernel_rt_sigreturn + 0\\n4  libc.so.6         0x0000fffc951d7608\\n5  libc.so.6         0x0000fffc9518cb3c gsignal + 28\\n6  libc.so.6         0x0000fffc95177e00 abort + 244\\n7  bishengir-compile 0x0000aaabdb4ca66c\\n8  bishengir-compile 0x0000aaabdb4ca47c\\n9  bishengir-compile 0x0000aaabd9698ac0\\n10 bishengir-compile 0x0000aaabd96b524c\\n11 bishengir-compile 0x0000aaabda91edf8\\n12 bishengir-compile 0x0000aaabda91f60c\\n13 bishengir-compile 0x0000aaabda924f5c\\n14 bishengir-compile 0x0000aaabda837224\\n15 bishengir-compile 0x0000aaabda837154\\n16 libc.so.6         0x0000fffc951dabdc\\n17 bishengir-compile 0x0000aaabda8376e0\\n18 bishengir-compile 0x0000aaabda837810\\n19 bishengir-compile 0x0000aaabdb4eec04\\n20 bishengir-compile 0x0000aaabdb4efa0c\\n21 libc.so.6         0x0000fffc951d595c\\n22 libc.so.6         0x0000fffc9523b8dc\\n\\n\\n[INFO]: The compiled kernel cache is in /tmp/qsa-raw-cube-chain.H1MN3hsi/triton-cache/5RUMYDTJLJ5T5NGD4YCD4BHMLI5NWTGKQMTZC5ZUHMVHTYN7NT5A\\n\\n')",
+  "exit_code": 1,
+  "process_exit_code": 1
+}
