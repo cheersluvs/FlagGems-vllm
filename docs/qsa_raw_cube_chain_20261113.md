@@ -45,8 +45,8 @@ deep_opt.md are absent in this checkout.
 | Unsupported | Required imports/tools/headers missing | Report missing prerequisites and exit 2 | No device execution | Installed wheel may lack source-JIT entry |
 
 The custom Cube function owns all local allocation via one TPipe. Its enclosing
-Triton wrapper forwards static one-dimensional GM block-pointer views (rank-one
-memref C ABI) within an explicit Cube scope, with no local
+Triton wrapper forwards scalar GM addresses by default (or static one-dimensional
+GM block-pointer views with --abi memref) within an explicit Cube scope, with no local
 tensor calculation or other Cube work. This restricts allocation/event ownership
 to the micro probe; it does not establish safe composability with other local
 Triton allocations or a mixed Cube/Vector production kernel.
@@ -169,3 +169,35 @@ required core placement. Record compiled launch metadata and reject an explicit
 aiv-only mode before executing the Cube function. Whether these expressions
 resolve the installed backend's shape/core handling remains a card-run question;
 do not edit compiler IR or force launch metadata to claim support.
+
+## Scalar-address ABI isolation
+
+Report 89dd13528954b18c4604be6abd3c154247247a53 (20261113-011805) confirms
+static GM views reached BiSheng, but it aborted with "PlanMemory Traverse IR
+Failed". The explicit CUBE scope is retained, while the outer function still
+has mix_mode="aiv". There is no compiled kernel or device result. This error
+does not by itself identify the particular operation rejected by PlanMemory.
+
+The next isolation uses four device pointer-to-uint64 casts and an i64 scale
+argument. New C++ exports reinterpret the four addresses as GM pointers and call
+the same existing native implementation. The custom op therefore sees five
+scalars, no memref operands, no DPS outputs/results. It remains an opaque call
+with memory side effects. This avoids expressing its GM buffers through the
+custom-op memory-planning interface; it does not modify or bypass compiler IR
+passes. Private native TPipe allocation and event ownership still restrict this
+to the isolated wrapper. The memref variant is retained as --abi memref;
+the default is now --abi address, recorded along with exported symbol names.
+
+This is a new ABI expression, not a confirmed fix. Pointer-cast lowering,
+native linking and kernel core mode must all be checked. Keep the pre-execution
+guard against aiv-only metadata: if the core-classification issue persists,
+stop and report it rather than patching metadata or executing Cube code in an
+AIV launch. The original correctness fixtures and paired timing remain in the
+same run after compilation succeeds. No extra dummy matrix multiply is added
+to force core classification or contaminate the timing.
+
+The capture helper inspects bishengir-compile --help-hidden once and only adds
+the advertised print-IR-before/after option names, filtered to hivm-plan-memory.
+The help, exact flags, pre/post-planning dumps and normal compiler input/errors
+are retained in the same report. A failed help query does not block compilation.
+These are print-only options, not altered passes or compiler-source edits.

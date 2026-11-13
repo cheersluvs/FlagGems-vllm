@@ -117,7 +117,7 @@ def include_dirs():
     return sorted(str(p.resolve()) for p in dirs if p.is_dir())
 
 
-def inspect_bitcode(text):
+def inspect_bitcode(text, symbols=("qsa_raw_qk", "qsa_raw_chain")):
     calls = [
         line.strip()
         for line in text.splitlines()
@@ -145,8 +145,9 @@ def inspect_bitcode(text):
     # do not infer a fused ReLU solely from the numerical reference.
     return dict(
         exported_symbols=all(
-            re.search(rf"^define[^\n]*@_mlir_ciface_{name}\(", text, re.M) is not None
-            for name in ("qsa_raw_qk", "qsa_raw_chain")
+            re.search(rf"^define[^\n]*@_mlir_ciface_{re.escape(name)}\(", text, re.M)
+            is not None
+            for name in symbols
         ),
         **found,
         direct_int32_to_half_l1=direct,
@@ -229,7 +230,11 @@ def build_bitcode(report, result):
             raise MissingPrerequisite(
                 "No llvm-dis or llvm-link for bitcode text inspection"
             )
-        result["bitcode_structure"] = inspect_bitcode(llvm.read_text())
+        symbols = tuple(result.get("custom_symbols", {}).values()) or (
+            "qsa_raw_qk",
+            "qsa_raw_chain",
+        )
+        result["bitcode_structure"] = inspect_bitcode(llvm.read_text(), symbols)
     except (OSError, RuntimeError, ValueError, subprocess.TimeoutExpired) as exc:
         # Artifact inspection must not suppress the kernel compile/device
         # diagnostics. Missing structural evidence still fails the final gate.
@@ -246,9 +251,12 @@ def build_bitcode(report, result):
     return output
 
 
-def bind_ops(bitcode, result):
+def bind_ops(bitcode, result, abi="address"):
     import triton.language.extra.cann.extension as al
 
+    suffix = "_address" if abi == "address" else ""
+    symbols = {name: name + suffix for name in ("qsa_raw_qk", "qsa_raw_chain")}
+    result["custom_symbols"] = symbols
     try:
         import triton.experimental.tle.language.raw as raw
         from triton.experimental.tle.raw import dialect
@@ -265,7 +273,7 @@ def bind_ops(bitcode, result):
 
         def register(name):
             def initialize(self, q, key, weight, scale_bits, dst):
-                self.symbol, self.bitcode = name, str(bitcode)
+                self.symbol, self.bitcode = symbols[name], str(bitcode)
 
             cls = type(
                 name,
@@ -302,13 +310,13 @@ def bind_ops(bitcode, result):
             name="cann",
             file=str(bitcode),
             format="bitcode",
-            extern_func_name=name,
+            extern_func_name=symbols[name],
             pipeline={"core": "cube", "pipe": "PIPE_M"},
         )(stub)
     return bound
 
 
-def wrapper_source(entry):
+def wrapper_source(entry, abi="address"):
     if entry == "dialect-cann-bitcode":
         imports = "import triton.experimental.tle.language.raw as raw"
         chain = "raw.call(chain_op, [q, key, weight, bits, output], output_indices=[])"
@@ -317,6 +325,16 @@ def wrapper_source(entry):
         imports = "import triton.experimental.tle as tle"
         chain = 'tle.dsa.ascend.raw("qsa_raw_chain", q, key, weight, bits, output)'
         qk = 'tle.dsa.ascend.raw("qsa_raw_qk", q, key, weight, bits, output)'
+    if abi == "address":
+        views = """q = tl.cast(Q, tl.uint64)
+        key = tl.cast(Key, tl.uint64)
+        weight = tl.cast(Weight, tl.uint64)
+        output = tl.cast(Out, tl.uint64)"""
+    else:
+        views = """q = tl.make_block_ptr(Q, (2048,), (1,), (0,), (2048,), (0,))
+        key = tl.make_block_ptr(Key, (8192,), (1,), (0,), (8192,), (0,))
+        weight = tl.make_block_ptr(Weight, (256,), (1,), (0,), (256,), (0,))
+        output = tl.make_block_ptr(Out, (1024,), (1,), (0,), (1024,), (0,))"""
     return f"""
 import triton
 import triton.language as tl
@@ -325,16 +343,12 @@ import triton.language.extra.cann.extension as al
 
 @triton.jit
 def custom(Q, Key, Weight, Out, SCALE_BITS:tl.constexpr, CHAIN:tl.constexpr):
-    # All five arguments are external-function operands. Out is a GM pointer,
-    # not a tensor-valued DPS result: the custom op has no outs/results. Leave
+    # All five arguments are external-function operands. There is no
+    # tensor-valued DPS result: the custom op has no outs/results. Leave
     # no_side_effect unset so its opaque memory writes remain conservative.
     with al.scope(core_mode="cube"):
-        # Block pointers describe static views of caller-owned GM. They do not
-        # load the tiles or allocate local storage in the surrounding wrapper.
-        q = tl.make_block_ptr(Q, (2048,), (1,), (0,), (2048,), (0,))
-        key = tl.make_block_ptr(Key, (8192,), (1,), (0,), (8192,), (0,))
-        weight = tl.make_block_ptr(Weight, (256,), (1,), (0,), (256,), (0,))
-        output = tl.make_block_ptr(Out, (1024,), (1,), (0,), (1024,), (0,))
+        # Scalar addresses or static views, with no surrounding tile loads.
+        {views}
         bits = tl.full((), SCALE_BITS, tl.int64)
         if CHAIN:
             {chain}
@@ -422,6 +436,45 @@ def execute(args, report, result, save):
     from triton.backends.ascend import compiler
     from triton.backends.ascend.testing import do_bench_npu
 
+    trace = dict(checked=False, flags=[])
+    result["compiler_trace"] = trace
+
+    class RawCompilerCapture(CaptureCompiler):
+        def run(self, command_args, *positional, **kwargs):
+            if (
+                isinstance(command_args, (list, tuple))
+                and command_args
+                and Path(command_args[0]).name == "bishengir-compile"
+            ):
+                if not trace["checked"]:
+                    trace["checked"] = True
+                    try:
+                        help_result = subprocess.run(
+                            [command_args[0], "--help-hidden"],
+                            env=kwargs.get("env"),
+                            capture_output=True,
+                            timeout=20,
+                        )
+                        help_text = (help_result.stdout + help_result.stderr).decode(
+                            errors="replace"
+                        )
+                        (report / "bishengir-help.txt").write_text(
+                            help_text[: 1024 * 1024]
+                        )
+                        for when in ("before", "after"):
+                            for prefix in ("bishengir", "mlir"):
+                                option = f"--{prefix}-print-ir-{when}"
+                                if re.search(
+                                    re.escape(option) + r"(?:[=\s])", help_text
+                                ):
+                                    trace["flags"].append(option + "=hivm-plan-memory")
+                                    break
+                    except (OSError, subprocess.TimeoutExpired) as exc:
+                        trace["help_error"] = repr(exc)
+                    print("COMPILER_TRACE " + json.dumps(trace), flush=True)
+                command_args = [*command_args, *trace["flags"]]
+            return super().run(command_args, *positional, **kwargs)
+
     torch.npu.set_device(args.device)
     device = f"npu:{args.device}"
     result["environment"] = dict(
@@ -436,14 +489,15 @@ def execute(args, report, result, save):
         raise MissingPrerequisite(
             "This fixed dav-c220 probe requires an Ascend910B device"
         )
-    bindings = bind_ops(report / "custom-plain.bc", result)
+    bindings = bind_ops(report / "custom-plain.bc", result, args.abi)
     result["call_abi"] = dict(
-        operands="Four static GM block-pointer views plus i64 scale bits; Q,K,W,scale,destination order",
+        representation=args.abi,
+        operands="Q,K,W,scale,destination order; scalar uint64 addresses or rank-one GM views",
         static_elements=dict(q=2048, key=8192, weight=256, destination=1024),
         core_scope="cube",
         dps_outputs=0,
         results=0,
-        destination="Fifth ordinary operand; C++ writes it through rank-one GM memref ABI",
+        destination="Fifth ordinary operand; C++ writes GM through the explicitly selected ABI",
         side_effects=(
             "Opaque custom op; no no_side_effect annotation; "
             "inspect retained op and validate destination writes"
@@ -451,6 +505,7 @@ def execute(args, report, result, save):
     )
     print("ENVIRONMENT " + json.dumps(result["environment"]), flush=True)
     print(f"CUSTOM_ENTRY {result['entry']}", flush=True)
+    print(f"CALL_ABI {args.abi}: {result['custom_symbols']}", flush=True)
     result["phase"] = "compile_operator_owned_bitcode"
     save()
     build_bitcode(report, result)
@@ -473,7 +528,7 @@ def execute(args, report, result, save):
     )
     save()
     source = report / "raw-kernels.py"
-    source.write_text(wrapper_source(result["entry"]))
+    source.write_text(wrapper_source(result["entry"], args.abi))
     (report / "raw-kernels-source.txt").write_bytes(source.read_bytes())
     spec = importlib.util.spec_from_file_location("_qsa_raw_chain", source)
     module = importlib.util.module_from_spec(spec)
@@ -519,7 +574,7 @@ def execute(args, report, result, save):
                 label = f"qk-seed{seed}"
                 result["phase"] = label
                 print(f"COMPILE {label}", flush=True)
-                capture = CaptureCompiler(report, label)
+                capture = RawCompilerCapture(report, label)
                 raw = torch.full((M, N), 2**30, device=device, dtype=torch.int32)
                 try:
                     with patch.object(compiler, "subprocess", capture):
@@ -557,7 +612,7 @@ def execute(args, report, result, save):
                 expected = (
                     weight.float() @ (dot.float() * scale).clamp_min(0).half().float()
                 )
-                capture = CaptureCompiler(report, label)
+                capture = RawCompilerCapture(report, label)
                 try:
                     with patch.object(compiler, "subprocess", capture):
                         compiled = module.custom.warmup(
@@ -672,6 +727,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--report", required=True, type=Path)
     parser.add_argument("--device", default=0, type=int)
+    parser.add_argument("--abi", default="address", choices=("address", "memref"))
     parser.add_argument("--rounds", default=2, type=int, choices=(1, 2, 3, 4))
     parser.add_argument("--warmup", default=3, type=int)
     parser.add_argument("--active", default=10, type=int)

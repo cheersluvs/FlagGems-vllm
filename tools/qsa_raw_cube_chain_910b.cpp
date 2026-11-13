@@ -182,4 +182,22 @@ __aicore__ __attribute__((always_inline)) void _mlir_ciface_qsa_raw_chain(
                   weight->aligned + weight->offset, scale_bits,
                   out->aligned + out->offset);
 }
+
+// Scalar-address entry points keep native GM access wholly inside the external
+// function. No memref operand is presented to the custom-op memory planner.
+__aicore__ __attribute__((always_inline)) void _mlir_ciface_qsa_raw_qk_address(
+    uint64_t q, uint64_t key, uint64_t weight, int64_t scale_bits, uint64_t out) {
+  run<false, int32_t>(reinterpret_cast<__gm__ int8_t *>(q),
+                      reinterpret_cast<__gm__ int8_t *>(key),
+                      reinterpret_cast<__gm__ half *>(weight), scale_bits,
+                      reinterpret_cast<__gm__ int32_t *>(out));
+}
+
+__aicore__ __attribute__((always_inline)) void _mlir_ciface_qsa_raw_chain_address(
+    uint64_t q, uint64_t key, uint64_t weight, int64_t scale_bits, uint64_t out) {
+  run<true, float>(reinterpret_cast<__gm__ int8_t *>(q),
+                  reinterpret_cast<__gm__ int8_t *>(key),
+                  reinterpret_cast<__gm__ half *>(weight), scale_bits,
+                  reinterpret_cast<__gm__ float *>(out));
+}
 }
