@@ -24,12 +24,19 @@ if [[ ${1:-} == --compiler-corefix ]]; then
     shift
 fi
 qsa_score_chunks=0
+qsa_profile_vectors=0
 for qsa_argument in "$@"; do
     if [[ "$qsa_argument" == --score-chunks ]]; then
         qsa_score_chunks=1
         qsa_kind=raw-score-chunks
     fi
+    if [[ "$qsa_argument" == --profile-vectors ]]; then
+        qsa_profile_vectors=1
+    fi
 done
+if [[ "$qsa_profile_vectors" == 1 ]]; then
+    qsa_kind=raw-vector-profile
+fi
 # Re-activate after shell startup files have run; lock the environment at execution.
 if [[ -n "${QSA_ENV_ROOT:-}" ]]; then
     qsa_env_root=$(realpath -- "$QSA_ENV_ROOT") || exit 1

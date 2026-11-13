@@ -26,6 +26,7 @@ from qsa_raw_score_chunks_910b import (
     kernel_source,
     nz_offset,
 )
+from qsa_raw_vector_profile_910b import copy_geometry, copy_source, summarize_vector_ir
 
 
 def half(value):
@@ -33,6 +34,62 @@ def half(value):
 
 
 class RawScoreChunkTests(unittest.TestCase):
+    def test_profile_controls_preserve_payload_and_matched_grids(self):
+        for rows, width, tiles in ((128, 1088, 5), (128, 8192, 65), (112, 29696, 401)):
+            g = copy_geometry(rows, width, tiles)
+            self.assertEqual(g["key_grid"][0] * g["key_block"], tiles * 64 * 128)
+            self.assertEqual(g["key_payload_bytes"], tiles * 8192)
+            self.assertEqual(g["score_payload_bytes"], rows * width * 4)
+            self.assertEqual(g["score_grid"], (rows, (width + 255) // 256))
+            for kind in ("key", "score"):
+                elements = g[kind + "_elements"]
+                cores = g[kind + "_capped_grid"][0]
+                blocks = [
+                    i
+                    for core in range(cores)
+                    for i in range(core, (elements + 1023) // 1024, cores)
+                ]
+                self.assertEqual(sorted(blocks), list(range((elements + 1023) // 1024)))
+                self.assertLessEqual(cores, 20)
+        with self.assertRaises(ValueError):
+            copy_geometry(0, 1088, 5)
+
+    def test_profile_ir_counts_are_static_and_ignore_missing_assembly(self):
+        text = (
+            "%x = scf.for\n%v = memref.load %p[%i]\ntensor.insert %v into %t\n"
+            "scf.yield {DiscreteMemAccess}\n} {ExtractedLoadOrStore}"
+        )
+        summary = summarize_vector_ir({"bcmlir": text, "npubin": b"ELF"})
+        self.assertEqual(set(summary), {"bcmlir"})
+        for key in (
+            "scf_for",
+            "scalar_memref_load",
+            "tensor_insert",
+            "discrete_access_markers",
+            "extracted_access_markers",
+        ):
+            self.assertEqual(summary["bcmlir"][key], 1)
+        self.assertEqual(summarize_vector_ir({}), {})
+
+    def test_profile_copy_kernels_have_distinct_names_and_no_reduction(self):
+        tree = ast.parse(copy_source())
+        fns = [n for n in tree.body if isinstance(n, ast.FunctionDef)]
+        self.assertEqual(
+            {n.name for n in fns},
+            {
+                "raw_copy_k_grid",
+                "raw_copy_out_grid",
+                "raw_copy_k_capped",
+                "raw_copy_out_capped",
+            },
+        )
+        for fn in fns:
+            calls = [
+                ast.unparse(n.func) for n in ast.walk(fn) if isinstance(n, ast.Call)
+            ]
+            self.assertNotIn("tl.sum", calls)
+            self.assertNotIn("tl.dot", calls)
+
     def test_native_weight_load_contract_requires_transposed_storage(self):
         tree = ast.parse(kernel_source("dialect-cann-bitcode"))
         function = next(

@@ -1036,7 +1036,20 @@ def main():
         action="store_true",
         help="Audit final objects and compare three real INT8 chunks including device packing",
     )
+    parser.add_argument(
+        "--score-cases",
+        nargs="+",
+        choices=("int8_compact", "int8_budget_exact", "int8_long100k"),
+        default=["int8_compact", "int8_budget_exact", "int8_long100k"],
+    )
+    parser.add_argument("--profile-vectors", action="store_true")
+    parser.add_argument("--counter-iterations", type=int, default=2)
     args = parser.parse_args()
+    args.score_cases = list(dict.fromkeys(args.score_cases))
+    if args.profile_vectors and not args.score_chunks:
+        parser.error("--profile-vectors requires --score-chunks")
+    if args.counter_iterations < 1:
+        parser.error("counter iterations must be positive")
     if args.score_chunks and args.abi != "address":
         parser.error("--score-chunks requires the verified scalar-address ABI")
     if args.warmup < 1 or args.active < 1:

@@ -583,6 +583,31 @@ def run_case(
             raise AssertionError(
                 "Raw score chunk differs from current/oracle; candidate rejected without timing"
             )
+        if args.profile_vectors:
+            from qsa_raw_vector_profile_910b import profile_vectors
+
+            profile_vectors(
+                args,
+                name,
+                stages,
+                kernels,
+                pk,
+                output,
+                record,
+                report,
+                compiler,
+                capture_type,
+                save_asm,
+                save,
+            )
+            record["postcheck"] = compare_scores(torch, output.cpu(), reference.cpu())
+            record["postpacking"] = check_packing(
+                torch, cpu, (pq, pw, pk), max_visible, pack_nz
+            )
+            if not record["postcheck"]["passed"]:
+                raise AssertionError("Post-profile score mismatch")
+            record["status"] = "passed"
+            return record
 
         def prepared():
             raw_cube()
@@ -675,7 +700,7 @@ def run_chunks(
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     module = load_module(report, result["entry"], bindings)
     records = []
-    for name in CASES:
+    for name in args.score_cases:
         try:
             record = run_case(
                 args,
@@ -707,6 +732,7 @@ def run_chunks(
                 current_over_complete=r.get("current_over_complete"),
                 current_over_prepared=r.get("current_over_prepared"),
                 error=r.get("error"),
+                vector_profile_status=r.get("vector_profile", {}).get("status"),
             )
             for r in records
         ],
@@ -718,4 +744,8 @@ def run_chunks(
         raise RuntimeError(
             "At least one raw score chunk rejected; see per-case diagnostics"
         )
-    result["outcome"] = "passed_micro_and_representative_score_chunks"
+    result["outcome"] = (
+        "passed_micro_and_vector_profile"
+        if args.profile_vectors
+        else "passed_micro_and_representative_score_chunks"
+    )
