@@ -17,6 +17,12 @@
 set -uo pipefail
 qsa_repo=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd) || exit 1
 qsa_kind=raw-cube-chain
+qsa_corefix=0
+if [[ ${1:-} == --compiler-corefix ]]; then
+    qsa_corefix=1
+    qsa_kind=raw-cube-corefix
+    shift
+fi
 # Re-activate after shell startup files have run; lock the environment at execution.
 if [[ -n "${QSA_ENV_ROOT:-}" ]]; then
     qsa_env_root=$(realpath -- "$QSA_ENV_ROOT") || exit 1
@@ -44,12 +50,39 @@ printf 'Code: %s\nReport: %s\n' "$qsa_repo" "$qsa_report"
 qsa_timeout=${QSA_PROBE_TIMEOUT:-900}
 export TRITON_CACHE_DIR="$qsa_report/triton-cache"
 export QSA_CAPTURE_COMPILER_OUTPUTS=1
+qsa_status=0
+if [[ "$qsa_corefix" == 1 ]]; then
+    if [[ -z ${qsa_env_root:-} ]]; then
+        echo '--compiler-corefix requires QSA_ENV_ROOT' | tee "$qsa_report/preparation-console.txt"
+        qsa_status=2
+    else
+        "$qsa_python" -u "$qsa_repo/tools/test_qsa_core_mode_fix.py" -v \
+            2>&1 | tee "$qsa_report/corefix-cpu-tests.txt"
+        qsa_status=${PIPESTATUS[0]}
+        if [[ "$qsa_status" == 0 ]]; then
+            "$qsa_python" -u "$qsa_repo/tools/prepare_qsa_core_mode_fix_910b.py" \
+                --source-root "$qsa_env_root/flagtree" \
+                --destination "$qsa_report/flagtree-corefix" --report "$qsa_report" \
+                2>&1 | tee "$qsa_report/preparation-console.txt"
+            qsa_status=${PIPESTATUS[0]}
+        fi
+        if [[ "$qsa_status" == 0 ]]; then
+            export QSA_CORE_MODE_FIX_MANIFEST="$qsa_report/compiler-core-mode-fix.json"
+            export PYTHONPATH="$qsa_report/flagtree-corefix:$PYTHONPATH"
+            printf 'Experimental compiler copy: %s\n' "$qsa_report/flagtree-corefix"
+        fi
+    fi
+fi
 printf 'Import check: %s\n' "$qsa_python"
 command -v timeout >/dev/null || { echo 'timeout is required'; exit 2; }
-timeout --signal=TERM --kill-after=20 "$qsa_timeout" \
-    "$qsa_python" -u "$qsa_repo/tools/probe_qsa_raw_cube_chain_910b.py" \
-    --report "$qsa_report" "$@" 2>&1 | tee "$qsa_report/console.txt"
-qsa_status=${PIPESTATUS[0]}
+if [[ "$qsa_status" == 0 ]]; then
+    timeout --signal=TERM --kill-after=20 "$qsa_timeout" \
+        "$qsa_python" -u "$qsa_repo/tools/probe_qsa_raw_cube_chain_910b.py" \
+        --report "$qsa_report" "$@" 2>&1 | tee "$qsa_report/console.txt"
+    qsa_status=${PIPESTATUS[0]}
+else
+    printf 'Compiler candidate preparation failed; see preparation report.\n' | tee "$qsa_report/console.txt"
+fi
 printf '%s\n' "$qsa_status" > "$qsa_report/exit-code.txt"
 "$qsa_python" - "$qsa_report" "$qsa_status" <<'PY'
 import json

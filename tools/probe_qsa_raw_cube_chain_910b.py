@@ -367,6 +367,24 @@ def reference(Q, Key, Weight, Out, SCALE:tl.constexpr):
     weight = tl.load(Weight + m[:,None]*16 + m[None,:])
     out = tl.dot(weight, positive, out_dtype=tl.float32)
     tl.store(Out + m[:,None]*64 + n[None,:], out)
+
+# Independent smoke kernels; neither is called from the custom wrapper.
+@triton.jit
+def vector_smoke(X, Out):
+    i = tl.arange(0,128)
+    x = tl.load(X+i)
+    tl.store(Out+i, x*1.5+0.25)
+
+@triton.jit
+def dot_vector_smoke(Q, Key, Out):
+    m = tl.arange(0,16)
+    k = tl.arange(0,128)
+    n = tl.arange(0,64)
+    q = tl.load(Q+m[:,None]*128+k[None,:])
+    key = tl.load(Key+n[None,:]*128+k[:,None])
+    dot = tl.dot(q,key,out_dtype=tl.int32)
+    result = tl.exp(dot.to(tl.float32)/8192.0)
+    tl.store(Out+m[:,None]*64+n[None,:],result)
 """
 
 
@@ -458,6 +476,125 @@ def collect_runtime_sources(compiler, report):
             )
         )
     return records
+
+
+def verify_compiler_candidate(compiler, triton, report, result):
+    path = os.environ.get("QSA_CORE_MODE_FIX_MANIFEST")
+    result["compiler_variant"] = "original"
+    if not path:
+        return False
+    manifest = json.loads(Path(path).read_text())
+    if manifest.get("status") != "prepared":
+        raise RuntimeError("Compiler candidate was not prepared successfully")
+    root = Path(manifest["candidate_root"]).resolve()
+    actual = Path(compiler.__file__).resolve()
+    if not actual.is_relative_to(root) or not Path(
+        triton.__file__
+    ).resolve().is_relative_to(root):
+        raise RuntimeError(
+            "Compiler/Triton import escaped the independent candidate copy"
+        )
+    if (
+        hashlib.sha256(actual.read_bytes()).hexdigest()
+        != manifest["patched_compiler_sha256"]
+    ):
+        raise RuntimeError("Imported compiler does not match the candidate hash")
+    original = Path(manifest["source_compiler"])
+    if (
+        hashlib.sha256(original.read_bytes()).hexdigest()
+        != manifest["source_compiler_sha256"]
+    ):
+        raise RuntimeError(
+            "Original installed compiler no longer matches its preparation snapshot"
+        )
+    helper = getattr(compiler, manifest["helper"], None)
+    if not callable(helper) or Path(helper.__code__.co_filename).resolve() != actual:
+        raise RuntimeError(
+            "Reconciliation helper did not load from candidate compiler source"
+        )
+    for task, mode in (
+        (10, "aiv"),
+        (20, "aic"),
+        (31, "mix"),
+        (32, "mix"),
+        (41, "mix"),
+        (42, "mix"),
+    ):
+        values = dict(mix_mode="old", bs_task_type=task, workspace_size=4096)
+        helper(values)
+        if values != dict(mix_mode=mode, bs_task_type=task, workspace_size=4096):
+            raise RuntimeError(
+                "Imported candidate failed task/ratio preservation check"
+            )
+    result["compiler_variant"] = "isolated-final-task-mode-candidate"
+    result["compiler_candidate"] = manifest
+    print(f"VERIFIED_COMPILER_CANDIDATE {actual}", flush=True)
+    return True
+
+
+def candidate_smokes(module, device, report, result, save, compiler, capture_type):
+    import torch
+
+    x = torch.arange(128, dtype=torch.float32) / 16
+    _, q, key, dot = next(fixtures(torch))
+    vector_out = torch.full((128,), float("nan"), device=device)
+    dot_out = torch.full((M, N), float("nan"), device=device)
+    cases = [
+        (
+            "vector",
+            module.vector_smoke,
+            (x.to(device), vector_out),
+            vector_out,
+            x * 1.5 + 0.25,
+        ),
+        (
+            "dot-vector",
+            module.dot_vector_smoke,
+            (q.to(device), key.to(device), dot_out),
+            dot_out,
+            torch.exp(dot.float() / 8192.0),
+        ),
+    ]
+    result["candidate_smokes"] = []
+    for name, function, inputs, output, expected in cases:
+        label = "candidate-smoke-" + name
+        result["phase"] = label
+        entry = dict(name=name, status="compiling")
+        result["candidate_smokes"].append(entry)
+        capture = capture_type(report, label)
+        try:
+            with patch.object(compiler, "subprocess", capture):
+                kernel = function.warmup(*inputs, grid=(1,))
+            launch = record_launch_mode(kernel, require_cube=name != "vector")
+            kind = int(launch.get("bs_task_type") or 0) // 10
+            expected_mode = {1: "aiv", 2: "aic", 3: "mix", 4: "mix"}.get(kind)
+            if launch["mix_mode"] != expected_mode or name == "vector" and kind != 1:
+                raise RuntimeError(f"Smoke core kind/mode inconsistent: {launch}")
+            entry.update(
+                launch=launch, asm=save_asm(kernel, report, label), status="compiled"
+            )
+            save()
+            function[(1,)](*inputs)
+            torch.npu.synchronize()
+            actual = output.cpu()
+            torch.testing.assert_close(
+                actual,
+                expected,
+                rtol=0 if name == "vector" else 1e-3,
+                atol=0 if name == "vector" else 1e-3,
+            )
+            entry.update(
+                status="passed", max_abs_error=float((actual - expected).abs().max())
+            )
+            print(
+                f"CANDIDATE_SMOKE {name}: passed mode={launch['mix_mode']} "
+                f"task={launch['bs_task_type']} "
+                f"max_abs_error={entry['max_abs_error']:.6g}",
+                flush=True,
+            )
+        finally:
+            entry["compiler_calls"] = capture.calls
+            save()
 
 
 def preflight_core_options(
@@ -552,6 +689,7 @@ def execute(args, report, result, save):
     from triton.backends.ascend.testing import do_bench_npu
 
     result["installed_runtime_sources"] = collect_runtime_sources(compiler, report)
+    is_compiler_candidate = verify_compiler_candidate(compiler, triton, report, result)
     trace = dict(checked=False, flags=[])
     result["compiler_trace"] = trace
 
@@ -674,6 +812,10 @@ def execute(args, report, result, save):
         scope="Single-program diagnostic; prepared NZ weights/inputs; not QSA acceptance",
     )
     result["checks"], result["timings"] = [], []
+    if is_compiler_candidate:
+        candidate_smokes(
+            module, device, report, result, save, compiler, RawCompilerCapture
+        )
     _, preflight_q, preflight_key, _ = next(fixtures(torch))
     preflight_tensors = [
         pack_nz(preflight_q, 32).to(device),
@@ -906,6 +1048,7 @@ def main():
                 "status",
                 "phase",
                 "entry",
+                "compiler_variant",
                 "outcome",
                 "error",
                 "numeric_chain_passed",
