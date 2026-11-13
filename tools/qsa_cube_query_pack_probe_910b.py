@@ -270,6 +270,7 @@ def make_arm(module, queries, values, pk, output, torch):
         geometry=g,
         pq=pq,
         pw=pw,
+        pk=pk,
         raw=raw,
         output=output,
         qw=qw_launch,
@@ -313,7 +314,7 @@ def validate_arm(arm, cpu, expected, reference, pack_nz, torch, raw_reference):
     return result
 
 
-def boundary_checks(module, queries, device, torch, pack_nz):
+def boundary_checks(module, queries, device, torch, pack_nz, finish_callback=None):
     from qsa_raw_score_chunks_910b import compare_scores
 
     rows, width, maximum = 17, 257, 65
@@ -381,6 +382,8 @@ def boundary_checks(module, queries, device, torch, pack_nz):
         raise AssertionError(
             f"Query{queries} boundary/half-oracle check failed: {check}"
         )
+    if finish_callback is not None:
+        check["finish_controls"] = finish_callback(arm, values, cpu)
     return check
 
 
@@ -452,7 +455,7 @@ def run_probe(
     models = {}
     selected = {}
     passed = []
-    for queries in (4, 8, 16):
+    for queries in (16,) if args.probe_finish_prefix else (4, 8, 16):
         label = f"query{queries}"
         variant = probe["variants"][label] = dict(status="running", compiler={})
         save()
@@ -512,7 +515,7 @@ def run_probe(
                 raise AssertionError(f"{label} packing/score check failed")
             if queries == 4 and not torch.equal(arm["output"].cpu(), expected):
                 raise AssertionError("Frozen query4 output changed")
-            if name == args.score_cases[0]:
+            if name == args.score_cases[0] and not args.probe_finish_prefix:
                 variant["boundary"] = boundary_checks(
                     module, queries, output.device, torch, pack_nz
                 )
@@ -535,6 +538,35 @@ def run_probe(
             save()
             if queries == 4:
                 raise
+    if args.probe_finish_prefix:
+        if probe["errors"]:
+            raise RuntimeError("Query16 preparation failed before finish diagnostics")
+        from qsa_finish_prefix_probe_910b import run_probe as run_finish_probe
+
+        run_finish_probe(
+            args,
+            name,
+            values,
+            cpu,
+            models["query16"],
+            selected["query16"],
+            module,
+            fast_k,
+            key_kernel,
+            stages["current"],
+            kernels["current"],
+            record,
+            report,
+            compiler,
+            capture_type,
+            save_asm,
+            save,
+            pack_nz,
+            ref,
+        )
+        probe["status"] = "passed"
+        save()
+        return
     arms = dict(current=stages["current"], pack_k=fast_k)
     hosts = dict(
         current={kernels["current"].metadata.kernel_name: 1},
