@@ -201,3 +201,30 @@ the advertised print-IR-before/after option names, filtered to hivm-plan-memory.
 The help, exact flags, pre/post-planning dumps and normal compiler input/errors
 are retained in the same report. A failed help query does not block compilation.
 These are print-only options, not altered passes or compiler-source edits.
+
+## Native binary generated; core registration configuration remains unresolved
+
+Report branch codex/qsa-ascend910b-results-20261113-014819-548166 compiled
+the scalar-address QK control through BiSheng and produced a 3448-byte native
+ELF (EM 0x1029, .text 1400 bytes). It stopped at our pre-execution core guard,
+not at compilation. mix_mode remains aiv while the compiler callback reports
+bs_task_type=20 (AI Core task kind 2, ratio 0). The full chain was not yet
+compiled and neither target kernel executed; there is no correctness/timing.
+
+Source inspection of FlagTree Ascend commit 394d5049 shows mix_mode affects
+binary registration: npu_utils.cpp uses RT_DEV_BINARY_MAGIC_ELF_AIVEC for aiv
+and RT_DEV_BINARY_MAGIC_ELF otherwise. The Python driver also uses mix_mode
+for physical-core counts, while bs_task_type feeds profiling task classification.
+Therefore the mismatch cannot be dismissed as a display-only field or fixed by
+removing the guard. Installed driver/compiler sources are now returned for audit.
+
+The next single-run preflight compiles QK and the complete chain with default
+options, then with the public mix_mode="aic" option if NPUOptions exposes it.
+For each, retain IR, binary, callback metadata and requested options. This is
+an operator launch option experiment, not an IR/metadata rewrite or installed
+compiler edit. Merely accepting the option is insufficient: both kernels must
+report aic/mix launch mode. Only then does the same invocation continue to the
+existing correctness and paired timing, consistently using the selected options.
+If neither configuration is coherent, report the matrix and execute no target
+kernel. This bounds the configuration experiment rather than trying unrelated
+compiler flags or injecting dummy Dot operations.

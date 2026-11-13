@@ -412,20 +412,135 @@ def save_asm(kernel, report, label):
     return inventory
 
 
-def record_launch_mode(kernel):
+def record_launch_mode(kernel, require_cube=True):
     metadata = kernel.metadata
     mode = (
         metadata.get("mix_mode")
         if isinstance(metadata, dict)
         else getattr(metadata, "mix_mode", None)
     )
-    entry = dict(mix_mode=mode, metadata=str(metadata))
-    if mode == "aiv":
+    task = (
+        metadata.get("bs_task_type")
+        if isinstance(metadata, dict)
+        else getattr(metadata, "bs_task_type", None)
+    )
+    entry = dict(mix_mode=mode, bs_task_type=task, metadata=str(metadata))
+    if require_cube and mode == "aiv":
         raise RuntimeError(
             "Cube custom-op wrapper still reports mix_mode=aiv; refusing device execution. "
             + str(entry)
         )
     return entry
+
+
+def collect_runtime_sources(compiler, report):
+    driver = __import__("triton.backends.ascend.driver", fromlist=["__file__"])
+    paths = [
+        Path(compiler.__file__),
+        Path(driver.__file__),
+        Path(driver.__file__).with_name("npu_utils.cpp"),
+    ]
+    records = []
+    for path in paths:
+        if not path.is_file():
+            records.append(dict(source=str(path), available=False))
+            continue
+        data = path.read_bytes()
+        target = "installed-" + path.name + ".txt"
+        (report / target).write_bytes(data[: 512 * 1024])
+        records.append(
+            dict(
+                source=str(path),
+                file=target,
+                sha256=hashlib.sha256(data).hexdigest(),
+                bytes=len(data),
+                truncated=len(data) > 512 * 1024,
+            )
+        )
+    return records
+
+
+def preflight_core_options(
+    module, tensors, report, result, save, compiler, capture_type
+):
+    import torch
+
+    q, key, weight = tensors
+    outputs = {
+        False: torch.empty((M, N), device=q.device, dtype=torch.int32),
+        True: torch.empty((M, N), device=q.device, dtype=torch.float32),
+    }
+    choices = [("default", {})]
+    fields = getattr(getattr(compiler, "NPUOptions", None), "__dataclass_fields__", {})
+    if "mix_mode" in fields:
+        choices.append(("explicit-aic", {"mix_mode": "aic"}))
+    result["core_option_matrix"] = []
+    selected = None
+    for option_name, launch_options in choices:
+        complete = []
+        for chain in (False, True):
+            label = f"core-{option_name}-{'chain' if chain else 'qk'}"
+            result["phase"] = label
+            capture = capture_type(report, label)
+            entry = dict(
+                label=label,
+                requested_options=launch_options,
+                status="failed",
+                device_executed=False,
+            )
+            result["core_option_matrix"].append(entry)
+            save()
+            try:
+                with patch.object(compiler, "subprocess", capture):
+                    kernel = module.custom.warmup(
+                        q,
+                        key,
+                        weight,
+                        outputs[chain],
+                        0x3F800000,
+                        chain,
+                        grid=(1,),
+                        **launch_options,
+                    )
+                entry.update(
+                    status="compiled",
+                    asm=save_asm(kernel, report, label),
+                    launch=record_launch_mode(kernel, require_cube=False),
+                )
+                task_kind = int(entry["launch"].get("bs_task_type") or 0) // 10
+                entry["core_coherent"] = entry["launch"]["mix_mode"] in (
+                    "aic",
+                    "mix",
+                ) and task_kind in (2, 3, 4)
+                complete.append(entry["core_coherent"])
+            except Exception as exc:
+                entry["error"] = repr(exc)
+                (report / f"{label}-failure.txt").write_text(traceback.format_exc())
+                complete.append(False)
+            finally:
+                entry["compiler_calls"] = capture.calls
+                save()
+            launch = entry.get("launch", {})
+            print(
+                f"CORE_OPTION {label}: status={entry['status']} "
+                f"mix_mode={launch.get('mix_mode')} "
+                f"bs_task_type={launch.get('bs_task_type')} "
+                f"coherent={entry.get('core_coherent',False)}",
+                flush=True,
+            )
+        if all(complete) and selected is None:
+            selected = launch_options
+    if selected is None:
+        result["outcome"] = "no_coherent_public_core_configuration"
+        save()
+        raise RuntimeError(
+            "Neither default nor the available public AIC option compiled both "
+            "kernels with coherent Cube launch metadata; no target kernel executed. "
+            "See core_option_matrix and installed runtime sources"
+        )
+    result["launch_options"] = selected
+    save()
+    return selected
 
 
 def execute(args, report, result, save):
@@ -436,6 +551,7 @@ def execute(args, report, result, save):
     from triton.backends.ascend import compiler
     from triton.backends.ascend.testing import do_bench_npu
 
+    result["installed_runtime_sources"] = collect_runtime_sources(compiler, report)
     trace = dict(checked=False, flags=[])
     result["compiler_trace"] = trace
 
@@ -558,6 +674,15 @@ def execute(args, report, result, save):
         scope="Single-program diagnostic; prepared NZ weights/inputs; not QSA acceptance",
     )
     result["checks"], result["timings"] = [], []
+    _, preflight_q, preflight_key, _ = next(fixtures(torch))
+    preflight_tensors = [
+        pack_nz(preflight_q, 32).to(device),
+        pack_nz(preflight_key, 32).to(device),
+        pack_nz(torch.eye(M, dtype=torch.float16), 16).to(device),
+    ]
+    launch_options = preflight_core_options(
+        module, preflight_tensors, report, result, save, compiler, RawCompilerCapture
+    )
     for seed, q, key, dot in fixtures(torch):
         q_nz, key_nz = [pack_nz(t, 32).to(device) for t in (q, key)]
         weights = {"identity": torch.eye(M, dtype=torch.float16)}
@@ -579,7 +704,14 @@ def execute(args, report, result, save):
                 try:
                     with patch.object(compiler, "subprocess", capture):
                         kernel = module.custom.warmup(
-                            q_nz, key_nz, w_nz, raw, 0x3F800000, False, grid=(1,)
+                            q_nz,
+                            key_nz,
+                            w_nz,
+                            raw,
+                            0x3F800000,
+                            False,
+                            grid=(1,),
+                            **launch_options,
                         )
                 finally:
                     result["last_compiler_calls"] = capture.calls
@@ -594,7 +726,9 @@ def execute(args, report, result, save):
                     )
                 )
                 save()
-                module.custom[(1,)](q_nz, key_nz, w_nz, raw, 0x3F800000, False)
+                module.custom[(1,)](
+                    q_nz, key_nz, w_nz, raw, 0x3F800000, False, **launch_options
+                )
                 torch.npu.synchronize()
                 torch.testing.assert_close(raw.cpu(), dot, rtol=0, atol=0)
                 result["checks"][-1]["status"] = "passed"
@@ -616,7 +750,14 @@ def execute(args, report, result, save):
                 try:
                     with patch.object(compiler, "subprocess", capture):
                         compiled = module.custom.warmup(
-                            q_nz, key_nz, w_nz, output, scale_bits, True, grid=(1,)
+                            q_nz,
+                            key_nz,
+                            w_nz,
+                            output,
+                            scale_bits,
+                            True,
+                            grid=(1,),
+                            **launch_options,
                         )
                 finally:
                     result["last_compiler_calls"] = capture.calls
@@ -632,7 +773,7 @@ def execute(args, report, result, save):
                 )
                 save()
                 custom = lambda: module.custom[(1,)](
-                    q_nz, key_nz, w_nz, output, scale_bits, True
+                    q_nz, key_nz, w_nz, output, scale_bits, True, **launch_options
                 )
                 custom()
                 torch.npu.synchronize()
