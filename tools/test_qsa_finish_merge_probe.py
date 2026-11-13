@@ -116,10 +116,18 @@ class FinishMergeTests(unittest.TestCase):
     def test_balanced_concatenation_preserves_all_key_positions(self):
         class TL:
             @staticmethod
-            def cat(left, right, can_reorder):
-                if can_reorder is not False:
-                    raise AssertionError("Reordering disallowed")
-                return left + right
+            def join(left, right):
+                return list(zip(left, right))
+
+            @staticmethod
+            def trans(value):
+                return list(zip(*value))
+
+            @staticmethod
+            def reshape(value, shape):
+                flat = [x for row in value for x in row]
+                assert len(flat) == shape[0]
+                return flat
 
         ns = functions(TL)
         leaves = []

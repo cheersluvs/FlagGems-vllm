@@ -60,7 +60,7 @@ def raw_finish_join{count}(Raw, KS, Table, row, tile, visible,
                            WIDTH:tl.constexpr,RAW_TILES:tl.constexpr):
     left = raw_finish_join{half}(Raw,KS,Table,row,tile,visible,WIDTH,RAW_TILES)
     right = raw_finish_join{half}(Raw,KS,Table,row,tile+{half},visible,WIDTH,RAW_TILES)
-    return tl.cat(left,right,can_reorder=False)
+    return tl.reshape(tl.trans(tl.join(left,right)),({count*64},))
 """
     for width in WIDTHS:
         text += f"""

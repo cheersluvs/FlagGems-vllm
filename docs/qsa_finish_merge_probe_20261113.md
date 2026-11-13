@@ -58,3 +58,10 @@ The43 existing raw/query-pack/prefix/compiler-copy checks also remain in scope.
 Generated Python/CLI/Bash syntax and repository hooks are checked. Native
 device compilation, concatenation lowering, exact full outputs, counters and
 performance are pending the card run. No production gain is claimed yet.
+
+Report30e69cb9: all three candidates failed in the frontend because this
+FlagTree cat implementation requires permission to reorder. No candidate
+latency was obtained. The revised probe uses join, transpose and reshape
+to express left-then-right order explicitly; no compiler change is added.
+CPU ordering tests execute these three operations across every tree level.
+Device lowering and performance of this expression remain unverified.
