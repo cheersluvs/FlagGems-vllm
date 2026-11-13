@@ -583,6 +583,32 @@ def run_case(
             raise AssertionError(
                 "Raw score chunk differs from current/oracle; candidate rejected without timing"
             )
+        if args.probe_cube_query_pack:
+            from qsa_cube_query_pack_probe_910b import run_probe
+
+            run_probe(
+                args,
+                name,
+                values,
+                pq,
+                pw,
+                pk,
+                raw,
+                output,
+                reference,
+                stages,
+                kernels,
+                record,
+                report,
+                compiler,
+                capture_type,
+                save_asm,
+                save,
+                module,
+                pack_nz,
+            )
+            record["status"] = "passed"
+            return record
         if args.probe_finish_group4:
             from qsa_finish_group4_probe_910b import run_probe
 
@@ -849,6 +875,9 @@ def run_chunks(
                 k_pack_probe_status=r.get("k_pack_probe", {}).get("status"),
                 finish_probe_status=r.get("finish_probe", {}).get("status"),
                 qw_pack_probe_status=r.get("qw_pack_probe", {}).get("status"),
+                cube_query_pack_probe_status=r.get("cube_query_pack_probe", {}).get(
+                    "status"
+                ),
                 finish_group4_probe_status=r.get("finish_group4_probe", {}).get(
                     "status"
                 ),
@@ -863,7 +892,9 @@ def run_chunks(
         raise RuntimeError(
             "At least one raw score chunk rejected; see per-case diagnostics"
         )
-    if args.probe_finish_group4:
+    if args.probe_cube_query_pack:
+        result["outcome"] = "passed_micro_and_cube_query_pack_probe"
+    elif args.probe_finish_group4:
         result["outcome"] = "passed_micro_and_group4_finish_probe"
     elif args.probe_qw_pack:
         result["outcome"] = "passed_micro_and_qw_pack_probe"

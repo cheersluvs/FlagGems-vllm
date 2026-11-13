@@ -162,14 +162,15 @@ def inspect_bitcode(text, symbols=("qsa_raw_qk", "qsa_raw_chain")):
     )
 
 
-def build_bitcode(report, result):
+def build_bitcode(report, result, source=None, stem="custom", defines=()):
     ccec = tool("ccec")
     dis = tool("llvm-dis", ccec)
     linker = tool("llvm-link", ccec)
     if not ccec:
         raise MissingPrerequisite("Need ccec")
     includes = include_dirs()
-    source = Path(__file__).with_name("qsa_raw_cube_chain_910b.cpp")
+    log_prefix = "" if stem == "custom" else stem + "-"
+    source = source or Path(__file__).with_name("qsa_raw_cube_chain_910b.cpp")
     result["toolchain"] = dict(
         ccec=ccec,
         llvm_dis=dis,
@@ -177,12 +178,13 @@ def build_bitcode(report, result):
         includes=includes,
         bitcode_mode="ordinary-AIC-only",
         mix_bitcode_merged=False,
+        defines=list(defines),
     )
     result["toolchain"]["version"] = command(
-        [ccec, "--version"], report, "ccec-version", 30
+        [ccec, "--version"], report, log_prefix + "ccec-version", 30
     )
     result["source_sha256"] = hashlib.sha256(source.read_bytes()).hexdigest()
-    (report / "custom-source.cpp.txt").write_bytes(source.read_bytes())
+    (report / (stem + "-source.cpp.txt")).write_bytes(source.read_bytes())
     common = [
         ccec,
         "-O2",
@@ -198,33 +200,38 @@ def build_bitcode(report, result):
     ]
     for directory in includes:
         common.extend(["-I", directory])
+    common.extend("-D" + item for item in defines)
     # The pointer-only wrapper has one AIC custom op and no AIV scope. Use
     # ordinary AIC bitcode directly. Native kernel_operator.h adds CANN globals
     # (e.g. g_tilingKey); merging plain/mix copies duplicates those definitions.
     # Do not strip or rename the globals to hide that ABI issue.
-    output = report / "custom-plain.bc"
+    output = report / (stem + "-plain.bc")
     command(
         [*common, str(source), "-emit-llvm", "-c", "-o", str(output)],
         report,
-        "ccec-plain",
+        log_prefix + "ccec-plain",
     )
     result["bitcode_sha256"] = hashlib.sha256(output.read_bytes()).hexdigest()
     # Preserve the successful native build even if text emission or a later
     # Triton lowering/link fails. Only files at the report root are uploaded.
     with gzip.open(str(output) + ".gz", "wb") as stream:
         stream.write(output.read_bytes())
-    llvm = report / "custom-plain.ll.txt"
+    llvm = report / (stem + "-plain.ll.txt")
     try:
         if dis:
             result["toolchain"]["llvm_text_method"] = "llvm-dis"
-            command([dis, str(output), "-o", str(llvm)], report, "llvm-dis")
+            command(
+                [dis, str(output), "-o", str(llvm)], report, log_prefix + "llvm-dis"
+            )
         elif linker:
             # llvm-link -S can serialize a single existing bitcode module as
             # LLVM text. There is no second module and no duplicate definitions;
             # the final kernel still consumes the original unchanged .bc file.
             result["toolchain"]["llvm_text_method"] = "llvm-link-S-single-module"
             command(
-                [linker, "-S", str(output), "-o", str(llvm)], report, "llvm-link-text"
+                [linker, "-S", str(output), "-o", str(llvm)],
+                report,
+                log_prefix + "llvm-link-text",
             )
         else:
             raise MissingPrerequisite(
@@ -1047,6 +1054,7 @@ def main():
     parser.add_argument("--probe-finish", action="store_true")
     parser.add_argument("--probe-qw-pack", action="store_true")
     parser.add_argument("--probe-finish-group4", action="store_true")
+    parser.add_argument("--probe-cube-query-pack", action="store_true")
     parser.add_argument("--counter-iterations", type=int, default=2)
     args = parser.parse_args()
     args.score_cases = list(dict.fromkeys(args.score_cases))
@@ -1060,6 +1068,8 @@ def main():
         parser.error("--probe-qw-pack requires --score-chunks")
     if args.probe_finish_group4 and not args.score_chunks:
         parser.error("--probe-finish-group4 requires --score-chunks")
+    if args.probe_cube_query_pack and not args.score_chunks:
+        parser.error("--probe-cube-query-pack requires --score-chunks")
     if (
         sum(
             (
@@ -1068,13 +1078,14 @@ def main():
                 args.probe_finish,
                 args.probe_qw_pack,
                 args.probe_finish_group4,
+                args.probe_cube_query_pack,
             )
         )
         > 1
     ):
         parser.error(
             "Choose one probe mode: --profile-vectors, --probe-k-pack, --probe-finish, "
-            "--probe-qw-pack or --probe-finish-group4"
+            "--probe-qw-pack, --probe-finish-group4 or --probe-cube-query-pack"
         )
     if args.counter_iterations < 1:
         parser.error("counter iterations must be positive")

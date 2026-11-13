@@ -29,6 +29,7 @@ qsa_probe_k_pack=0
 qsa_probe_finish=0
 qsa_probe_qw_pack=0
 qsa_probe_finish_group4=0
+qsa_probe_cube_query_pack=0
 for qsa_argument in "$@"; do
     if [[ "$qsa_argument" == --score-chunks ]]; then
         qsa_score_chunks=1
@@ -49,6 +50,9 @@ for qsa_argument in "$@"; do
     if [[ "$qsa_argument" == --probe-finish-group4 ]]; then
         qsa_probe_finish_group4=1
     fi
+    if [[ "$qsa_argument" == --probe-cube-query-pack ]]; then
+        qsa_probe_cube_query_pack=1
+    fi
 done
 if [[ "$qsa_profile_vectors" == 1 ]]; then
     qsa_kind=raw-vector-profile
@@ -64,6 +68,9 @@ if [[ "$qsa_probe_qw_pack" == 1 ]]; then
 fi
 if [[ "$qsa_probe_finish_group4" == 1 ]]; then
     qsa_kind=raw-finish-group4
+fi
+if [[ "$qsa_probe_cube_query_pack" == 1 ]]; then
+    qsa_kind=raw-cube-query-pack
 fi
 # Re-activate after shell startup files have run; lock the environment at execution.
 if [[ -n "${QSA_ENV_ROOT:-}" ]]; then
@@ -120,6 +127,11 @@ if [[ "$qsa_status" == 0 && "$qsa_score_chunks" == 1 ]]; then
     "$qsa_python" -u "$qsa_repo/tools/test_qsa_raw_score_chunks.py" -v \
         2>&1 | tee "$qsa_report/score-chunk-cpu-tests.txt"
     qsa_status=${PIPESTATUS[0]}
+    if [[ "$qsa_status" == 0 && "$qsa_probe_cube_query_pack" == 1 ]]; then
+        "$qsa_python" -u "$qsa_repo/tools/test_qsa_cube_query_pack_probe.py" -v \
+            2>&1 | tee "$qsa_report/cube-query-pack-cpu-tests.txt"
+        qsa_status=${PIPESTATUS[0]}
+    fi
 fi
 command -v timeout >/dev/null || { echo 'timeout is required'; exit 2; }
 if [[ "$qsa_status" == 0 ]]; then
