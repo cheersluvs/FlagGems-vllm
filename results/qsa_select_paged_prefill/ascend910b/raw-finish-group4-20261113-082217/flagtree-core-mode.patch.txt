@@ -1,0 +1,18 @@
+--- a/third_party/ascend/backend/compiler.py
++++ b/third_party/ascend/backend/compiler.py
+@@ -292,0 +293,11 @@
++def _reconcile_mix_mode_from_task_type(metadata):
++    """Use final native task kind for loading; retain the task/ratio encoding."""
++    task_type = metadata.get("bs_task_type")
++    if task_type is None:
++        return
++    task_kind = int(task_type) // 10
++    mode = {1: "aiv", 2: "aic", 3: "mix", 4: "mix"}.get(task_kind)
++    if mode is not None:
++        metadata["mix_mode"] = mode
++
++
+@@ -615,0 +627 @@
++            _reconcile_mix_mode_from_task_type(metadata)
+@@ -863,0 +876 @@
++            _reconcile_mix_mode_from_task_type(metadata)

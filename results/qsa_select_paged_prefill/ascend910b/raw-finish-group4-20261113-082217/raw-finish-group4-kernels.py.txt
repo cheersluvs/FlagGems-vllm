@@ -1,0 +1,126 @@
+import triton
+import triton.language as tl
+
+@triton.jit
+def raw_k_2d_part(K, Table, PK, part, MAX_VISIBLE:tl.constexpr):
+    tile = part//8
+    row_start = part%2*32
+    dim_start = (part%8//2)*32
+    r = tl.arange(0,32)
+    c = tl.arange(0,32)
+    physical = tl.load(Table+tile//3)
+    token = physical.to(tl.int64)*192+tile%3*64+row_start
+    global_row = tile*64+row_start+r
+    value = tl.load(K+(token+r[:,None])*128+dim_start+c[None,:],
+                    mask=global_row[:,None]<MAX_VISIBLE,other=0)
+    tl.store(PK+part*1024+r[:,None]*32+c[None,:],value)
+
+@triton.jit
+def raw_k_2d_grid(K, Table, PK, MAX_VISIBLE:tl.constexpr):
+    raw_k_2d_part(K,Table,PK,tl.program_id(0),MAX_VISIBLE)
+
+@triton.jit
+def raw_k_2d_capped(K, Table, PK, MAX_VISIBLE:tl.constexpr,TILES:tl.constexpr,CORES:tl.constexpr):
+    for part in range(tl.program_id(0),TILES*8,CORES):
+        raw_k_2d_part(K,Table,PK,part,MAX_VISIBLE)
+
+import triton
+import triton.language as tl
+
+@triton.jit
+def raw_qw_2d_group(Q, QS, W, PQ, PW, group, ROWS:tl.constexpr):
+    heads = tl.arange(0,16)
+    dims = tl.arange(0,32)
+    flat = group*16+heads
+    for block in tl.static_range(4):
+        query = tl.load(Q+flat[:,None]*128+block*32+dims[None,:],
+                        mask=flat[:,None]<ROWS*4,other=0)
+        tl.store(PQ+group*2048+block*512+heads[:,None]*32+dims[None,:],query)
+    qs = tl.load(QS+flat,mask=flat<ROWS*4,other=0).to(tl.float32)
+    weights = tl.load(W+flat,mask=flat<ROWS*4,other=0).to(tl.float32)
+    coefficient = (qs*weights*1024.0).to(tl.float16)
+    out_rows = tl.arange(0,16)
+    live = (out_rows[None,:]<4)&(heads[:,None]//4==out_rows[None,:])
+    # Native LoadData2D transposes W.T from L1 into the second Cube's L0A.
+    matrix = tl.where(live,coefficient[:,None],tl.full((),0.0,tl.float16))
+    tl.store(PW+group*256+heads[:,None]*16+out_rows[None,:],matrix)
+
+@triton.jit
+def raw_qw_2d_grid(Q, QS, W, PQ, PW, ROWS:tl.constexpr):
+    raw_qw_2d_group(Q,QS,W,PQ,PW,tl.program_id(0),ROWS)
+
+@triton.jit
+def raw_qw_2d_capped(Q, QS, W, PQ, PW, ROWS:tl.constexpr,CORES:tl.constexpr):
+    for group in range(tl.program_id(0),triton.cdiv(ROWS,4),CORES):
+        raw_qw_2d_group(Q,QS,W,PQ,PW,group,ROWS)
+
+import triton
+import triton.language as tl
+
+@triton.jit
+def raw_finish_page64_part(Raw, KS, Table, Visible, Out, row, tile,
+                          WIDTH:tl.constexpr, RAW_TILES:tl.constexpr):
+    c = tl.arange(0,64)
+    first = tile*64
+    col = first+c
+    visible = tl.load(Visible+row)
+    physical = tl.load(Table+tile//3,mask=(first<WIDTH)&(first<visible),other=0)
+    key_base = physical.to(tl.int64)*192+tile%3*64
+    raw_base = ((row//4)*RAW_TILES+tile)*1024+row%4*64
+    live = (col<WIDTH)&(col<visible)
+    ks = tl.load(KS+key_base+c,mask=live,other=0).to(tl.float32)
+    value = tl.load(Raw+raw_base+c,mask=live,other=0)*ks
+    tl.store(Out+row*WIDTH+col,tl.where(live,value,-float("inf")),mask=col<WIDTH)
+
+@triton.jit
+def raw_finish_page64_grid(Raw, KS, Table, Visible, Out,
+                          WIDTH:tl.constexpr, RAW_TILES:tl.constexpr):
+    raw_finish_page64_part(Raw,KS,Table,Visible,Out,tl.program_id(0),tl.program_id(1),
+                          WIDTH,RAW_TILES)
+
+@triton.jit
+def raw_finish_page64_capped(Raw, KS, Table, Visible, Out, ROWS:tl.constexpr,
+                            WIDTH:tl.constexpr, RAW_TILES:tl.constexpr,CORES:tl.constexpr):
+    for unit in range(tl.program_id(0),ROWS*triton.cdiv(WIDTH,64),CORES):
+        row = unit//triton.cdiv(WIDTH,64)
+        tile = unit%triton.cdiv(WIDTH,64)
+        raw_finish_page64_part(Raw,KS,Table,Visible,Out,row,tile,WIDTH,RAW_TILES)
+
+import triton
+import triton.language as tl
+
+@triton.jit
+def raw_finish_group4_part(Raw, KS, Table, Visible, Out, group, tile,
+                          ROWS:tl.constexpr, WIDTH:tl.constexpr, RAW_TILES:tl.constexpr):
+    r = tl.arange(0,4)
+    c = tl.arange(0,64)
+    rows = group*4+r
+    first = tile*64
+    columns = first+c
+    visible = tl.load(Visible+rows,mask=rows<ROWS,other=0)
+    maximum = tl.max(visible,axis=0)
+    physical = tl.load(Table+tile//3,mask=(first<WIDTH)&(first<maximum),other=0)
+    key_base = physical.to(tl.int64)*192+tile%3*64
+    raw_base = (group*RAW_TILES+tile)*1024
+    key_live = (columns<WIDTH)&(columns<maximum)
+    ks = tl.load(KS+key_base+c,mask=key_live,other=0).to(tl.float32)
+    raw_value = tl.load(Raw+raw_base+r[:,None]*64+c[None,:],
+                        mask=(rows[:,None]<ROWS)&key_live[None,:],other=0)
+    score = raw_value*ks[None,:]
+    live = (columns[None,:]<WIDTH)&(columns[None,:]<visible[:,None])
+    tl.store(Out+rows[:,None]*WIDTH+columns[None,:],
+             tl.where(live,score,-float("inf")),mask=(rows[:,None]<ROWS)&(columns[None,:]<WIDTH))
+
+@triton.jit
+def raw_finish_group4_grid(Raw, KS, Table, Visible, Out, ROWS:tl.constexpr,
+                          WIDTH:tl.constexpr, RAW_TILES:tl.constexpr):
+    raw_finish_group4_part(Raw,KS,Table,Visible,Out,tl.program_id(0),tl.program_id(1),
+                          ROWS,WIDTH,RAW_TILES)
+
+@triton.jit
+def raw_finish_group4_capped(Raw, KS, Table, Visible, Out, ROWS:tl.constexpr,
+                            WIDTH:tl.constexpr,RAW_TILES:tl.constexpr,CORES:tl.constexpr):
+    for unit in range(tl.program_id(0),triton.cdiv(ROWS,4)*triton.cdiv(WIDTH,64),CORES):
+        group = unit//triton.cdiv(WIDTH,64)
+        tile = unit%triton.cdiv(WIDTH,64)
+        raw_finish_group4_part(Raw,KS,Table,Visible,Out,group,tile,ROWS,WIDTH,RAW_TILES)
