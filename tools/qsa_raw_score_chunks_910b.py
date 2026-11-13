@@ -583,6 +583,31 @@ def run_case(
             raise AssertionError(
                 "Raw score chunk differs from current/oracle; candidate rejected without timing"
             )
+        if args.probe_finish:
+            from qsa_finish_page64_probe_910b import run_probe
+
+            run_probe(
+                args,
+                name,
+                values,
+                pk,
+                raw,
+                output,
+                reference,
+                stages,
+                kernels,
+                record,
+                report,
+                compiler,
+                capture_type,
+                save_asm,
+                save,
+            )
+            record["postcheck"] = compare_scores(torch, output.cpu(), reference.cpu())
+            if not record["postcheck"]["passed"]:
+                raise AssertionError("Post-finish-probe score mismatch")
+            record["status"] = "passed"
+            return record
         if args.probe_k_pack:
             from qsa_k_pack_2d_probe_910b import run_probe
 
@@ -763,6 +788,7 @@ def run_chunks(
                 error=r.get("error"),
                 vector_profile_status=r.get("vector_profile", {}).get("status"),
                 k_pack_probe_status=r.get("k_pack_probe", {}).get("status"),
+                finish_probe_status=r.get("finish_probe", {}).get("status"),
             )
             for r in records
         ],
@@ -774,7 +800,9 @@ def run_chunks(
         raise RuntimeError(
             "At least one raw score chunk rejected; see per-case diagnostics"
         )
-    if args.probe_k_pack:
+    if args.probe_finish:
+        result["outcome"] = "passed_micro_and_page64_finish_probe"
+    elif args.probe_k_pack:
         result["outcome"] = "passed_micro_and_k_pack_probe"
     elif args.profile_vectors:
         result["outcome"] = "passed_micro_and_vector_profile"
