@@ -1,0 +1,26 @@
+
+import triton
+import triton.language as tl
+import triton.experimental.tle.language.raw as raw
+
+@triton.jit
+def custom(Q, Key, Weight, Out, SCALE_BITS:tl.constexpr, CHAIN:tl.constexpr):
+    q, key, weight, output = Q, Key, Weight, Out
+    bits = tl.full((), SCALE_BITS, tl.int64)
+    if CHAIN:
+        raw.call(chain_op, [q, key, weight, bits, output], output_indices=[4])
+    else:
+        raw.call(qk_op, [q, key, weight, bits, output], output_indices=[4])
+
+@triton.jit
+def reference(Q, Key, Weight, Out, SCALE:tl.constexpr):
+    m = tl.arange(0,16)
+    k = tl.arange(0,128)
+    n = tl.arange(0,64)
+    q = tl.load(Q + m[:,None]*128 + k[None,:])
+    key = tl.load(Key + n[None,:]*128 + k[:,None])
+    dot = tl.dot(q, key, out_dtype=tl.int32)
+    positive = tl.maximum(dot.to(tl.float32)*SCALE, 0).to(tl.float16)
+    weight = tl.load(Weight + m[:,None]*16 + m[None,:])
+    out = tl.dot(weight, positive, out_dtype=tl.float32)
+    tl.store(Out + m[:,None]*64 + n[None,:], out)

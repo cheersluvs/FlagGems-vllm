@@ -1,0 +1,60 @@
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+ENVIRONMENT {"torch": "2.10.0+cpu", "triton": "3.5.1", "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py", "device": "Ascend910B4-1", "ascend_home": "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0", "opp": "/opt/qsa-opp-910b-qw4qRghU"}
+CUSTOM_ENTRY dialect-cann-bitcode
+BUILD ccec-version: /opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/ccec
+BUILD ccec-version: passed
+BUILD ccec-plain: /opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/ccec
+BUILD ccec-plain: passed
+BUILD llvm-link-text: /opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/llvm-link
+BUILD llvm-link-text: passed
+BITCODE_STRUCTURE {"exported_symbols": true, "candidate_structure_present": true, "int8_mad_static_sites": 1, "half_mad_static_sites": 1, "direct_l1_static_sites": 8, "scope": "Static call sites, not executed instruction counts"}
+COMPILE qk-seed13
+/tmp/qsa-raw-cube-chain.wLmq0Ydz/raw-kernels.py:13:24: error: 'hivm.hir.custom' op expected that operand #4 is a tensor or a memref
+        raw.call(qk_op, [q, key, weight, bits, output], output_indices=[4])
+                       ^
+#loc = loc("/tmp/qsa-raw-cube-chain.wLmq0Ydz/raw-kernels.py":7:0)
+#loc4 = loc("Q"(#loc))
+#loc5 = loc("Key"(#loc))
+#loc6 = loc("Weight"(#loc))
+#loc7 = loc("Out"(#loc))
+"builtin.module"() ({
+  "tt.func"() <{arg_attrs = [{tt.divisibility = 16 : i32}, {tt.divisibility = 16 : i32}, {tt.divisibility = 16 : i32}, {tt.divisibility = 16 : i32}], function_type = (!tt.ptr<i8>, !tt.ptr<i8>, !tt.ptr<f16>, !tt.ptr<i32>) -> (), sym_name = "custom", sym_visibility = "public"}> ({
+  ^bb0(%Q: !tt.ptr<i8> loc("Q"(#loc)), %Key: !tt.ptr<i8> loc("Key"(#loc)), %Weight: !tt.ptr<f16> loc("Weight"(#loc)), %Out: !tt.ptr<i32> loc("Out"(#loc))):
+    %bits = "arith.constant"() <{value = 1065353216 : i64}> : () -> i64 loc(#loc8)
+    %0 = "hivm.hir.custom"(%Q, %Key, %Weight, %bits, %Out) <{name = "qsa_raw_qk", operandSegmentSizes = array<i32: 4, 1, 0>}> {arg_attrs = [], bitcode = "/tmp/qsa-raw-cube-chain.wLmq0Ydz/custom-plain.bc", hivm.pipe = #hivm.pipe<PIPE_M>, hivm.tcore_type = #hivm.tcore_type<CUBE>, hivm.vf_mode = #hivm.vf_mode<SIMD>, symbol = "qsa_raw_qk"} : (!tt.ptr<i8>, !tt.ptr<i8>, !tt.ptr<f16>, i64, !tt.ptr<i32>) -> !tt.ptr<i32> loc(#loc2)
+    "tt.return"() : () -> () loc(#loc3)
+  }) {noinline = false} : () -> () loc(#loc)
+}) {hacc.target = #hacc.target<"Ascend910B4-1">} : () -> () loc(#loc)
+#loc1 = loc("/tmp/qsa-raw-cube-chain.wLmq0Ydz/raw-kernels.py":9:35)
+#loc2 = loc("/tmp/qsa-raw-cube-chain.wLmq0Ydz/raw-kernels.py":13:24)
+#loc3 = loc("/tmp/qsa-raw-cube-chain.wLmq0Ydz/raw-kernels.py":10:4)
+#loc8 = loc("bits"(#loc1))
+
+Traceback (most recent call last):
+  File "/tmp/flaggems-qsa-raw-reader.AuC5mD3W/tools/probe_qsa_raw_cube_chain_910b.py", line 653, in main
+    execute(args, args.report, result, save)
+  File "/tmp/flaggems-qsa-raw-reader.AuC5mD3W/tools/probe_qsa_raw_cube_chain_910b.py", line 488, in execute
+    kernel = module.custom.warmup(
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/runtime/jit.py", line 804, in warmup
+    return self.run(grid=grid, warmup=True, *map(MockTensor.wrap_dtype, args), **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/runtime/jit.py", line 736, in run
+    kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/runtime/jit.py", line 864, in _do_compile
+    kernel = self.compile(src, target=target, options=options.__dict__)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/__init__.py", line 83, in tle_compile
+    compiled_kernel = original_compile_fn(src, target, options)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/compiler.py", line 309, in compile
+    module = src.make_ir(target, options, codegen_fns, module_map, context)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/compiler.py", line 83, in make_ir
+    return ast_to_ttir(self.fn, self, context=context, options=options, codegen_fns=codegen_fns,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/code_generator.py", line 1731, in ast_to_ttir
+    raise RuntimeError("error encountered during parsing")
+RuntimeError: error encountered during parsing
+RAW_CUBE_SUMMARY {"status": "failed", "phase": "qk-seed13", "entry": "dialect-cann-bitcode", "error": "RuntimeError('error encountered during parsing')", "pipeline_proven": false, "exit_code": 1, "report": "/tmp/qsa-raw-cube-chain.wLmq0Ydz/raw-cube-chain.json"}
