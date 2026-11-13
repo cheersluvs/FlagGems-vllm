@@ -66,3 +66,19 @@ separately. Console prints numerical results and timing, not only PASS counts.
 Mac verification: Python and generated-kernel syntax, formatter/linter, shell
 syntax, negative LLVM evidence cases and prerequisite-report handling. Native
 CANN compilation, device correctness and timing require the user-run 910B test.
+
+## First environment report and LLVM text fallback
+
+Result 84631951872b9516aaea52555063cc9a257feffb (20261113-002651) confirms
+FlagTree 3.5.1 in the pinned environment exposes CANNJITFunction and accepts the
+bitcode object binding. ccec and llvm-link are available, but llvm-dis was not
+found. The initial probe returned prerequisite exit 2 before invoking ccec;
+there was no native compilation, device correctness result or timing.
+
+llvm-dis is now optional. If absent, ccec emits textual LLVM using -S
+-emit-llvm and the same source/target/include/options as the plain bitcode
+build. The report marks llvm_text_method=ccec-source-sibling. That text is a
+sibling compilation, not a disassembly of the linked bitcode. Preserve this
+evidence distinction; the actual linked bitcode, hash, compiler commands and
+final wrapper artifacts are still retained. No package installation or compiler
+modification is needed for this fallback.

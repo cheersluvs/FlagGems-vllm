@@ -70,6 +70,7 @@ def tool(name, ccec=None):
     candidates = [override, shutil.which(name)]
     if ccec:
         candidates.insert(1, str(Path(ccec).parent / name))
+        candidates.insert(2, str(Path(ccec).resolve().parent / name))
     if name == "ccec" and os.environ.get("TRITON_NPU_COMPILER_PATH"):
         candidates.append(str(Path(os.environ["TRITON_NPU_COMPILER_PATH"]) / name))
     return next((v for v in candidates if v and Path(v).is_file()), None)
@@ -150,10 +151,8 @@ def build_bitcode(report, result):
     ccec = tool("ccec")
     linker = tool("llvm-link", ccec)
     dis = tool("llvm-dis", ccec)
-    if not all((ccec, linker, dis)):
-        raise MissingPrerequisite(
-            f"Need ccec/llvm-link/llvm-dis: {ccec}, {linker}, {dis}"
-        )
+    if not all((ccec, linker)):
+        raise MissingPrerequisite(f"Need ccec/llvm-link: {ccec}, {linker}")
     includes = include_dirs()
     source = Path(__file__).with_name("qsa_raw_cube_chain_910b.cpp")
     result["toolchain"] = dict(
@@ -194,7 +193,20 @@ def build_bitcode(report, result):
     output = report / "custom-linked.bc"
     command([linker, *map(str, paths), "-o", str(output)], report, "llvm-link")
     llvm = report / "custom-plain.ll.txt"
-    command([dis, str(paths[0]), "-o", str(llvm)], report, "llvm-dis")
+    if dis:
+        result["toolchain"]["llvm_text_method"] = "llvm-dis"
+        command([dis, str(paths[0]), "-o", str(llvm)], report, "llvm-dis")
+    else:
+        # Some CANN distributions ship ccec/llvm-link but no llvm-dis. Emit
+        # textual LLVM from the identical source/options instead of requiring
+        # another LLVM installation. This is a sibling compilation, not a
+        # disassembly of custom-plain.bc; keep that distinction in the report.
+        result["toolchain"]["llvm_text_method"] = "ccec-source-sibling"
+        command(
+            [*common, str(source), "-S", "-emit-llvm", "-o", str(llvm)],
+            report,
+            "ccec-llvm-text",
+        )
     result["bitcode_structure"] = inspect_bitcode(llvm.read_text())
     result["bitcode_sha256"] = hashlib.sha256(output.read_bytes()).hexdigest()
     for path in [*paths, output]:
