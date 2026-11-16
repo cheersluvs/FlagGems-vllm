@@ -182,13 +182,15 @@ def run_probe(
     save,
     pack_nz,
     reference_cpu,
+    source_factory=source,
+    kind="merge",
 ):
     import torch
     from qsa_cube_query_pack_probe_910b import boundary_checks, validate_arm
     from qsa_int8_prefix_plan_timer_910b import measure_prefix_plan
 
-    path = report / "raw-finish-merge-kernels.py"
-    path.write_text(source())
+    path = report / f"raw-finish-{kind}-kernels.py"
+    path.write_text(source_factory())
     path.with_suffix(".py.txt").write_bytes(path.read_bytes())
     spec = importlib.util.spec_from_file_location("_qsa_finish_merge", path)
     module = importlib.util.module_from_spec(spec)
@@ -206,7 +208,8 @@ def run_probe(
         hardware={},
         scope="Output merging on query16 raw score, TopK excluded; not formal acceptance",
     )
-    record["finish_merge_probe"] = probe
+    probe["implementation"] = kind
+    record["finish_merge_probe" if kind == "merge" else "finish_blocked_probe"] = probe
     save()
     trial = prepare(module, arm, values, torch)
     expected = trial["expected"]

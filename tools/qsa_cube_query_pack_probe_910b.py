@@ -455,7 +455,9 @@ def run_probe(
     models = {}
     selected = {}
     passed = []
-    finish_probe = args.probe_finish_prefix or args.probe_finish_merge
+    finish_probe = (
+        args.probe_finish_prefix or args.probe_finish_merge or args.probe_finish_blocked
+    )
     for queries in (16,) if finish_probe else (4, 8, 16):
         label = f"query{queries}"
         variant = probe["variants"][label] = dict(status="running", compiler={})
@@ -542,7 +544,9 @@ def run_probe(
     if finish_probe:
         if probe["errors"]:
             raise RuntimeError("Query16 preparation failed before finish diagnostics")
-        if args.probe_finish_merge:
+        if args.probe_finish_blocked:
+            from qsa_finish_blocked_probe_910b import run_probe as run_finish_probe
+        elif args.probe_finish_merge:
             from qsa_finish_merge_probe_910b import run_probe as run_finish_probe
         else:
             from qsa_finish_prefix_probe_910b import run_probe as run_finish_probe

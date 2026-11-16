@@ -57,6 +57,17 @@ def measure_prefix_plan(
         prof.export_chrome_trace(str(path))
         del prof
         gc.collect()
+        if not path.is_file():
+            failure = dict(
+                attempt=attempt,
+                artifact=path.name,
+                reason="Profiler export returned without the requested trace file",
+            )
+            result.setdefault("rejected_prefix_plans", []).append(failure)
+            print("PREFIX_PLAN_REJECTED", json.dumps(failure), flush=True)
+            if attempt == 3:
+                raise IncompleteScoreTrace(failure["reason"])
+            continue
         payload = path.read_bytes()
         archive = path.with_suffix(".json.gz")
         with gzip.open(archive, "wb") as stream:
