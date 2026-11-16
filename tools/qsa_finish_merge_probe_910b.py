@@ -114,18 +114,19 @@ def store_evidence(text):
     )
 
 
-def prepare(module, arm, values, torch):
+def prepare(module, arm, values, torch, variants=None):
     rows, width = arm["output"].shape
     tiles = arm["raw"].shape[1]
     expected = arm["output"].cpu()
+    variants = variants or {
+        f"merge{block}": (block, "raw_finish_merge" + str(block)) for block in WIDTHS
+    }
     targets = {
-        f"merge{block}": torch.full_like(arm["output"], float("nan"))
-        for block in WIDTHS
+        label: torch.full_like(arm["output"], float("nan")) for label in variants
     }
     launches = {}
-    for block in WIDTHS:
-        label = f"merge{block}"
-        kernel = getattr(module, "raw_finish_" + label)
+    for label, (block, function_name) in variants.items():
+        kernel = getattr(module, function_name)
         cores = min(20, rows * ((width + block - 1) // block))
 
         def launch(kernel=kernel, cores=cores, label=label):
@@ -184,6 +185,8 @@ def run_probe(
     reference_cpu,
     source_factory=source,
     kind="merge",
+    variants=None,
+    boundary_validator=None,
 ):
     import torch
     from qsa_cube_query_pack_probe_910b import boundary_checks, validate_arm
@@ -211,7 +214,7 @@ def run_probe(
     probe["implementation"] = kind
     record["finish_merge_probe" if kind == "merge" else "finish_blocked_probe"] = probe
     save()
-    trial = prepare(module, arm, values, torch)
+    trial = prepare(module, arm, values, torch, variants)
     expected = trial["expected"]
     raw_cpu = arm["raw"].cpu()
     raw_reference = torch.stack(
@@ -245,7 +248,9 @@ def run_probe(
                 def finish_boundary(
                     boundary_arm, boundary_values, boundary_cpu, label=label
                 ):
-                    small = prepare(module, boundary_arm, boundary_values, torch)
+                    small = prepare(
+                        module, boundary_arm, boundary_values, torch, variants
+                    )
                     small["launches"][label]()
                     torch.npu.synchronize()
                     check = check_output(
@@ -263,6 +268,10 @@ def run_probe(
                     torch,
                     pack_nz,
                     finish_callback=finish_boundary,
+                )
+            if name == args.score_cases[0] and boundary_validator is not None:
+                probe.setdefault("full_boundary", {})[label] = boundary_validator(
+                    module, label, torch, arm["output"].device
                 )
             valid.append(label)
         except Exception as exc:
