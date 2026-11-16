@@ -37,7 +37,12 @@ qsa_ten_score=0
 qsa_finish_routing=0
 qsa_empty_pair=0
 qsa_empty_ten=0
+qsa_serial_harness=0
 for qsa_argument in "$@"; do
+    if [[ "$qsa_argument" == --serial-harness ]]; then
+        qsa_serial_harness=1
+        qsa_score_chunks=1
+    fi
     if [[ "$qsa_argument" == --score-chunks ]]; then
         qsa_score_chunks=1
         qsa_kind=raw-score-chunks
@@ -130,6 +135,9 @@ if [[ "$qsa_empty_pair" == 1 ]]; then
 fi
 if [[ "$qsa_empty_ten" == 1 ]]; then
     qsa_kind=raw-empty-finish-ten
+fi
+if [[ "$qsa_serial_harness" == 1 ]]; then
+    qsa_kind=raw-serial-harness
 fi
 # Re-activate after shell startup files have run; lock the environment at execution.
 if [[ -n "${QSA_ENV_ROOT:-}" ]]; then
@@ -232,10 +240,19 @@ if [[ "$qsa_status" == 0 && "$qsa_empty_pair" == 1 ]]; then
         2>&1 | tee "$qsa_report/empty-finish-pair-cpu-tests.txt"
     qsa_status=${PIPESTATUS[0]}
 fi
+if [[ "$qsa_status" == 0 && "$qsa_serial_harness" == 1 ]]; then
+    "$qsa_python" -u "$qsa_repo/tools/test_qsa_raw_serial_selection.py" -v \
+        2>&1 | tee "$qsa_report/raw-serial-cpu-tests.txt"
+    qsa_status=${PIPESTATUS[0]}
+fi
+qsa_worker="$qsa_repo/tools/probe_qsa_raw_cube_chain_910b.py"
+if [[ "$qsa_serial_harness" == 1 ]]; then
+    qsa_worker="$qsa_repo/tools/run_qsa_raw_serial_harness_910b.py"
+fi
 command -v timeout >/dev/null || { echo 'timeout is required'; exit 2; }
 if [[ "$qsa_status" == 0 ]]; then
     timeout --signal=TERM --kill-after=20 "$qsa_timeout" \
-        "$qsa_python" -u "$qsa_repo/tools/probe_qsa_raw_cube_chain_910b.py" \
+        "$qsa_python" -u "$qsa_worker" \
         --report "$qsa_report" "$@" 2>&1 | tee "$qsa_report/console.txt"
     qsa_status=${PIPESTATUS[0]}
 else
@@ -249,6 +266,9 @@ from pathlib import Path
 root = Path(sys.argv[1])
 path = root / "raw-cube-chain.json"
 record = json.loads(path.read_text()) if path.exists() else {}
+serial = root / "serial-harness-summary.json"
+if serial.exists():
+    record = json.loads(serial.read_text())
 record["process_exit_code"] = int(sys.argv[2])
 if record.get("status") in (None, "running"):
     record["status"] = "process_failed"

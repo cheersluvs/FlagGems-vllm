@@ -99,7 +99,9 @@ def cpu_oracle(torch, cpu, row, width, current, candidate):
     return result
 
 
-def run_case(args, plan, module, report, save_asm, record_launch_mode):
+def run_case(
+    args, plan, module, report, save_asm, record_launch_mode, selection_benchmark=None
+):
     import torch
     from qsa_int8_prefix_plan_timer_910b import measure_prefix_plan
     from qsa_int8_shared_map_selection_910b_trial import PreparedSharedMapInt8Selection
@@ -456,6 +458,21 @@ def run_case(args, plan, module, report, save_asm, record_launch_mode):
         record["precheck"] = validate("before")
         record["compiled_artifacts"] = list(artifacts.values())
         save()
+        if selection_benchmark is not None:
+            record["serial_harness"] = selection_benchmark(
+                dict(
+                    plan=plan,
+                    cpu=cpu,
+                    values=v,
+                    adapter=adapter,
+                    jobs=jobs,
+                    scores=out,
+                    reference_scores=ref,
+                )
+            )
+            record["postcheck"] = validate("after")
+            record["status"] = "passed"
+            return record
 
         def current():
             for entry, _ in jobs:

@@ -1,0 +1,224 @@
+# Copyright 2026 FlagOS Contributors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Run isolated stock harness workers and retain only complete ten-input means."""
+
+import argparse
+import json
+import math
+import os
+import signal
+import subprocess
+import sys
+import threading
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from tools.qsa_int8_ten_workloads_910b import cases  # noqa: E402
+
+OP_NAME = "qsa_raw_serial_int8_910b"
+
+
+def summarize(report, outcomes):
+    rows = []
+    for plan in cases():
+        name = plan["name"]
+        path = report / (name + "-all-score.json")
+        entry = dict(case=name, exit_code=outcomes.get(name), status="failed")
+        try:
+            detail = json.loads(path.read_text()) if path.exists() else {}
+        except (OSError, ValueError) as exc:
+            entry["error"] = repr(exc)
+            rows.append(entry)
+            continue
+        if entry["exit_code"] == 0 and detail.get("status") == "passed":
+            try:
+                bench = json.loads(
+                    (report / ("harness-" + name + ".json")).read_text()
+                )[OP_NAME]
+                if bench["result"] != "passed":
+                    raise ValueError("Harness outcome failed")
+                values = [r for d in bench["details"] for r in d["result"]]
+                if len(values) != 1 or values[0]["shape_detail"] != [name, "auto"]:
+                    raise ValueError("Unexpected harness case records")
+                metric = values[0]
+                base, cand, ratio = (
+                    metric["latency_base"],
+                    metric["latency"],
+                    metric["speedup"],
+                )
+                if not all(
+                    isinstance(v, (float, int)) and math.isfinite(v) and v > 0
+                    for v in (base, cand, ratio)
+                ) or not math.isclose(ratio, base / cand, rel_tol=1e-9):
+                    raise ValueError("Invalid harness timing")
+                checks = detail["serial_harness"]
+                if not all(
+                    (
+                        detail["precheck"]["passed"],
+                        detail["postcheck"]["passed"],
+                        checks["precheck"]["passed"],
+                        checks["postcheck"]["passed"],
+                    )
+                ):
+                    raise ValueError("Missing pre/post correctness")
+                stages = checks["stage_ms"]
+                if not all(
+                    isinstance(stages.get(key), (int, float))
+                    and math.isfinite(stages[key])
+                    and stages[key] > 0
+                    for key in (
+                        "current_combined",
+                        "current_score",
+                        "raw_score",
+                        "raw_topk",
+                    )
+                ):
+                    raise ValueError("Invalid auxiliary stage timing")
+                entry.update(
+                    status="passed",
+                    cann_ms=base,
+                    raw_combined_ms=cand,
+                    speedup=ratio,
+                    current_over_raw=stages["current_combined"] / cand,
+                    stage_ms=stages,
+                    changed_index_sets=checks["postcheck"][
+                        "raw_current_changed_index_sets"
+                    ],
+                )
+            except (KeyError, ValueError, TypeError, OSError) as exc:
+                entry["error"] = repr(exc)
+        else:
+            entry["error"] = detail.get("error", "Worker or postcheck failed")
+        rows.append(entry)
+    valid = len(rows) == 10 and all(r["status"] == "passed" for r in rows)
+    summary = dict(
+        status="passed" if valid else "incomplete",
+        cases=rows,
+        mode="kernel",
+        baseline="CANN V1",
+        production_changed=False,
+        scope="Stock harness whole-call speedup of unregistered serial raw candidate",
+    )
+    if valid:
+        summary["arithmetic_mean_speedup"] = sum(r["speedup"] for r in rows) / 10
+    return summary
+
+
+def run_worker(command, root, env, log, timeout):
+    with log.open("w") as output:
+        proc = subprocess.Popen(
+            command,
+            cwd=root,
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+            start_new_session=True,
+        )
+
+        def stream():
+            for line in proc.stdout:
+                output.write(line)
+                output.flush()
+                print(line, end="", flush=True)
+
+        thread = threading.Thread(target=stream, daemon=True)
+        thread.start()
+        previous = signal.getsignal(signal.SIGTERM)
+
+        def terminate(signum, frame):
+            if proc.poll() is None:
+                os.killpg(proc.pid, signal.SIGKILL)
+            raise SystemExit(128 + signum)
+
+        signal.signal(signal.SIGTERM, terminate)
+        try:
+            rc = proc.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            os.killpg(proc.pid, signal.SIGKILL)
+            proc.wait()
+            rc = 124
+        finally:
+            if proc.poll() is None:
+                os.killpg(proc.pid, signal.SIGKILL)
+                proc.wait()
+            thread.join()
+            proc.stdout.close()
+            signal.signal(signal.SIGTERM, previous)
+    return rc
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--serial-harness", action="store_true", required=True)
+    parser.add_argument("--report", type=Path, required=True)
+    parser.add_argument("--device", type=int, default=0)
+    parser.add_argument("--case-timeout", type=int, default=1800)
+    args = parser.parse_args()
+    args.report.mkdir(parents=True, exist_ok=True)
+    root = Path(__file__).resolve().parents[1]
+    env = dict(
+        os.environ,
+        QSA_RAW_SERIAL_REPORT=str(args.report.resolve()),
+        QSA_DEVICE=str(args.device),
+        PYTEST_DISABLE_PLUGIN_AUTOLOAD="1",
+    )
+    outcomes = {}
+    for plan in cases():
+        name = plan["name"]
+        command = [
+            sys.executable,
+            "-u",
+            "-m",
+            "pytest",
+            "-q",
+            "-s",
+            f"benchmark/test_qsa_raw_serial_int8_perf.py::test_qsa_raw_serial_kernel[{name}]",
+            "--mode",
+            "kernel",
+            "--record",
+            "json",
+            "--output",
+            str(args.report / ("harness-" + name + ".json")),
+        ]
+        print("RAW_SERIAL_HARNESS_WORKER", name, flush=True)
+        try:
+            # Stream stdout while retaining the exact case log; bound worker lifetime.
+            log = args.report / ("harness-" + name + "-console.txt")
+            rc = run_worker(command, root, env, log, args.case_timeout)
+        except OSError as exc:
+            print(repr(exc), flush=True)
+            rc = 1
+        outcomes[name] = rc
+        summary = summarize(args.report, outcomes)
+        (args.report / "serial-harness-summary.json").write_text(
+            json.dumps(summary, indent=2)
+        )
+        # A fatal NPU error needs explicit diagnosis before more device work.
+        if rc in (134, -6, 139, -11, 124):
+            break
+    summary = summarize(args.report, outcomes)
+    (args.report / "serial-harness-summary.json").write_text(
+        json.dumps(summary, indent=2)
+    )
+    for row in summary["cases"]:
+        print("RAW_SERIAL_HARNESS_RESULT", json.dumps(row), flush=True)
+    print("RAW_SERIAL_HARNESS_SUMMARY", json.dumps(summary), flush=True)
+    return 0 if summary["status"] == "passed" else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
