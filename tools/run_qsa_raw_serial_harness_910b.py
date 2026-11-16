@@ -18,6 +18,7 @@ import argparse
 import json
 import math
 import os
+import shutil
 import signal
 import subprocess
 import sys
@@ -44,15 +45,28 @@ def summarize(report, outcomes):
             continue
         if entry["exit_code"] == 0 and detail.get("status") == "passed":
             try:
-                bench = json.loads(
+                payload = json.loads(
                     (report / ("harness-" + name + ".json")).read_text()
-                )[OP_NAME]
-                if bench["result"] != "passed":
-                    raise ValueError("Harness outcome failed")
+                )
+                outcome = payload["qsa_select_paged_prefill_int8_910b"]
+                expected_test = f"benchmark/test_qsa_raw_serial_int8_perf.py::test_qsa_raw_serial_kernel[{name}]"
+                if (
+                    outcome.get("result") != "passed"
+                    or outcome.get("test_case") != expected_test
+                ):
+                    raise ValueError("Harness outcome or test identity mismatch")
+                bench = payload[OP_NAME]
+                if not bench["details"] or any(
+                    d.get("mode") != "kernel" or d.get("dtype") != "torch.int8"
+                    for d in bench["details"]
+                ):
+                    raise ValueError("Expected INT8 kernel-mode details")
                 values = [r for d in bench["details"] for r in d["result"]]
                 if len(values) != 1 or values[0]["shape_detail"] != [name, "auto"]:
                     raise ValueError("Unexpected harness case records")
                 metric = values[0]
+                if metric.get("error_msg"):
+                    raise ValueError("Harness timing reported an error")
                 base, cand, ratio = (
                     metric["latency_base"],
                     metric["latency"],
@@ -167,8 +181,43 @@ def main():
     parser.add_argument("--report", type=Path, required=True)
     parser.add_argument("--device", type=int, default=0)
     parser.add_argument("--case-timeout", type=int, default=1800)
+    parser.add_argument("--summarize-only", action="store_true")
+    parser.add_argument("--source-report", type=Path)
     args = parser.parse_args()
+    if args.summarize_only != (args.source_report is not None):
+        parser.error("--summarize-only requires --source-report and vice versa")
     args.report.mkdir(parents=True, exist_ok=True)
+    if args.summarize_only:
+        source = args.source_report.resolve()
+        if source == args.report.resolve():
+            raise ValueError("Use a fresh destination to preserve original reports")
+        old = json.loads((source / "serial-harness-summary.json").read_text())
+        outcomes = {row["case"]: row.get("exit_code") for row in old["cases"]}
+        for path in source.iterdir():
+            if path.is_file() and (
+                path.suffix in (".json", ".txt", ".csv")
+                or path.name.endswith((".json.gz", ".bc.gz", ".bin.gz"))
+            ):
+                name = path.name
+                if name in (
+                    "serial-harness-summary.json",
+                    "raw-cube-chain.json",
+                    "console.txt",
+                    "code-commit.txt",
+                    "exit-code.txt",
+                ):
+                    name = "original-" + name
+                shutil.copy2(path, args.report / name)
+        summary = summarize(args.report, outcomes)
+        summary["recovered_without_npu_execution"] = True
+        summary["source_report"] = str(source)
+        (args.report / "serial-harness-summary.json").write_text(
+            json.dumps(summary, indent=2)
+        )
+        for row in summary["cases"]:
+            print("RAW_SERIAL_HARNESS_RESULT", json.dumps(row), flush=True)
+        print("RAW_SERIAL_HARNESS_SUMMARY", json.dumps(summary), flush=True)
+        return 0 if summary["status"] == "passed" else 1
     root = Path(__file__).resolve().parents[1]
     env = dict(
         os.environ,

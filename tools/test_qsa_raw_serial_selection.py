@@ -22,6 +22,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -29,6 +30,7 @@ from qsa_raw_serial_selection_910b_trial import SerialRawSelection  # noqa: E402
 from run_qsa_raw_serial_harness_910b import (  # noqa: E402
     OP_NAME,
     cases,
+    main,
     run_worker,
     summarize,
 )
@@ -104,10 +106,15 @@ class SerialSelectionTests(unittest.TestCase):
             )
             (root / (name + "-all-score.json")).write_text(json.dumps(detail))
             bench = {
-                OP_NAME: dict(
+                "qsa_select_paged_prefill_int8_910b": dict(
                     result="passed",
+                    test_case=f"benchmark/test_qsa_raw_serial_int8_perf.py::test_qsa_raw_serial_kernel[{name}]",
+                ),
+                OP_NAME: dict(
                     details=[
                         dict(
+                            mode="kernel",
+                            dtype="torch.int8",
                             result=[
                                 dict(
                                     shape_detail=[name, "auto"],
@@ -115,10 +122,10 @@ class SerialSelectionTests(unittest.TestCase):
                                     latency=1,
                                     speedup=1.5,
                                 )
-                            ]
+                            ],
                         )
                     ],
-                )
+                ),
             }
             (root / ("harness-" + name + ".json")).write_text(json.dumps(bench))
         return outcomes
@@ -150,6 +157,53 @@ class SerialSelectionTests(unittest.TestCase):
             path.write_text(json.dumps(data))
             self.assertEqual(summarize(root, outcomes)["status"], "incomplete")
             del outcomes[name]
+            self.assertEqual(summarize(root, outcomes)["status"], "incomplete")
+
+    def test_recovery_never_launches_a_worker_and_preserves_original_summary(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "source"
+            dest = root / "dest"
+            source.mkdir()
+            outcomes = self.populate(source)
+            old = dict(
+                status="incomplete",
+                cases=[dict(case=n, exit_code=rc) for n, rc in outcomes.items()],
+            )
+            (source / "serial-harness-summary.json").write_text(json.dumps(old))
+            argv = [
+                "summary",
+                "--serial-harness",
+                "--summarize-only",
+                "--source-report",
+                str(source),
+                "--report",
+                str(dest),
+            ]
+            with patch.object(sys, "argv", argv), patch(
+                "run_qsa_raw_serial_harness_910b.run_worker",
+                side_effect=AssertionError("must not execute"),
+            ), contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(main(), 0)
+            self.assertEqual(
+                json.loads((dest / "original-serial-harness-summary.json").read_text()),
+                old,
+            )
+            self.assertTrue(
+                json.loads((dest / "serial-harness-summary.json").read_text())[
+                    "recovered_without_npu_execution"
+                ]
+            )
+
+    def test_rejects_wrong_outcome_test_identity(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            outcomes = self.populate(root)
+            name = cases()[0]["name"]
+            path = root / ("harness-" + name + ".json")
+            data = json.loads(path.read_text())
+            data["qsa_select_paged_prefill_int8_910b"]["test_case"] = "other_test"
+            path.write_text(json.dumps(data))
             self.assertEqual(summarize(root, outcomes)["status"], "incomplete")
 
     def test_worker_streams_and_retains_log(self):
