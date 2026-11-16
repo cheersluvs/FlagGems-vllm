@@ -1,0 +1,79 @@
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+VERIFIED_COMPILER_CANDIDATE /tmp/qsa-raw-cube-chain.Fq6RiiVt/flagtree-corefix/triton/backends/ascend/compiler.py
+BUILD query16-ccec-version: /opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/ccec
+BUILD query16-ccec-version: passed
+BUILD query16-ccec-plain: /opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/ccec
+BUILD query16-ccec-plain: passed
+BUILD query16-llvm-link-text: /opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/llvm-link
+BUILD query16-llvm-link-text: passed
+RAW_MIXED_FAILED compile-512-slots1-traceFalse MLIRCompilationError('ConvertLinalgIRToBinary', 'bisheng: warning: the flag \'--cce-aicore-input-parameter-size=1536\' has been deprecated and will be ignored [-Wunused-command-line-argument]\nwarning: linking module \'/tmp/tmpn91a4r6b/kernel.mix_aic.ll\': Linking two modules of different data layouts: \'/tmp/qsa-raw-cube-chain.Fq6RiiVt/flagtree-corefix/triton/backends/ascend/lib/libdevice.10.bc\' is \'e-i1:8:32-i8:8:32-i16:16:32-i64:64-f16:16:32-v16:16-v32:32-n8:16:32:64-S64\' whereas \'/tmp/tmpn91a4r6b/kernel.mix_aic.ll\' is \'e-i1:8:32-i8:8:32-i16:16:32-i64:64-f16:16:32-v16:16-v32:32-n64-S64\'\n [-Wlinker-warnings]\n1 warning generated.\nbisheng: warning: the flag \'--cce-aicore-input-parameter-size=1536\' has been deprecated and will be ignored [-Wunused-command-line-argument]\nwarning: linking module \'/tmp/tmpn91a4r6b/kernel.mix_aiv.ll\': Linking two modules of different data layouts: \'/tmp/qsa-raw-cube-chain.Fq6RiiVt/flagtree-corefix/triton/backends/ascend/lib/libdevice.10.bc\' is \'e-i1:8:32-i8:8:32-i16:16:32-i64:64-f16:16:32-v16:16-v32:32-n8:16:32:64-S64\' whereas \'/tmp/tmpn91a4r6b/kernel.mix_aiv.ll\' is \'e-i1:8:32-i8:8:32-i16:16:32-i64:64-f16:16:32-v16:16-v32:32-n64-S64\'\n [-Wlinker-warnings]\n1 warning generated.\nld.lld: warning: -z separate-code and -z separate-loadable-segments will be ignored\nld.lld: error: undefined symbol: _mlir_ciface_qsa_raw_chain_address_query16.cube\n>>> referenced by LLVMDialectModule\n>>>               /tmp/tmpn91a4r6b/kernel.o:(raw_mixed_online_mix_aic)\n>>> referenced by LLVMDialectModule\n>>>               /tmp/tmpn91a4r6b/kernel.o:(raw_mixed_online_mix_aic)\n>>> referenced by LLVMDialectModule\n>>>               /tmp/tmpn91a4r6b/kernel.o:(raw_mixed_online_mix_aic)\n>>> referenced 5 more times\n[ERROR] Executing: /opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/ld.lld -m aicorelinux -Ttext 0 /tmp/tmpn91a4r6b/kernel.o -q -static -o /tmp/tmpn91a4r6b/kernel.o\nloc("/tmp/bishengir-compile-f25a05/module.hivm.opt.mlir":4:1): error: Failed to relocate binary\nloc("/tmp/bishengir-compile-f25a05/module.hivm.opt.mlir":4:1): error: Failed to compile BiShengLIR for device\nFailed to compile HIVM IR\n[ERROR] Executing: /opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/hivmc /tmp/bishengir-compile-f25a05/module.hivm.opt.mlir --enable-debug-info=false --enable-static-bare-ptr=true --enable-bin-relocation=true --enable-hivm-inject-barrier-all-sync=false --enable-sanitizer=false --link-aicore-bitcode=/tmp/qsa-raw-cube-chain.Fq6RiiVt/query16-plain.bc,/tmp/qsa-raw-cube-chain.Fq6RiiVt/flagtree-corefix/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc,/tmp/qsa-raw-cube-chain.Fq6RiiVt/flagtree-corefix/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc,/tmp/qsa-raw-cube-chain.Fq6RiiVt/flagtree-corefix/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc,/tmp/qsa-raw-cube-chain.Fq6RiiVt/flagtree-corefix/triton/backends/ascend/lib/libdevice.10.bc -o /tmp/tmpn91a4r6b/kernel\nloc("/tmp/qsa-raw-cube-chain.Fq6RiiVt/raw-mixed-online-kernels.py":305:0): error: External hivmc run fails, returning module before running external compiler\n[ERROR] Failed to run BiShengIR pipeline\n\n\n[INFO]: The compiled kernel cache is in /tmp/qsa-raw-cube-chain.Fq6RiiVt/triton-cache/UVWRIY55ST5EJ2745RL5XYTWWH2TR3WACNEYPZFP4VHXTB33KDPQ\n\n')
+Traceback (most recent call last):
+  File "/tmp/qsa-raw-cube-chain.Fq6RiiVt/flagtree-corefix/triton/spec/ascend/compiler/compiler.py", line 330, in compile
+    next_module = compile_ir(module, metadata)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.Fq6RiiVt/flagtree-corefix/triton/backends/ascend/compiler.py", line 1150, in <lambda>
+    stages["npubin"] = (lambda src, metadata: _compile_linalg_to_npu_bin(src, metadata, options))
+                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.Fq6RiiVt/flagtree-corefix/triton/backends/ascend/compiler.py", line 663, in _compile_linalg_to_npu_bin
+    return linalg_to_bin_enable_npu_compile_A2_A3(linalg, metadata, opt)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.Fq6RiiVt/flagtree-corefix/triton/backends/ascend/compiler.py", line 847, in linalg_to_bin_enable_npu_compile_A2_A3
+    ret = subprocess.run(cmd_list, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.local/share/uv/python/cpython-3.11.15-linux-aarch64-gnu/lib/python3.11/subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/bishengir-compile', '/tmp/tmpn91a4r6b/kernel.mlir', '--target=Ascend910B4-1', '--enable-auto-multi-buffer=True', '--enable-auto-bind-sub-block=False', '--link-aicore-bitcode=/tmp/qsa-raw-cube-chain.Fq6RiiVt/query16-plain.bc', '--link-aicore-bitcode=/tmp/qsa-raw-cube-chain.Fq6RiiVt/flagtree-corefix/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc', '--link-aicore-bitcode=/tmp/qsa-raw-cube-chain.Fq6RiiVt/flagtree-corefix/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc', '--link-aicore-bitcode=/tmp/qsa-raw-cube-chain.Fq6RiiVt/flagtree-corefix/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc', '--link-aicore-bitcode=/tmp/qsa-raw-cube-chain.Fq6RiiVt/flagtree-corefix/triton/backends/ascend/lib/libdevice.10.bc', '--enable-hfusion-compile=true', '--enable-hivm-compile=true', '--enable-triton-kernel-compile=true', '-o', '/tmp/tmpn91a4r6b/kernel']' returned non-zero exit status 1.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/tmp/flaggems-qsa-raw-mixed-retry.uVnS4dGa/tools/probe_qsa_raw_mixed_online_910b.py", line 207, in main
+    compiled = module.raw_mixed_online.warmup(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.Fq6RiiVt/flagtree-corefix/triton/spec/ascend/runtime/jit.py", line 804, in warmup
+    return self.run(grid=grid, warmup=True, *map(MockTensor.wrap_dtype, args), **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.Fq6RiiVt/flagtree-corefix/triton/spec/ascend/runtime/jit.py", line 736, in run
+    kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.Fq6RiiVt/flagtree-corefix/triton/spec/ascend/runtime/jit.py", line 864, in _do_compile
+    kernel = self.compile(src, target=target, options=options.__dict__)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.Fq6RiiVt/flagtree-corefix/triton/experimental/tle/__init__.py", line 83, in tle_compile
+    compiled_kernel = original_compile_fn(src, target, options)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.Fq6RiiVt/flagtree-corefix/triton/spec/ascend/compiler/compiler.py", line 351, in compile
+    raise MLIRCompilationError(stage_name, error_detail) from e
+triton.compiler.errors.MLIRCompilationError: 
+///------------------[ERROR][Triton][BEG]------------------
+[ConvertLinalgIRToBinary] encounters error:
+bisheng: warning: the flag '--cce-aicore-input-parameter-size=1536' has been deprecated and will be ignored [-Wunused-command-line-argument]
+warning: linking module '/tmp/tmpn91a4r6b/kernel.mix_aic.ll': Linking two modules of different data layouts: '/tmp/qsa-raw-cube-chain.Fq6RiiVt/flagtree-corefix/triton/backends/ascend/lib/libdevice.10.bc' is 'e-i1:8:32-i8:8:32-i16:16:32-i64:64-f16:16:32-v16:16-v32:32-n8:16:32:64-S64' whereas '/tmp/tmpn91a4r6b/kernel.mix_aic.ll' is 'e-i1:8:32-i8:8:32-i16:16:32-i64:64-f16:16:32-v16:16-v32:32-n64-S64'
+ [-Wlinker-warnings]
+1 warning generated.
+bisheng: warning: the flag '--cce-aicore-input-parameter-size=1536' has been deprecated and will be ignored [-Wunused-command-line-argument]
+warning: linking module '/tmp/tmpn91a4r6b/kernel.mix_aiv.ll': Linking two modules of different data layouts: '/tmp/qsa-raw-cube-chain.Fq6RiiVt/flagtree-corefix/triton/backends/ascend/lib/libdevice.10.bc' is 'e-i1:8:32-i8:8:32-i16:16:32-i64:64-f16:16:32-v16:16-v32:32-n8:16:32:64-S64' whereas '/tmp/tmpn91a4r6b/kernel.mix_aiv.ll' is 'e-i1:8:32-i8:8:32-i16:16:32-i64:64-f16:16:32-v16:16-v32:32-n64-S64'
+ [-Wlinker-warnings]
+1 warning generated.
+ld.lld: warning: -z separate-code and -z separate-loadable-segments will be ignored
+ld.lld: error: undefined symbol: _mlir_ciface_qsa_raw_chain_address_query16.cube
+>>> referenced by LLVMDialectModule
+>>>               /tmp/tmpn91a4r6b/kernel.o:(raw_mixed_online_mix_aic)
+>>> referenced by LLVMDialectModule
+>>>               /tmp/tmpn91a4r6b/kernel.o:(raw_mixed_online_mix_aic)
+>>> referenced by LLVMDialectModule
+>>>               /tmp/tmpn91a4r6b/kernel.o:(raw_mixed_online_mix_aic)
+>>> referenced 5 more times
+[ERROR] Executing: /opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/ld.lld -m aicorelinux -Ttext 0 /tmp/tmpn91a4r6b/kernel.o -q -static -o /tmp/tmpn91a4r6b/kernel.o
+loc("/tmp/bishengir-compile-f25a05/module.hivm.opt.mlir":4:1): error: Failed to relocate binary
+loc("/tmp/bishengir-compile-f25a05/module.hivm.opt.mlir":4:1): error: Failed to compile BiShengLIR for device
+Failed to compile HIVM IR
+[ERROR] Executing: /opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/hivmc /tmp/bishengir-compile-f25a05/module.hivm.opt.mlir --enable-debug-info=false --enable-static-bare-ptr=true --enable-bin-relocation=true --enable-hivm-inject-barrier-all-sync=false --enable-sanitizer=false --link-aicore-bitcode=/tmp/qsa-raw-cube-chain.Fq6RiiVt/query16-plain.bc,/tmp/qsa-raw-cube-chain.Fq6RiiVt/flagtree-corefix/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc,/tmp/qsa-raw-cube-chain.Fq6RiiVt/flagtree-corefix/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc,/tmp/qsa-raw-cube-chain.Fq6RiiVt/flagtree-corefix/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc,/tmp/qsa-raw-cube-chain.Fq6RiiVt/flagtree-corefix/triton/backends/ascend/lib/libdevice.10.bc -o /tmp/tmpn91a4r6b/kernel
+loc("/tmp/qsa-raw-cube-chain.Fq6RiiVt/raw-mixed-online-kernels.py":305:0): error: External hivmc run fails, returning module before running external compiler
+[ERROR] Failed to run BiShengIR pipeline
+
+
+[INFO]: The compiled kernel cache is in /tmp/qsa-raw-cube-chain.Fq6RiiVt/triton-cache/UVWRIY55ST5EJ2745RL5XYTWWH2TR3WACNEYPZFP4VHXTB33KDPQ
+
+///------------------[ERROR][Triton][END]------------------
+
