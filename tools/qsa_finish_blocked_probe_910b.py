@@ -40,8 +40,9 @@ def raw_finish_merge{block}(Raw, KS, Table, Visible, Out, ROWS:tl.constexpr,
                      mask=live,other=0).to(tl.float32)
         value = tl.load(Raw+((row//16)*RAW_TILES+safe_tile[:,None])*1024+row%16*64+c[None,:],
                         mask=live,other=0)*ks
-        tl.store(Out+row*WIDTH+tiles[:,None]*64+c[None,:],tl.where(live,value,-float("inf")),
-                 mask=tiles[:,None]*64+c[None,:]<WIDTH)
+        result = tl.reshape(tl.where(live,value,-float("inf")),({block},))
+        out_col = block*{block}+tl.arange(0,{block})
+        tl.store(Out+row*WIDTH+out_col,result,mask=out_col<WIDTH)
 """
     return text
 

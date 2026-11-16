@@ -51,3 +51,11 @@ positions, zero/unequal visibility, inactive pointers, row17, partial widths,
 shuffled pages and page crossings, and verify no concat/transpose/reshape is
 present. A mock profiler export test verifies exactly three missing-file
 attempts before failure. Device lowering, UB usage and speed remain pending.
+
+Report f76af6b2: all widths compiled but the IR gate found an extra Out read.
+The two-dimensional masked store lowered to an old-Out copy plus select and
+writeback; no candidate reached correctness validation or timing. Keep the
+strict gate. The revised expression flattens the contiguous value tensor once
+and uses a one-dimensional output pointer/mask. This is a single view reshape,
+without join or transpose chains. Actual elimination of the Out read remains
+a device-IR gate, followed by exact boundary and post-timing validation.

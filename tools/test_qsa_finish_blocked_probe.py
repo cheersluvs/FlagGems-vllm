@@ -52,8 +52,16 @@ class VectorIndex(Integer):
 
 
 class TL(BoundedTL):
+    @staticmethod
+    def reshape(value, shape):
+        return value
+
     def arange(self, begin, end):
-        return VectorIndex(self.column if end == 64 else self.tile)
+        return VectorIndex(
+            self.column
+            if end == 64
+            else self.tile * 64 + self.column if end in WIDTHS else self.tile
+        )
 
     def where(self, condition, yes, no):
         value = yes if condition else no
@@ -171,10 +179,9 @@ class BlockedTests(unittest.TestCase):
                 ast.unparse(n.func) for n in ast.walk(fn) if isinstance(n, ast.Call)
             ]
             self.assertEqual(calls.count("tl.store"), 1)
+            self.assertEqual(calls.count("tl.reshape"), 1)
             self.assertEqual(calls.count("tl.load"), 4)
-            self.assertFalse(
-                set(calls) & {"tl.cat", "tl.join", "tl.trans", "tl.reshape"}
-            )
+            self.assertFalse(set(calls) & {"tl.cat", "tl.join", "tl.trans"})
 
     def test_missing_profiler_export_retries_exactly_three_times(self):
         class Prof:
