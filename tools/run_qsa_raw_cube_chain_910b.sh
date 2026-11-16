@@ -38,9 +38,15 @@ qsa_finish_routing=0
 qsa_empty_pair=0
 qsa_empty_ten=0
 qsa_serial_harness=0
+qsa_mixed_harness=0
 qsa_raw_mixed=0
 qsa_boundaries=0
 for qsa_argument in "$@"; do
+    if [[ "$qsa_argument" == --mixed-harness ]]; then
+        qsa_mixed_harness=1
+        qsa_serial_harness=1
+        qsa_score_chunks=1
+    fi
     if [[ "$qsa_argument" == --boundaries ]]; then
         qsa_boundaries=1
     fi
@@ -147,6 +153,9 @@ if [[ "$qsa_empty_ten" == 1 ]]; then
 fi
 if [[ "$qsa_serial_harness" == 1 ]]; then
     qsa_kind=raw-serial-harness
+fi
+if [[ "$qsa_mixed_harness" == 1 ]]; then
+    qsa_kind=raw-mixed-harness
 fi
 if [[ "$qsa_raw_mixed" == 1 ]]; then
     qsa_kind=raw-mixed-online
@@ -258,6 +267,11 @@ fi
 if [[ "$qsa_status" == 0 && "$qsa_serial_harness" == 1 ]]; then
     "$qsa_python" -u "$qsa_repo/tools/test_qsa_raw_serial_selection.py" -v \
         2>&1 | tee "$qsa_report/raw-serial-cpu-tests.txt"
+    qsa_status=${PIPESTATUS[0]}
+fi
+if [[ "$qsa_status" == 0 && "$qsa_mixed_harness" == 1 ]]; then
+    "$qsa_python" -u "$qsa_repo/tools/test_qsa_raw_mixed_selection.py" -v \
+        2>&1 | tee "$qsa_report/raw-mixed-selection-cpu-tests.txt"
     qsa_status=${PIPESTATUS[0]}
 fi
 if [[ "$qsa_status" == 0 && "$qsa_raw_mixed" == 1 ]]; then

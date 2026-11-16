@@ -29,9 +29,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from tools.qsa_int8_ten_workloads_910b import cases  # noqa: E402
 
 OP_NAME = "qsa_raw_serial_int8_910b"
+MIXED_OP_NAME = "qsa_raw_mixed_int8_910b"
 
 
-def summarize(report, outcomes):
+def summarize(report, outcomes, mixed=False):
     rows = []
     for plan in cases():
         name = plan["name"]
@@ -55,14 +56,17 @@ def summarize(report, outcomes):
                     or outcome.get("test_case") != expected_test
                 ):
                     raise ValueError("Harness outcome or test identity mismatch")
-                bench = payload[OP_NAME]
+                bench = payload[MIXED_OP_NAME if mixed else OP_NAME]
                 if not bench["details"] or any(
                     d.get("mode") != "kernel" or d.get("dtype") != "torch.int8"
                     for d in bench["details"]
                 ):
                     raise ValueError("Expected INT8 kernel-mode details")
                 values = [r for d in bench["details"] for r in d["result"]]
-                if len(values) != 1 or values[0]["shape_detail"] != [name, "auto"]:
+                if len(values) != 1 or values[0]["shape_detail"] != [
+                    name,
+                    "online512_slots2" if mixed else "auto",
+                ]:
                     raise ValueError("Unexpected harness case records")
                 metric = values[0]
                 if metric.get("error_msg"):
@@ -87,6 +91,13 @@ def summarize(report, outcomes):
                     )
                 ):
                     raise ValueError("Missing pre/post correctness")
+                if mixed:
+                    if checks["mixed_identity"]["slots"] != 2 or any(
+                        "mixed" not in checks[k].get("extra_candidates", [])
+                        or checks[k].get("extra_score_trace_rows") != plan["q_shape"][0]
+                        for k in ("precheck", "postcheck")
+                    ):
+                        raise ValueError("Missing mixed pre/post trace coverage")
                 stages = checks["stage_ms"]
                 if not all(
                     isinstance(stages.get(key), (int, float))
@@ -100,16 +111,37 @@ def summarize(report, outcomes):
                     )
                 ):
                     raise ValueError("Invalid auxiliary stage timing")
+                if mixed and not all(
+                    isinstance(stages.get(k), (int, float))
+                    and math.isfinite(stages[k])
+                    and stages[k] > 0
+                    for k in ("serial_combined", "online_topk")
+                ):
+                    raise ValueError("Missing mixed comparison stages")
                 entry.update(
                     status="passed",
                     cann_ms=base,
-                    raw_combined_ms=cand,
+                    **(
+                        {
+                            "mixed_combined_ms": cand,
+                            "serial_over_mixed": stages["serial_combined"] / cand,
+                        }
+                        if mixed
+                        else {"raw_combined_ms": cand}
+                    ),
                     speedup=ratio,
-                    current_over_raw=stages["current_combined"] / cand,
+                    **{
+                        "current_over_mixed" if mixed else "current_over_raw": stages[
+                            "current_combined"
+                        ]
+                        / cand
+                    },
                     stage_ms=stages,
-                    changed_index_sets=checks["postcheck"][
-                        "raw_current_changed_index_sets"
-                    ],
+                    changed_index_sets=(
+                        checks["postcheck"]["extra_current_changed_index_sets"]["mixed"]
+                        if mixed
+                        else checks["postcheck"]["raw_current_changed_index_sets"]
+                    ),
                 )
             except (KeyError, ValueError, TypeError, OSError) as exc:
                 entry["error"] = repr(exc)
@@ -123,10 +155,18 @@ def summarize(report, outcomes):
         mode="kernel",
         baseline="CANN V1",
         production_changed=False,
-        scope="Stock harness whole-call speedup of unregistered serial raw candidate",
+        scope=(
+            "Stock harness whole-call speedup of prepared two-slot mixed candidate"
+            if mixed
+            else "Stock harness whole-call speedup of unregistered serial raw candidate"
+        ),
     )
     if valid:
         summary["arithmetic_mean_speedup"] = sum(r["speedup"] for r in rows) / 10
+        if mixed:
+            summary["arithmetic_mean_serial_over_mixed"] = (
+                sum(r["serial_over_mixed"] for r in rows) / 10
+            )
     return summary
 
 
@@ -181,6 +221,7 @@ def main():
     parser.add_argument("--report", type=Path, required=True)
     parser.add_argument("--device", type=int, default=0)
     parser.add_argument("--case-timeout", type=int, default=1800)
+    parser.add_argument("--mixed-harness", action="store_true")
     parser.add_argument("--summarize-only", action="store_true")
     parser.add_argument("--source-report", type=Path)
     args = parser.parse_args()
@@ -208,7 +249,7 @@ def main():
                 ):
                     name = "original-" + name
                 shutil.copy2(path, args.report / name)
-        summary = summarize(args.report, outcomes)
+        summary = summarize(args.report, outcomes, mixed=args.mixed_harness)
         summary["recovered_without_npu_execution"] = True
         summary["source_report"] = str(source)
         (args.report / "serial-harness-summary.json").write_text(
@@ -224,6 +265,7 @@ def main():
         QSA_RAW_SERIAL_REPORT=str(args.report.resolve()),
         QSA_DEVICE=str(args.device),
         PYTEST_DISABLE_PLUGIN_AUTOLOAD="1",
+        QSA_RAW_MIXED_HARNESS="1" if args.mixed_harness else "0",
     )
     outcomes = {}
     for plan in cases():
@@ -252,14 +294,14 @@ def main():
             print(repr(exc), flush=True)
             rc = 1
         outcomes[name] = rc
-        summary = summarize(args.report, outcomes)
+        summary = summarize(args.report, outcomes, mixed=args.mixed_harness)
         (args.report / "serial-harness-summary.json").write_text(
             json.dumps(summary, indent=2)
         )
         # A fatal NPU error needs explicit diagnosis before more device work.
         if rc in (134, -6, 139, -11, 124):
             break
-    summary = summarize(args.report, outcomes)
+    summary = summarize(args.report, outcomes, mixed=args.mixed_harness)
     (args.report / "serial-harness-summary.json").write_text(
         json.dumps(summary, indent=2)
     )

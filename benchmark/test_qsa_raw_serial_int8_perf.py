@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Stock kernel harness for serial raw scoring plus unchanged persistent TopK."""
+"""Stock whole-call harness for serial raw or mixed two-slot selection."""
 
 import importlib.util
 import json
@@ -37,7 +37,11 @@ from .test_qsa_select_paged_prefill_int8_perf import (
     _call_reference,
 )
 
-OP_NAME = "qsa_raw_serial_int8_910b"
+OP_NAME = (
+    "qsa_raw_mixed_int8_910b"
+    if os.environ.get("QSA_RAW_MIXED_HARNESS") == "1"
+    else "qsa_raw_serial_int8_910b"
+)
 
 
 @pytest.mark.qsa_select_paged_prefill_int8_910b
@@ -79,13 +83,24 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
     assert topk.HAS_TLE_PTK
     native = native_module(report, 16, build, save)
     path = report / (case_name + "-serial-kernels.py")
-    path.write_text(runtime_source() + finish_source())
+    mixed_mode = os.environ.get("QSA_RAW_MIXED_HARNESS") == "1"
+    source_text = runtime_source() + finish_source()
+    if mixed_mode:
+        from qsa_raw_mixed_online_910b import harness_source
+        from qsa_raw_mixed_online_910b import source as mixed_source
+
+        source_text += mixed_source() + harness_source()
+    path.write_text(source_text)
     path.with_suffix(".py.txt").write_text(path.read_text())
     spec = importlib.util.spec_from_file_location("_raw_serial_kernels", path)
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     module.chain_op = native.chain_op
+    if mixed_mode:
+        from qsa_raw_mixed_abi_910b import bind_mixed_chain
+
+        module.mixed_chain_op = bind_mixed_chain(report, build, save)
     build["boundary"] = boundary(
         module, torch, f"npu:{device_index}", variants=("empty1024",)
     )
@@ -98,6 +113,24 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
         adapter = context["adapter"]
         adapter.topk = topk
         raw = SerialRawSelection(context)
+        mixed = None
+        extra = {}
+        if mixed_mode:
+            from qsa_raw_mixed_selection_910b_trial import PreparedRawMixedSelection
+
+            mixed = PreparedRawMixedSelection(
+                context, module, report, case_name, save_asm, record_launch_mode
+            )
+            extra["mixed"] = mixed
+            detail["mixed_identity"] = dict(
+                slots=2,
+                kernel="raw_mixed_prepared",
+                topk="online512_UB_snapshot",
+                native="unchanged_query16_cube",
+                source_import=str(Path(module.__file__)),
+            )
+            detail["mixed_routes"] = mixed.routes
+            detail["mixed_compiled_artifacts"] = mixed.artifacts
         v = context["values"]
         native_call = partial(
             torch_npu.npu_quant_lightning_indexer,
@@ -120,10 +153,14 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
             pre_tokens=2**63 - 1,
             next_tokens=2**63 - 1,
         )
-        detail["precheck"] = verify_pipeline(torch, context, raw, native_call, "before")
+        detail["precheck"] = verify_pipeline(
+            torch, context, raw, native_call, "before", extra=extra
+        )
         detail["topk_identity"] = topk.probe_identity
         detail["scope"] = (
-            "Prepared unregistered serial raw candidate; full native CANN V1 baseline; no overlap"
+            "Prepared two-slot mixed candidate; QW/K/KS packing and request splits charged"
+            if mixed_mode
+            else "Prepared unregistered serial raw candidate; full native CANN V1 baseline; no overlap"
         )
 
         def prepare(shape, dtype, device):
@@ -131,9 +168,9 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
             yield (
                 dict(
                     case_name=case_name,
-                    route="auto",
+                    route="online512_slots2" if mixed_mode else "auto",
                     reference=native_call,
-                    candidate=raw,
+                    candidate=mixed if mixed_mode else raw,
                 ),
             )
 
@@ -149,11 +186,14 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
         benchmark.run()
         # Auxiliary stages use the same stock get_latency. Native has no stage split.
         timings = {}
-        for name, call in (
+        stage_calls = [
             ("current_combined", adapter),
             ("current_score", adapter.score_all),
             ("raw_score", raw.score_all),
-        ):
+        ]
+        if mixed_mode:
+            stage_calls.insert(1, ("serial_combined", raw))
+        for name, call in stage_calls:
             timings[name] = float(benchmark.get_latency(call))
             assert math.isfinite(timings[name]) and timings[name] > 0
         staged = torch.empty(
@@ -184,9 +224,30 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
                 rtol=0,
                 atol=0,
             )
+        if mixed_mode:
+            timings["online_topk"] = float(
+                benchmark.get_latency(
+                    lambda staged=staged: mixed.topk_all_from_staged(staged)
+                )
+            )
+            assert math.isfinite(timings["online_topk"]) and timings["online_topk"] > 0
+            torch.npu.synchronize()
+            selected = mixed.output.cpu()
+            for first, count in adapter.chunks:
+                check_rank(
+                    torch,
+                    selected[first : first + count],
+                    staged[first : first + count].cpu(),
+                    context["cpu"]["visible"][first : first + count],
+                    rtol=0,
+                    atol=0,
+                )
+            mixed.check_guards()
         del staged
         detail["stage_ms"] = timings
-        detail["postcheck"] = verify_pipeline(torch, context, raw, native_call, "after")
+        detail["postcheck"] = verify_pipeline(
+            torch, context, raw, native_call, "after", extra=extra
+        )
         print("RAW_SERIAL_STAGE_MS", case_name, json.dumps(timings), flush=True)
         return detail
 

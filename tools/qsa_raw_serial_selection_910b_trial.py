@@ -51,17 +51,23 @@ def check_rank(torch, indices, scores, lengths, *, rtol, atol):
     torch.testing.assert_close(selected, expected, rtol=rtol, atol=atol)
 
 
-def verify_pipeline(torch, context, raw, native, phase):
+def verify_pipeline(torch, context, raw, native, phase, extra=None):
     """Recompute chunk logits only for checks, outside all timed entry points."""
     adapter = context["adapter"]
     cpu = context["cpu"]
+    extra = extra or {}
     outputs = {}
-    for name, call in (("current", adapter), ("raw", raw)):
+    for name, call in [("current", adapter), ("raw", raw)] + list(extra.items()):
         print("RAW_SERIAL_SELECTION_START", phase, name, flush=True)
-        adapter.output.fill_(-3)
-        call()
+        target = getattr(call, "output", adapter.output)
+        target.fill_(-3)
+        if hasattr(call, "reset_guards"):
+            call.reset_guards()
+        returned = call()
         torch.npu.synchronize()
-        outputs[name] = adapter.output.cpu()
+        if hasattr(call, "check_guards"):
+            call.check_guards()
+        outputs[name] = returned.cpu()
     print("RAW_SERIAL_SELECTION_START", phase, "native", flush=True)
     native_output = native()
     torch.npu.synchronize()
@@ -84,11 +90,13 @@ def verify_pipeline(torch, context, raw, native, phase):
         original = context["reference_scores"][:count].cpu()
         candidate = context["scores"][:count].cpu()
         lengths = cpu["visible"][first : first + count]
-        for name in ("current", "native", "raw"):
+        for name in outputs:
             indices = outputs[name][first : first + count]
             check_rank(torch, indices, original, lengths, rtol=1e-3, atol=1e-3)
-            if name == "raw":
+            if name == "raw" or name in extra:
                 check_rank(torch, indices, candidate, lengths, rtol=0, atol=0)
+        for call in extra.values():
+            call.check_chunk_scores(torch, entry, candidate)
         if chunk_index % 16 == 0 or chunk_index + 1 == len(context["jobs"]):
             print(
                 "RAW_SERIAL_RANK_CHECK",
@@ -102,6 +110,16 @@ def verify_pipeline(torch, context, raw, native, phase):
         all_rows=adapter.rows,
         passed=True,
         raw_current_changed_index_sets=changed,
+        extra_candidates=list(extra),
+        extra_score_trace_rows=adapter.rows if extra else 0,
+        extra_current_changed_index_sets={
+            name: int(
+                (outputs["current"].sort(1).values != outputs[name].sort(1).values)
+                .any(1)
+                .sum()
+            )
+            for name in extra
+        },
         semantics="Tie-aware ranked score checks; raw exact own scores, current FP32 tolerance1e-3",
     )
     print("RAW_SERIAL_SELECTION_CHECK", result, flush=True)

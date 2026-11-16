@@ -234,3 +234,93 @@ def boundary_source():
             raise RuntimeError("Frozen mixed expression changed: " + old)
         text = text.replace(old, new)
     return "\n" + padded_pack_source() + "\n" + text + "\n"
+
+
+def harness_source():
+    text = boundary_source()
+    tree = ast.parse(text)
+    fn = next(
+        n
+        for n in tree.body
+        if isinstance(n, ast.FunctionDef) and n.name == "raw_mixed_boundaries"
+    )
+    text = "@triton.jit\n" + ast.get_source_segment(text, fn)
+    text = text.replace("raw_mixed_boundaries(", "raw_mixed_prepared(")
+    text = text.replace("ROWS:tl.constexpr):", "ROWS:tl.constexpr,BLOCKS):")
+    text = text.replace("range(triton.cdiv(WIDTH,512))", "range(BLOCKS)")
+    # The key count varies each causal chunk: retain one runtime-bound packer.
+    pack = (
+        padded_pack_source()
+        .replace("MAX_VISIBLE:tl.constexpr", "MAX_VISIBLE")
+        .replace("TILES:tl.constexpr", "TILES")
+    )
+    return "\n" + pack + "\n" + text + "\n" + online_topk_source()
+
+
+def online_topk_source():
+    tree = ast.parse(boundary_source())
+    fn = next(
+        n
+        for n in tree.body
+        if isinstance(n, ast.FunctionDef) and n.name == "raw_mixed_boundaries"
+    )
+    vector = fn.body[1].body
+    body = []
+    for stmt in vector:
+        # Standalone Vector stage has no ring or cross-core handshakes.
+        if isinstance(stmt, ast.For) and stmt.target.id == "initial_credit":
+            continue
+        if isinstance(stmt, ast.For) and stmt.target.id == "vector_block":
+            stmt.iter = ast.parse("range(BLOCKS)", mode="eval").body
+            stmt.body = [
+                n
+                for n in stmt.body
+                if not (
+                    isinstance(n, ast.Expr)
+                    and isinstance(n.value, ast.Call)
+                    and ast.unparse(n.value.func).startswith("al.sync_block_")
+                )
+            ]
+            stmt.body = [
+                n
+                for n in stmt.body
+                if not (isinstance(n, ast.Assign) and n.targets[0].id == "vector_slot")
+            ]
+            update = next(n for n in stmt.body if isinstance(n, ast.For))
+            keep = []
+            for n in update.body:
+                if isinstance(n, ast.Assign):
+                    name = n.targets[0].id
+                    if name in ("tile", "col", "received", "ks", "visible"):
+                        continue
+                    if name == "update_local_row":
+                        n.value = ast.parse("update_query", mode="eval").body
+                    if name == "update_row":
+                        n.value = ast.parse(
+                            "tl.program_id(0)*8+update_query", mode="eval"
+                        ).body
+                    if name == "score":
+                        n.value = ast.parse(
+                            "tl.load(Staged+update_row*WIDTH+vector_block*512+lane,"
+                            "mask=(update_row<ROWS)&(vector_block*512+lane<WIDTH),"
+                            'other=-float("inf"))',
+                            mode="eval",
+                        ).body
+                if isinstance(n, ast.If):
+                    continue
+                keep.append(n)
+            update.body = keep
+        if isinstance(stmt, ast.For) and stmt.target.id == "final_query":
+            row = next(
+                n
+                for n in stmt.body
+                if isinstance(n, ast.Assign) and n.targets[0].id == "final_row"
+            )
+            row.value = ast.parse("tl.program_id(0)*8+final_query", mode="eval").body
+        body.append(stmt)
+    shell = ast.parse(
+        "def raw_online_topk_from_scores(Staged,Visible,Indices,Values,"
+        "ROWS:tl.constexpr,WIDTH:tl.constexpr,BLOCKS): pass"
+    )
+    shell.body[0].body = body
+    return "\n@triton.jit\n" + ast.unparse(ast.fix_missing_locations(shell)) + "\n"
