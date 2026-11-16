@@ -38,7 +38,12 @@ qsa_finish_routing=0
 qsa_empty_pair=0
 qsa_empty_ten=0
 qsa_serial_harness=0
+qsa_raw_mixed=0
 for qsa_argument in "$@"; do
+    if [[ "$qsa_argument" == --raw-mixed-online ]]; then
+        qsa_raw_mixed=1
+        qsa_score_chunks=1
+    fi
     if [[ "$qsa_argument" == --serial-harness ]]; then
         qsa_serial_harness=1
         qsa_score_chunks=1
@@ -138,6 +143,9 @@ if [[ "$qsa_empty_ten" == 1 ]]; then
 fi
 if [[ "$qsa_serial_harness" == 1 ]]; then
     qsa_kind=raw-serial-harness
+fi
+if [[ "$qsa_raw_mixed" == 1 ]]; then
+    qsa_kind=raw-mixed-online
 fi
 # Re-activate after shell startup files have run; lock the environment at execution.
 if [[ -n "${QSA_ENV_ROOT:-}" ]]; then
@@ -245,9 +253,17 @@ if [[ "$qsa_status" == 0 && "$qsa_serial_harness" == 1 ]]; then
         2>&1 | tee "$qsa_report/raw-serial-cpu-tests.txt"
     qsa_status=${PIPESTATUS[0]}
 fi
+if [[ "$qsa_status" == 0 && "$qsa_raw_mixed" == 1 ]]; then
+    "$qsa_python" -u "$qsa_repo/tools/test_qsa_raw_mixed_online.py" -v \
+        2>&1 | tee "$qsa_report/raw-mixed-online-cpu-tests.txt"
+    qsa_status=${PIPESTATUS[0]}
+fi
 qsa_worker="$qsa_repo/tools/probe_qsa_raw_cube_chain_910b.py"
 if [[ "$qsa_serial_harness" == 1 ]]; then
     qsa_worker="$qsa_repo/tools/run_qsa_raw_serial_harness_910b.py"
+fi
+if [[ "$qsa_raw_mixed" == 1 ]]; then
+    qsa_worker="$qsa_repo/tools/probe_qsa_raw_mixed_online_910b.py"
 fi
 command -v timeout >/dev/null || { echo 'timeout is required'; exit 2; }
 if [[ "$qsa_status" == 0 ]]; then
