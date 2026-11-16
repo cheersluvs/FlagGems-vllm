@@ -34,6 +34,7 @@ qsa_probe_finish_prefix=0
 qsa_probe_finish_merge=0
 qsa_probe_finish_blocked=0
 qsa_ten_score=0
+qsa_finish_routing=0
 for qsa_argument in "$@"; do
     if [[ "$qsa_argument" == --score-chunks ]]; then
         qsa_score_chunks=1
@@ -65,6 +66,11 @@ for qsa_argument in "$@"; do
     fi
     if [[ "$qsa_argument" == --probe-finish-blocked ]]; then
         qsa_probe_finish_blocked=1
+    fi
+    if [[ "$qsa_argument" == --finish-routing-probe ]]; then
+        qsa_finish_routing=1
+        qsa_ten_score=1
+        qsa_score_chunks=1
     fi
     if [[ "$qsa_argument" == --ten-score-suite ]]; then
         qsa_ten_score=1
@@ -100,6 +106,9 @@ if [[ "$qsa_probe_finish_blocked" == 1 ]]; then
 fi
 if [[ "$qsa_ten_score" == 1 ]]; then
     qsa_kind=raw-ten-score-suite
+fi
+if [[ "$qsa_finish_routing" == 1 ]]; then
+    qsa_kind=raw-finish-routing
 fi
 # Re-activate after shell startup files have run; lock the environment at execution.
 if [[ -n "${QSA_ENV_ROOT:-}" ]]; then
@@ -190,6 +199,11 @@ fi
 if [[ "$qsa_status" == 0 && "$qsa_ten_score" == 1 ]]; then
     "$qsa_python" -u "$qsa_repo/tools/test_qsa_ten_score_suite.py" -v \
         2>&1 | tee "$qsa_report/ten-score-cpu-tests.txt"
+    qsa_status=${PIPESTATUS[0]}
+fi
+if [[ "$qsa_status" == 0 && "$qsa_finish_routing" == 1 ]]; then
+    "$qsa_python" -u "$qsa_repo/tools/test_qsa_finish_routing_probe.py" -v \
+        2>&1 | tee "$qsa_report/finish-routing-cpu-tests.txt"
     qsa_status=${PIPESTATUS[0]}
 fi
 command -v timeout >/dev/null || { echo 'timeout is required'; exit 2; }

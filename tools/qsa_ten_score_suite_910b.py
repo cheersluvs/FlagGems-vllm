@@ -99,6 +99,13 @@ def run_case(args, plan, module, report, save_asm, record_launch_mode):
     width = plan["logits_width"]
     cap = plan["chunk_rows"]
     manifest = schedule(plan)
+    routing = getattr(args, "finish_routing_probe", False)
+    if routing:
+        from qsa_finish_routing_probe_910b import VARIANTS
+
+        names = ("current", "logical1024") + VARIANTS
+    else:
+        names = ("current", "full1024", "logical1024")
     record = dict(
         case=name,
         status="running",
@@ -152,9 +159,7 @@ def run_case(args, plan, module, report, save_asm, record_launch_mode):
         raw = torch.empty(
             (max_groups * max_tiles * 1024,), dtype=torch.float32, device=device
         )
-        hosts = {
-            a: collections.Counter() for a in ("current", "full1024", "logical1024")
-        }
+        hosts = {a: collections.Counter() for a in names}
         artifacts = {}
 
         def inspect(kernel, label, rows, cube=False):
@@ -164,6 +169,31 @@ def run_case(args, plan, module, report, save_asm, record_launch_mode):
                 evidence = dict(
                     metadata=str(kernel.metadata), asm=save_asm(kernel, report, tag)
                 )
+                if routing and label.endswith("stage3"):
+                    import re
+
+                    evidence["finish_ir_counts"] = {
+                        kind: {
+                            op: len(
+                                re.findall(
+                                    r"\b" + re.escape(op) + r"\b",
+                                    kernel.asm.get(kind, ""),
+                                )
+                            )
+                            for op in (
+                                "tt.load",
+                                "tt.store",
+                                "scf.if",
+                                "vector.gather",
+                                "memref.load",
+                            )
+                        }
+                        for kind in ("ttir", "bcmlir")
+                        if isinstance(kernel.asm.get(kind), str)
+                    }
+                    evidence["evidence_scope"] = (
+                        "Static IR counts only; not executed DMA or instruction counts"
+                    )
                 if cube:
                     mode = record_launch_mode(kernel, require_cube=True)
                     if mode["mix_mode"] != "aic" or mode["bs_task_type"] != 20:
@@ -254,7 +284,7 @@ def run_case(args, plan, module, report, save_asm, record_launch_mode):
                             QUERIES=16,
                             num_warps=4,
                         )
-                        if mode == "logical1024":
+                        if mode != "full1024":
                             b = module.raw_pack_k_ks[(kcores,)](
                                 v["cache"],
                                 v["ks"],
@@ -279,12 +309,8 @@ def run_case(args, plan, module, report, save_asm, record_launch_mode):
                         c = module.raw_query16_cube[(cores,)](
                             *cube_args, **cube_options
                         )
-                        finish = (
-                            module.raw_finish_logical1024
-                            if mode == "logical1024"
-                            else module.raw_finish_full1024
-                        )
-                        extra = (lks,) if mode == "logical1024" else ()
+                        finish = getattr(module, "raw_finish_" + mode)
+                        extra = (lks,) if mode != "full1024" else ()
                         fcores = min(20, n * ((width + 1023) // 1024))
                         d = finish[(fcores,)](
                             rv,
@@ -356,12 +382,29 @@ def run_case(args, plan, module, report, save_asm, record_launch_mode):
                         ]
                         if not torch.equal(expected, item["lks"].cpu()):
                             raise AssertionError("Logical KS mismatch")
+                    for mode in names:
+                        if mode in ("current", "full1024", "logical1024"):
+                            continue
+                        out[offset : offset + n].fill_(float("nan"))
+                        kernels = item["execute"](mode)
+                        torch.npu.synchronize()
+                        if not torch.equal(actual, out[offset : offset + n].cpu()):
+                            raise AssertionError(
+                                f"{phase}: {mode} mismatch at {item['first']}"
+                            )
+                        if phase == "before":
+                            hosts[mode].update(k.metadata.kernel_name for k in kernels)
+                            for stage, kernel in enumerate(kernels):
+                                inspect(kernel, f"{mode}-stage{stage}", n)
                     if phase == "before":
                         for mode, kernels in (
                             ("full1024", full),
                             ("logical1024", logical_kernels),
                         ):
-                            hosts[mode].update(k.metadata.kernel_name for k in kernels)
+                            if mode in hosts:
+                                hosts[mode].update(
+                                    k.metadata.kernel_name for k in kernels
+                                )
                             for stage, kernel in enumerate(kernels):
                                 inspect(kernel, f"{mode}-stage{stage}", n)
                         for row in (0, plan["q_shape"][0] - 1):
@@ -408,11 +451,10 @@ def run_case(args, plan, module, report, save_asm, record_launch_mode):
                 for item in pieces:
                     item["execute"](mode)
 
-        arms = dict(
-            current=current,
-            full1024=lambda: candidate("full1024"),
-            logical1024=lambda: candidate("logical1024"),
-        )
+        arms = {
+            name: (current if name == "current" else lambda name=name: candidate(name))
+            for name in names
+        }
         options = SimpleNamespace(
             rounds=args.rounds,
             kernel_warmup=args.warmup,
@@ -436,10 +478,20 @@ def run_case(args, plan, module, report, save_asm, record_launch_mode):
         record.update(
             samples=samples,
             median_us=med,
-            full_over_logical=med["full1024"] / med["logical1024"],
-            current_over_full=med["current"] / med["full1024"],
             current_over_logical=med["current"] / med["logical1024"],
         )
+        if routing:
+            from qsa_finish_routing_probe_910b import stage_totals
+
+            record["logical_over_candidate"] = {
+                name: med["logical1024"] / med[name] for name in VARIANTS
+            }
+            record["stage_mean_us"] = stage_totals(report, samples)
+        else:
+            record.update(
+                full_over_logical=med["full1024"] / med["logical1024"],
+                current_over_full=med["current"] / med["full1024"],
+            )
         record["postcheck"] = validate("after")
         record["status"] = "passed"
         print(
@@ -453,7 +505,10 @@ def run_case(args, plan, module, report, save_asm, record_launch_mode):
                         "full_over_logical",
                         "current_over_full",
                         "current_over_logical",
+                        "logical_over_candidate",
+                        "stage_mean_us",
                     )
+                    if k in record
                 }
             ),
             flush=True,
@@ -480,15 +535,28 @@ def run_suite(
     result["ten_score_native"] = build
     native = native_module(report, 16, build, save)
     path = report / "ten-score-runtime-kernels.py"
-    path.write_text(runtime_source())
+    routing = getattr(args, "finish_routing_probe", False)
+    source = runtime_source()
+    if routing:
+        from qsa_finish_routing_probe_910b import CASES, VARIANTS, boundary
+        from qsa_finish_routing_probe_910b import source as routing_source
+
+        source += routing_source()
+    path.write_text(source)
     path.with_suffix(".py.txt").write_bytes(path.read_bytes())
     spec = importlib.util.spec_from_file_location("_qsa_ten_score", path)
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     module.chain_op = native.chain_op
+    if routing:
+        result["finish_routing_boundary"] = boundary(
+            module, torch, f"npu:{args.device}"
+        )
+        save()
     entries = []
-    for plan in cases():
+    plans = [p for p in cases() if not routing or p["name"] in CASES]
+    for plan in plans:
         entry = run_case(args, plan, module, report, save_asm, record_launch_mode)
         entries.append(
             {
@@ -500,6 +568,8 @@ def run_suite(
                     "full_over_logical",
                     "current_over_full",
                     "current_over_logical",
+                    "logical_over_candidate",
+                    "stage_mean_us",
                     "error",
                 )
             }
@@ -510,28 +580,36 @@ def run_suite(
             cases=entries, formal_harness_acceptance=False, production_changed=False
         )
         save()
-    valid = all(e["status"] == "passed" for e in entries) and len(entries) == 10
+    valid = all(e["status"] == "passed" for e in entries) and len(entries) == len(plans)
     summary = result["ten_score_suite"]
     summary["all_passed"] = valid
-    if valid:
+    summary["mode"] = "finish_routing_four_cases" if routing else "all_ten_score"
+    if valid and routing:
+        summary["arithmetic_means"] = {
+            name: statistics.mean(e["logical_over_candidate"][name] for e in entries)
+            for name in VARIANTS
+        }
+    elif valid:
         summary["arithmetic_means"] = {
             k: statistics.mean(e[k] for e in entries)
             for k in ("full_over_logical", "current_over_full", "current_over_logical")
         }
-    print("\nTen-workload score sweep (us; TopK excluded)", flush=True)
+    print("\nComplete score sweeps (us; TopK excluded)", flush=True)
     for e in entries:
         print(
             e["case"],
             e["status"],
             e.get("median_us"),
-            "full/logical",
-            e.get("full_over_logical"),
+            "logical/candidates" if routing else "full/logical",
+            e.get("logical_over_candidate") if routing else e.get("full_over_logical"),
             flush=True,
         )
     print("TEN_SCORE_SUITE", json.dumps(summary), flush=True)
     save()
     if not valid:
-        raise RuntimeError(
-            "Ten-workload suite incomplete; failed cases are not averaged"
-        )
-    result["outcome"] = "passed_all_ten_workloads_all_score_chunks"
+        raise RuntimeError("Score suite incomplete; failed cases are not averaged")
+    result["outcome"] = (
+        "passed_finish_routing_all_score_chunks"
+        if routing
+        else "passed_all_ten_workloads_all_score_chunks"
+    )
