@@ -1,0 +1,68 @@
+import triton
+import triton.language as tl
+
+@triton.jit
+def raw_finish_merge256(Raw, KS, Table, Visible, Out, ROWS:tl.constexpr,
+                            WIDTH:tl.constexpr,RAW_TILES:tl.constexpr,CORES:tl.constexpr):
+    for unit in range(tl.program_id(0),ROWS*triton.cdiv(WIDTH,256),CORES):
+        row = unit//triton.cdiv(WIDTH,256)
+        block = unit%triton.cdiv(WIDTH,256)
+        tiles = block*4+tl.arange(0,4)
+        c = tl.arange(0,64)
+        visible = tl.load(Visible+row)
+        segment_live = (tiles*64<WIDTH)&(tiles*64<visible)
+        page = tl.where(segment_live,tiles//3,0)
+        physical = tl.load(Table+page,mask=segment_live,other=0)
+        safe_tile = tl.where(segment_live,tiles,0)
+        live = (tiles[:,None]*64+c[None,:]<WIDTH)&(tiles[:,None]*64+c[None,:]<visible)
+        ks = tl.load(KS+physical[:,None].to(tl.int64)*192+safe_tile[:,None]%3*64+c[None,:],
+                     mask=live,other=0).to(tl.float32)
+        value = tl.load(Raw+((row//16)*RAW_TILES+safe_tile[:,None])*1024+row%16*64+c[None,:],
+                        mask=live,other=0)*ks
+        result = tl.reshape(tl.where(live,value,-float("inf")),(256,))
+        out_col = block*256+tl.arange(0,256)
+        tl.store(Out+row*WIDTH+out_col,result,mask=out_col<WIDTH)
+
+@triton.jit
+def raw_finish_merge512(Raw, KS, Table, Visible, Out, ROWS:tl.constexpr,
+                            WIDTH:tl.constexpr,RAW_TILES:tl.constexpr,CORES:tl.constexpr):
+    for unit in range(tl.program_id(0),ROWS*triton.cdiv(WIDTH,512),CORES):
+        row = unit//triton.cdiv(WIDTH,512)
+        block = unit%triton.cdiv(WIDTH,512)
+        tiles = block*8+tl.arange(0,8)
+        c = tl.arange(0,64)
+        visible = tl.load(Visible+row)
+        segment_live = (tiles*64<WIDTH)&(tiles*64<visible)
+        page = tl.where(segment_live,tiles//3,0)
+        physical = tl.load(Table+page,mask=segment_live,other=0)
+        safe_tile = tl.where(segment_live,tiles,0)
+        live = (tiles[:,None]*64+c[None,:]<WIDTH)&(tiles[:,None]*64+c[None,:]<visible)
+        ks = tl.load(KS+physical[:,None].to(tl.int64)*192+safe_tile[:,None]%3*64+c[None,:],
+                     mask=live,other=0).to(tl.float32)
+        value = tl.load(Raw+((row//16)*RAW_TILES+safe_tile[:,None])*1024+row%16*64+c[None,:],
+                        mask=live,other=0)*ks
+        result = tl.reshape(tl.where(live,value,-float("inf")),(512,))
+        out_col = block*512+tl.arange(0,512)
+        tl.store(Out+row*WIDTH+out_col,result,mask=out_col<WIDTH)
+
+@triton.jit
+def raw_finish_merge1024(Raw, KS, Table, Visible, Out, ROWS:tl.constexpr,
+                            WIDTH:tl.constexpr,RAW_TILES:tl.constexpr,CORES:tl.constexpr):
+    for unit in range(tl.program_id(0),ROWS*triton.cdiv(WIDTH,1024),CORES):
+        row = unit//triton.cdiv(WIDTH,1024)
+        block = unit%triton.cdiv(WIDTH,1024)
+        tiles = block*16+tl.arange(0,16)
+        c = tl.arange(0,64)
+        visible = tl.load(Visible+row)
+        segment_live = (tiles*64<WIDTH)&(tiles*64<visible)
+        page = tl.where(segment_live,tiles//3,0)
+        physical = tl.load(Table+page,mask=segment_live,other=0)
+        safe_tile = tl.where(segment_live,tiles,0)
+        live = (tiles[:,None]*64+c[None,:]<WIDTH)&(tiles[:,None]*64+c[None,:]<visible)
+        ks = tl.load(KS+physical[:,None].to(tl.int64)*192+safe_tile[:,None]%3*64+c[None,:],
+                     mask=live,other=0).to(tl.float32)
+        value = tl.load(Raw+((row//16)*RAW_TILES+safe_tile[:,None])*1024+row%16*64+c[None,:],
+                        mask=live,other=0)*ks
+        result = tl.reshape(tl.where(live,value,-float("inf")),(1024,))
+        out_col = block*1024+tl.arange(0,1024)
+        tl.store(Out+row*WIDTH+out_col,result,mask=out_col<WIDTH)
