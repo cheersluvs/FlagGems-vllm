@@ -65,6 +65,17 @@ def runtime_source():
     )
 
 
+def selected_plans(args):
+    plans = cases()
+    if getattr(args, "finish_routing_probe", False) and not getattr(
+        args, "finish_empty_ten", False
+    ):
+        from qsa_finish_routing_probe_910b import CASES
+
+        plans = [p for p in plans if p["name"] in CASES]
+    return plans
+
+
 def cpu_oracle(torch, cpu, row, width, current, candidate):
     n = min(width, int(cpu["visible"][row]))
     mapping = cpu["row_table"][row, : ((n + 191) // 192)].long()
@@ -467,7 +478,14 @@ def run_case(args, plan, module, report, save_asm, record_launch_mode):
             kernel_active=args.active,
             report=str(report),
             case=name + "-all-score",
-            prefix_guard_ms=5 if getattr(args, "finish_empty_pair", False) else 0,
+            prefix_guard_ms=(
+                5
+                if (
+                    getattr(args, "finish_empty_pair", False)
+                    or getattr(args, "finish_empty_ten", False)
+                )
+                else 0
+            ),
         )
         samples, _ = measure_prefix_plan(
             options,
@@ -491,6 +509,10 @@ def run_case(args, plan, module, report, save_asm, record_launch_mode):
             record["logical_over_candidate"] = {
                 name: med["logical1024"] / med[name] for name in VARIANTS
             }
+            if "current" in med:
+                record["current_over_candidate"] = {
+                    name: med["current"] / med[name] for name in VARIANTS
+                }
             record["stage_mean_us"] = stage_totals(report, samples)
         else:
             record.update(
@@ -511,6 +533,7 @@ def run_case(args, plan, module, report, save_asm, record_launch_mode):
                         "current_over_full",
                         "current_over_logical",
                         "logical_over_candidate",
+                        "current_over_candidate",
                         "stage_mean_us",
                     )
                     if k in record
@@ -543,7 +566,7 @@ def run_suite(
     routing = getattr(args, "finish_routing_probe", False)
     source = runtime_source()
     if routing:
-        from qsa_finish_routing_probe_910b import CASES, boundary, selected_variants
+        from qsa_finish_routing_probe_910b import boundary, selected_variants
         from qsa_finish_routing_probe_910b import source as routing_source
 
         source += routing_source()
@@ -561,7 +584,7 @@ def run_suite(
         )
         save()
     entries = []
-    plans = [p for p in cases() if not routing or p["name"] in CASES]
+    plans = selected_plans(args)
     for plan in plans:
         entry = run_case(args, plan, module, report, save_asm, record_launch_mode)
         entries.append(
@@ -575,6 +598,7 @@ def run_suite(
                     "current_over_full",
                     "current_over_logical",
                     "logical_over_candidate",
+                    "current_over_candidate",
                     "stage_mean_us",
                     "error",
                 )
@@ -590,9 +614,13 @@ def run_suite(
     summary = result["ten_score_suite"]
     summary["all_passed"] = valid
     summary["mode"] = (
-        "empty_finish_pair_four_cases"
-        if getattr(args, "finish_empty_pair", False)
-        else "finish_routing_four_cases" if routing else "all_ten_score"
+        "empty_finish_ten_cases"
+        if getattr(args, "finish_empty_ten", False)
+        else (
+            "empty_finish_pair_four_cases"
+            if getattr(args, "finish_empty_pair", False)
+            else "finish_routing_four_cases" if routing else "all_ten_score"
+        )
     )
     if valid and routing:
         summary["arithmetic_means"] = {
@@ -604,6 +632,14 @@ def run_suite(
             k: statistics.mean(e[k] for e in entries)
             for k in ("full_over_logical", "current_over_full", "current_over_logical")
         }
+    if valid and getattr(args, "finish_empty_ten", False):
+        summary["current_over_candidate_means"] = {
+            name: statistics.mean(e["current_over_candidate"][name] for e in entries)
+            for name in VARIANTS
+        }
+        summary["current_over_logical_mean"] = statistics.mean(
+            e["current_over_logical"] for e in entries
+        )
     print("\nComplete score sweeps (us; TopK excluded)", flush=True)
     for e in entries:
         print(
@@ -612,6 +648,8 @@ def run_suite(
             e.get("median_us"),
             "logical/candidates" if routing else "full/logical",
             e.get("logical_over_candidate") if routing else e.get("full_over_logical"),
+            "current/candidates",
+            e.get("current_over_candidate"),
             flush=True,
         )
     print("TEN_SCORE_SUITE", json.dumps(summary), flush=True)

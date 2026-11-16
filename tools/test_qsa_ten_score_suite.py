@@ -18,6 +18,7 @@ import ast
 import sys
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -27,6 +28,7 @@ from qsa_ten_score_suite_910b import (  # noqa: E402
     query_source,
     runtime_source,
     schedule,
+    selected_plans,
 )
 
 
@@ -64,6 +66,15 @@ class TenScoreTests(unittest.TestCase):
         self.assertTrue(mixed)
         self.assertIn(112, tails)
         self.assertIn(113, tails)
+
+    def test_ten_finish_mode_preserves_all_ten_frozen_plans(self):
+        args = SimpleNamespace(finish_routing_probe=True, finish_empty_ten=True)
+        self.assertEqual(selected_plans(args), cases())
+        args.finish_empty_ten = False
+        self.assertEqual(
+            [p["name"] for p in selected_plans(args)],
+            ["int8_first_chunk", "int8_budget_exact", "int8_tail113", "int8_long100k"],
+        )
 
     def test_runtime_source_changes_annotations_only(self):
         old = ast.parse(logical_source() + "\n" + query_source(16))

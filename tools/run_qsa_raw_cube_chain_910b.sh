@@ -36,6 +36,7 @@ qsa_probe_finish_blocked=0
 qsa_ten_score=0
 qsa_finish_routing=0
 qsa_empty_pair=0
+qsa_empty_ten=0
 for qsa_argument in "$@"; do
     if [[ "$qsa_argument" == --score-chunks ]]; then
         qsa_score_chunks=1
@@ -67,6 +68,13 @@ for qsa_argument in "$@"; do
     fi
     if [[ "$qsa_argument" == --probe-finish-blocked ]]; then
         qsa_probe_finish_blocked=1
+    fi
+    if [[ "$qsa_argument" == --finish-empty-ten ]]; then
+        qsa_empty_ten=1
+        qsa_empty_pair=1
+        qsa_finish_routing=1
+        qsa_ten_score=1
+        qsa_score_chunks=1
     fi
     if [[ "$qsa_argument" == --finish-empty-pair ]]; then
         qsa_empty_pair=1
@@ -119,6 +127,9 @@ if [[ "$qsa_finish_routing" == 1 ]]; then
 fi
 if [[ "$qsa_empty_pair" == 1 ]]; then
     qsa_kind=raw-empty-finish-pair
+fi
+if [[ "$qsa_empty_ten" == 1 ]]; then
+    qsa_kind=raw-empty-finish-ten
 fi
 # Re-activate after shell startup files have run; lock the environment at execution.
 if [[ -n "${QSA_ENV_ROOT:-}" ]]; then

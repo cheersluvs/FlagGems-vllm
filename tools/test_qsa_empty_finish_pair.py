@@ -34,6 +34,9 @@ class EmptyFinishPairTests(unittest.TestCase):
             selected_variants(SimpleNamespace(finish_empty_pair=True)), ("empty1024",)
         )
         self.assertEqual(selected_variants(SimpleNamespace()), VARIANTS)
+        self.assertEqual(
+            selected_variants(SimpleNamespace(finish_empty_ten=True)), ("empty1024",)
+        )
 
     def capture(self, guard):
         calls = []

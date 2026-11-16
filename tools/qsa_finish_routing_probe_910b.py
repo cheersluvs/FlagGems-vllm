@@ -19,7 +19,14 @@ CASES = ("int8_first_chunk", "int8_budget_exact", "int8_tail113", "int8_long100k
 
 
 def selected_variants(args):
-    return ("empty1024",) if getattr(args, "finish_empty_pair", False) else VARIANTS
+    return (
+        ("empty1024",)
+        if (
+            getattr(args, "finish_empty_pair", False)
+            or getattr(args, "finish_empty_ten", False)
+        )
+        else VARIANTS
+    )
 
 
 def source():
