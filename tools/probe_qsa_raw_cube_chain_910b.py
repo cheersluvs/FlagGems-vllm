@@ -1049,6 +1049,11 @@ def main():
         choices=("int8_compact", "int8_budget_exact", "int8_long100k"),
         default=["int8_compact", "int8_budget_exact", "int8_long100k"],
     )
+    parser.add_argument(
+        "--ten-score-suite",
+        action="store_true",
+        help="Validate/time all chunks of the ten frozen INT8 workloads",
+    )
     parser.add_argument("--profile-vectors", action="store_true")
     parser.add_argument("--probe-k-pack", action="store_true")
     parser.add_argument("--probe-finish", action="store_true")
@@ -1061,6 +1066,22 @@ def main():
     parser.add_argument("--counter-iterations", type=int, default=2)
     args = parser.parse_args()
     args.score_cases = list(dict.fromkeys(args.score_cases))
+    if args.ten_score_suite:
+        args.score_chunks = True
+        if any(
+            (
+                args.profile_vectors,
+                args.probe_k_pack,
+                args.probe_finish,
+                args.probe_qw_pack,
+                args.probe_finish_group4,
+                args.probe_cube_query_pack,
+                args.probe_finish_prefix,
+                args.probe_finish_merge,
+                args.probe_finish_blocked,
+            )
+        ):
+            parser.error("--ten-score-suite is a separate complete-suite mode")
     if args.profile_vectors and not args.score_chunks:
         parser.error("--profile-vectors requires --score-chunks")
     if args.probe_k_pack and not args.score_chunks:

@@ -842,6 +842,23 @@ def run_chunks(
     pack_nz,
 ):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    if args.ten_score_suite:
+        from qsa_ten_score_suite_910b import run_suite
+
+        result["phase"] = "ten-workload-all-score-chunks"
+        run_suite(
+            args,
+            report,
+            result,
+            compiler,
+            capture_type,
+            save_asm,
+            record_launch_mode,
+            lambda: (report / "ten-score-summary.json").write_text(
+                json.dumps(result, indent=2)
+            ),
+        )
+        return
     module = load_module(report, result["entry"], bindings)
     records = []
     for name in args.score_cases:
