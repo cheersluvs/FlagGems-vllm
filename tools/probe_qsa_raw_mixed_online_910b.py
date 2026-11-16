@@ -89,6 +89,11 @@ def main():
         sys.modules[spec.name] = module
         spec.loader.exec_module(module)
         module.chain_op = native.chain_op
+        from qsa_raw_mixed_abi_910b import bind_mixed_chain
+
+        result["phase"] = "mixed_abi_build"
+        save()
+        module.mixed_chain_op = bind_mixed_chain(report, result, save)
         for width in (512, 1024, 4096):
             entry = dict(width=width, status="running", kernel_timer={}, arms={})
             result["cases"].append(entry)

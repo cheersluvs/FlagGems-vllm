@@ -67,7 +67,7 @@ def raw_mixed_online(PQ,PK,PW,LogicalKS,Visible,Ring,Indices,Values,Trace,
                 key = kbase+(cube_block*8+cube_inner).to(tl.uint64)*8192
                 dest = rbase+(cube_slot*8+cube_inner).to(tl.uint64)*4096
                 bits = tl.full((),0x3a800000,tl.int64)
-                raw.call(chain_op,[qbase,key,wbase,bits,dest],output_indices=[])
+                raw.call(mixed_chain_op,[qbase,key,wbase,bits,dest],output_indices=[])
             al.sync_block_set("cube","vector",cube_slot,pipe.PIPE_FIX,pipe.PIPE_MTE2)
         for drain_slot in tl.static_range(SLOTS):
             al.sync_block_wait("vector","cube",drain_slot,pipe.PIPE_MTE3,pipe.PIPE_FIX)

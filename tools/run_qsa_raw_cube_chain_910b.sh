@@ -257,6 +257,11 @@ if [[ "$qsa_status" == 0 && "$qsa_raw_mixed" == 1 ]]; then
     "$qsa_python" -u "$qsa_repo/tools/test_qsa_raw_mixed_online.py" -v \
         2>&1 | tee "$qsa_report/raw-mixed-online-cpu-tests.txt"
     qsa_status=${PIPESTATUS[0]}
+    if [[ "$qsa_status" == 0 ]]; then
+        "$qsa_python" -u "$qsa_repo/tools/test_qsa_raw_mixed_abi.py" -v \
+            2>&1 | tee "$qsa_report/raw-mixed-abi-cpu-tests.txt"
+        qsa_status=${PIPESTATUS[0]}
+    fi
 fi
 qsa_worker="$qsa_repo/tools/probe_qsa_raw_cube_chain_910b.py"
 if [[ "$qsa_serial_harness" == 1 ]]; then

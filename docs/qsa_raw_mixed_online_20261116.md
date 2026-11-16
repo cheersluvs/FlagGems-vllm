@@ -68,3 +68,27 @@ identical after normalizing only those names; math, memory expressions, events
 and order are unchanged. Five focused CPU tests and pre-commit pass, including
 a new regression requiring disjoint static/runtime phase-loop names. Device
 compilation and execution still require rerun.
+
+## Mixed caller symbol ABI bridge
+
+Report2a8dbcfd00b533c1bc7af83e9fba166cf552a5cc passed the frontend and reached
+final mixed linking. ld.lld requested
+_mlir_ciface_qsa_raw_chain_address_query16.cube, but the ordinary native module
+only defined the unsuffixed symbol. The data-layout/deprecated-option messages
+were warnings; the undefined Cube symbol was fatal. No target mixed kernel ran.
+
+| Field | Bridge scope |
+| --- | --- |
+| Editable | Operator-owned C++ forwarding entry, binding/signature helper, mixed probe and tests |
+| Frozen | Original query16 C++ bytes, math/buffers/events/precision, standalone reference binding, compiler and production |
+| Translation unit | Include unchanged native source once and define a five-scalar forwarding entry with explicit GNU asm symbol ending .cube |
+| No bitcode surgery | No LLVM text rewriting, no merging plain/mix duplicates, no CANN global renaming |
+| Binding | Mixed raw call keeps the original unsuffixed registration and links the bridge module; standalone reference uses prior unchanged bitcode |
+| Gate | Both original and .cube definitions, five i64 alias operands, original native two-Cube structural evidence, then normal mixed compilation/metadata/numeric/timing checks |
+| Evidence limit | Host Clang syntax/export test is not CANN execution; bridge compatibility remains subject to card compilation |
+
+The bridge is an operator-side ABI adaptation to the observed mixed caller,
+not a compiler patch or proof that all mixed raw calls are supported. The exact
+native LLVM export/signature and source/link commands are saved with the new
+probe. Eight focused CPU tests (including phase names, pointer offsets, frozen
+merge helper, malformed ABI rejection and host Clang asm-label export) pass.
