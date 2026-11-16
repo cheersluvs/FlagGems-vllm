@@ -18,6 +18,10 @@ VARIANTS = ("empty1024", "tail1024", "combined1024")
 CASES = ("int8_first_chunk", "int8_budget_exact", "int8_tail113", "int8_long100k")
 
 
+def selected_variants(args):
+    return ("empty1024",) if getattr(args, "finish_empty_pair", False) else VARIANTS
+
+
 def source():
     text = """
 @triton.jit
@@ -70,7 +74,7 @@ def raw_finish_{name}(Raw,KS,Table,Visible,Out,LogicalKS,ROWS:tl.constexpr,
     return text
 
 
-def boundary(module, torch, device):
+def boundary(module, torch, device, variants=VARIANTS):
     rows, width, tiles = 17, 2057, 33
     pages = 11
     raw = ((torch.arange(2 * tiles * 1024, dtype=torch.float32) % 257) - 128).reshape(
@@ -99,7 +103,7 @@ def boundary(module, torch, device):
     raw_d, ks_d, bt_d, vis_d, logical_d = values
     output = torch.empty((rows, width), dtype=torch.float32, device=device)
     result = {}
-    for name in ("logical1024",) + VARIANTS:
+    for name in ("logical1024",) + tuple(variants):
         output.fill_(float("nan"))
         getattr(module, "raw_finish_" + name)[(20,)](
             raw_d,

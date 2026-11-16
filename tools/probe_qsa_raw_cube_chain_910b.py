@@ -1059,6 +1059,11 @@ def main():
         action="store_true",
         help="Compare three finish routes on four complete workloads",
     )
+    parser.add_argument(
+        "--finish-empty-pair",
+        action="store_true",
+        help="Pair logical1024/empty1024 with guarded capture windows",
+    )
     parser.add_argument("--profile-vectors", action="store_true")
     parser.add_argument("--probe-k-pack", action="store_true")
     parser.add_argument("--probe-finish", action="store_true")
@@ -1071,6 +1076,8 @@ def main():
     parser.add_argument("--counter-iterations", type=int, default=2)
     args = parser.parse_args()
     args.score_cases = list(dict.fromkeys(args.score_cases))
+    if args.finish_empty_pair:
+        args.finish_routing_probe = True
     if args.finish_routing_probe:
         args.ten_score_suite = True
     if args.ten_score_suite:

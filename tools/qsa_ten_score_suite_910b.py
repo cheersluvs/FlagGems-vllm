@@ -101,9 +101,14 @@ def run_case(args, plan, module, report, save_asm, record_launch_mode):
     manifest = schedule(plan)
     routing = getattr(args, "finish_routing_probe", False)
     if routing:
-        from qsa_finish_routing_probe_910b import VARIANTS
+        from qsa_finish_routing_probe_910b import selected_variants
 
-        names = ("current", "logical1024") + VARIANTS
+        VARIANTS = selected_variants(args)
+        names = (
+            ("logical1024",)
+            if getattr(args, "finish_empty_pair", False)
+            else ("current", "logical1024")
+        ) + VARIANTS
     else:
         names = ("current", "full1024", "logical1024")
     record = dict(
@@ -344,7 +349,8 @@ def run_case(args, plan, module, report, save_asm, record_launch_mode):
                 k = adapter.score_into(first, count, ref[:count])
                 torch.npu.synchronize()
                 if phase == "before":
-                    hosts["current"].update([k.metadata.kernel_name])
+                    if "current" in hosts:
+                        hosts["current"].update([k.metadata.kernel_name])
                     inspect(k, "current", count)
                 reference = ref[:count].cpu()
                 for item in pieces:
@@ -461,6 +467,7 @@ def run_case(args, plan, module, report, save_asm, record_launch_mode):
             kernel_active=args.active,
             report=str(report),
             case=name + "-all-score",
+            prefix_guard_ms=5 if getattr(args, "finish_empty_pair", False) else 0,
         )
         samples, _ = measure_prefix_plan(
             options,
@@ -475,11 +482,9 @@ def run_case(args, plan, module, report, save_asm, record_launch_mode):
             key: statistics.median(x["kernel_us"] for x in rounds)
             for key, rounds in samples.items()
         }
-        record.update(
-            samples=samples,
-            median_us=med,
-            current_over_logical=med["current"] / med["logical1024"],
-        )
+        record.update(samples=samples, median_us=med)
+        if "current" in med:
+            record["current_over_logical"] = med["current"] / med["logical1024"]
         if routing:
             from qsa_finish_routing_probe_910b import stage_totals
 
@@ -538,7 +543,7 @@ def run_suite(
     routing = getattr(args, "finish_routing_probe", False)
     source = runtime_source()
     if routing:
-        from qsa_finish_routing_probe_910b import CASES, VARIANTS, boundary
+        from qsa_finish_routing_probe_910b import CASES, boundary, selected_variants
         from qsa_finish_routing_probe_910b import source as routing_source
 
         source += routing_source()
@@ -550,8 +555,9 @@ def run_suite(
     spec.loader.exec_module(module)
     module.chain_op = native.chain_op
     if routing:
+        VARIANTS = selected_variants(args)
         result["finish_routing_boundary"] = boundary(
-            module, torch, f"npu:{args.device}"
+            module, torch, f"npu:{args.device}", variants=VARIANTS
         )
         save()
     entries = []
@@ -583,7 +589,11 @@ def run_suite(
     valid = all(e["status"] == "passed" for e in entries) and len(entries) == len(plans)
     summary = result["ten_score_suite"]
     summary["all_passed"] = valid
-    summary["mode"] = "finish_routing_four_cases" if routing else "all_ten_score"
+    summary["mode"] = (
+        "empty_finish_pair_four_cases"
+        if getattr(args, "finish_empty_pair", False)
+        else "finish_routing_four_cases" if routing else "all_ten_score"
+    )
     if valid and routing:
         summary["arithmetic_means"] = {
             name: statistics.mean(e["logical_over_candidate"][name] for e in entries)

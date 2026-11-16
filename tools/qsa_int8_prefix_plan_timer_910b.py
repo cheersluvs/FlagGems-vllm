@@ -16,6 +16,7 @@ import collections
 import gc
 import gzip
 import json
+import time
 from pathlib import Path
 
 from qsa_int8_stage_trace_timer_910b import stage_mean
@@ -29,6 +30,10 @@ def measure_prefix_plan(
     import torch_npu
 
     api = torch_npu.profiler
+    guard_ms = getattr(args, "prefix_guard_ms", 0)
+    if not isinstance(guard_ms, (int, float)) or not 0 <= guard_ms <= 20:
+        raise ValueError("Prefix capture guard must be between 0 and 20 ms")
+    result["kernel_timer"]["capture_guard_ms"] = guard_ms
     plan = []
     orders = []
     for round_index in range(args.rounds):
@@ -52,8 +57,13 @@ def measure_prefix_plan(
         ) as prof:
             for index, entry in enumerate(plan):
                 with torch.profiler.record_function(f"qsa/timed/{index}"):
+                    # Pad the capture, never the measured device task durations.
+                    if guard_ms:
+                        time.sleep(guard_ms / 1000)
                     launch(entry["arm"], targets[entry["arm"]])
                     torch.npu.synchronize()
+                    if guard_ms:
+                        time.sleep(guard_ms / 1000)
         prof.export_chrome_trace(str(path))
         del prof
         gc.collect()
