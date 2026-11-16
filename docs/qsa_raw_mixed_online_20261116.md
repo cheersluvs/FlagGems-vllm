@@ -51,3 +51,20 @@ Local checks passed: 37 CPU tests (4 new ownership/address/helper tests,
 syntax, CLI help, Bash syntax and focused pre-commit. Device compilation,
 composability and execution remain pending. Counter collection failures are
 recorded explicitly and do not turn numerical evidence into overlap proof.
+
+## First mixed compilation and loop-variable correction
+
+Report50d8392e160fa6657057aba469ebc657393b797c stopped at
+compile-512-slots1-traceFalse: slot was reused by runtime assignments and
+static-range induction in Cube and Vector scopes. The frontend rejected a
+loop-carried tensor/constexpr type change before any mixed target launch.
+There is no mixed numerical or timing result from that report.
+
+The wrapper now uses separate Cube/Vector block and slot names, drain/initial
+credit names, and init/update/final query/state-view names. This is an
+operator-source naming correction, not a new compiler limitation or patch.
+Generated AST comparison against05fc42a285738761e67cecdb6812611627787ff7 is
+identical after normalizing only those names; math, memory expressions, events
+and order are unchanged. Five focused CPU tests and pre-commit pass, including
+a new regression requiring disjoint static/runtime phase-loop names. Device
+compilation and execution still require rerun.

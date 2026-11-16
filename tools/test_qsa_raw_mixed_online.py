@@ -92,9 +92,9 @@ class RawMixedTests(unittest.TestCase):
                     destinations = []
                     for inner in range(8):
                         scope = dict(
-                            block=Index(block),
-                            inner=Index(inner),
-                            slot=Index(block % slots),
+                            cube_block=Index(block),
+                            cube_inner=Index(inner),
+                            cube_slot=Index(block % slots),
                             kbase=0,
                             rbase=0,
                             tl=SimpleNamespace(uint64=None),
@@ -127,6 +127,31 @@ class RawMixedTests(unittest.TestCase):
                         self.assertEqual(state[slot], "ready")
                         state[slot] = "free"
                 self.assertEqual(state, ["free"] * slots)
+
+    def test_phase_loop_variables_do_not_alias_static_and_runtime_slots(self):
+        fn = next(
+            n
+            for n in self.tree().body
+            if isinstance(n, ast.FunctionDef) and n.name == "raw_mixed_online"
+        )
+        loops = [n for n in ast.walk(fn) if isinstance(n, ast.For)]
+        names = [n.target.id for n in loops]
+        self.assertEqual(len(names), len(set(names)))
+        self.assertFalse({"slot", "block", "query"}.intersection(names))
+        static = {
+            n.target.id
+            for n in loops
+            if isinstance(n.iter, ast.Call)
+            and ast.unparse(n.iter.func) == "tl.static_range"
+        }
+        assigned = {
+            n.id
+            for n in ast.walk(fn)
+            if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Store)
+        }
+        self.assertEqual(static, {"drain_slot", "initial_credit"})
+        self.assertTrue({"cube_slot", "vector_slot"}.issubset(assigned))
+        self.assertFalse(static.intersection({"cube_slot", "vector_slot"}))
 
     def test_geometry_rejects_unsupported_updates_and_slot_counts(self):
         for width, slots in ((0, 1), (513, 1), (1024, 0), (1024, 3)):
