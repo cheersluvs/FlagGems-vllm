@@ -31,6 +31,7 @@ def main():
     parser.add_argument("--report", type=Path, required=True)
     parser.add_argument("--device", type=int, default=0)
     parser.add_argument("--rounds", type=int, choices=(1, 2), default=2)
+    parser.add_argument("--boundaries", action="store_true")
     args = parser.parse_args()
     report = args.report
     report.mkdir(parents=True, exist_ok=True)
@@ -60,7 +61,13 @@ def main():
         )
         from qsa_cube_query_pack_probe_910b import native_module
         from qsa_int8_prefix_plan_timer_910b import measure_prefix_plan
-        from qsa_raw_mixed_online_910b import geometry, source
+        from qsa_raw_mixed_online_910b import (
+            boundary_cases,
+            boundary_geometry,
+            boundary_source,
+            geometry,
+            source,
+        )
         from qsa_raw_serial_selection_910b_trial import check_rank
         from qsa_raw_vector_profile_910b import hardware_pass
         from qsa_ten_score_suite_910b import runtime_source
@@ -82,7 +89,9 @@ def main():
         save()
         native = native_module(report, 16, result, save)
         path = report / "raw-mixed-online-kernels.py"
-        path.write_text(runtime_source() + source())
+        path.write_text(
+            runtime_source() + source() + (boundary_source() if args.boundaries else "")
+        )
         path.with_suffix(".py.txt").write_text(path.read_text())
         spec = importlib.util.spec_from_file_location("_qsa_raw_mixed_online", path)
         module = importlib.util.module_from_spec(spec)
@@ -94,39 +103,68 @@ def main():
         result["phase"] = "mixed_abi_build"
         save()
         module.mixed_chain_op = bind_mixed_chain(report, result, save)
-        for width in (512, 1024, 4096):
-            entry = dict(width=width, status="running", kernel_timer={}, arms={})
+        fixtures = (
+            boundary_cases() if args.boundaries else ((16, 512), (16, 1024), (16, 4096))
+        )
+        if args.boundaries:
+            result["scope"] = (
+                "Prepared multi-group/tail mixed raw+online TopK feasibility; no full-input/CANN mean"
+            )
+        result["mode"] = (
+            "query_and_key_boundaries"
+            if args.boundaries
+            else "single_group_whole_updates"
+        )
+        for rows, width in fixtures:
+            case_name = f"r{rows}-w{width}" if args.boundaries else str(width)
+            shape = boundary_geometry(rows, width, 1)
+            groups, tiles = shape["groups"], shape["tiles"]
+            entry = dict(
+                rows=rows, width=width, status="running", kernel_timer={}, arms={}
+            )
             result["cases"].append(entry)
-            result["phase"] = f"fixture-{width}"
+            result["phase"] = f"fixture-{case_name}"
             save()
             gen = torch.Generator().manual_seed(13 + width)
             pages = (width + 191) // 192
-            q = torch.randint(-8, 9, (16, 4, 128), generator=gen, dtype=torch.int8)
-            q[3].zero_()
+            q = torch.randint(-8, 9, (rows, 4, 128), generator=gen, dtype=torch.int8)
+            if rows > 3:
+                q[3].zero_()
             cache = torch.randint(
                 -8, 9, (pages, 192, 1, 128), generator=gen, dtype=torch.int8
             )
-            table = torch.arange(pages - 1, -1, -1, dtype=torch.int32).repeat(16, 1)
-            qs = (torch.rand((16, 4), generator=gen) / 64 + 1 / 64).half()
+            table = torch.arange(pages - 1, -1, -1, dtype=torch.int32).repeat(rows, 1)
+            qs = (torch.rand((rows, 4), generator=gen) / 64 + 1 / 64).half()
             ks = (torch.rand((pages, 192, 1), generator=gen) / 64 + 1 / 64).half()
-            weights = torch.ones((16, 4), dtype=torch.float16)
+            weights = torch.ones((rows, 4), dtype=torch.float16)
             visible = torch.tensor(
-                ([0, 1, 63, 64, 65, 511, 512, 513, width - 64, width] * 2)[:16],
+                (
+                    [0, 1, 63, 64, 65, 511, 512, 513, width - 64, width]
+                    * ((rows + 9) // 10)
+                )[:rows],
                 dtype=torch.int32,
             ).clamp(max=width)
+            if args.boundaries:
+                visible[-1] = width
             values = [x.to(device) for x in (q, cache, table, qs, ks, weights, visible)]
             qd, kd, td, qsd, ksd, wd, vd = values
-            tiles = width // 64
-            pq = torch.empty((1, 8192), dtype=torch.int8, device=device)
-            pw = torch.empty((1, 1024), dtype=torch.float16, device=device)
+            pq = torch.empty((groups, 8192), dtype=torch.int8, device=device)
+            pw = torch.empty((groups, 1024), dtype=torch.float16, device=device)
             pk = torch.empty((tiles, 8192), dtype=torch.int8, device=device)
-            lks = torch.empty((width,), dtype=torch.float16, device=device)
-            raw = torch.empty((1, tiles, 16, 64), dtype=torch.float32, device=device)
-            expected_d = torch.empty((16, width), dtype=torch.float32, device=device)
-            module.raw_query16_qw[(1,)](
-                qd, qsd, wd, pq, pw, ROWS=16, QUERIES=16, num_warps=4
+            lks = torch.empty(
+                (shape["padded_width"],), dtype=torch.float16, device=device
             )
-            module.raw_pack_k_ks[(20,)](
+            raw = torch.empty(
+                (groups, tiles, 16, 64), dtype=torch.float32, device=device
+            )
+            expected_d = torch.empty((rows, width), dtype=torch.float32, device=device)
+            module.raw_query16_qw[(groups,)](
+                qd, qsd, wd, pq, pw, ROWS=rows, QUERIES=16, num_warps=4
+            )
+            pack_k = (
+                module.raw_pack_k_ks_padded if args.boundaries else module.raw_pack_k_ks
+            )
+            pack_k[(20,)](
                 kd,
                 ksd,
                 td,
@@ -142,25 +180,25 @@ def main():
                 pk,
                 pw,
                 raw,
-                GROUPS=1,
+                GROUPS=groups,
                 TILES=tiles,
-                CORES=min(20, tiles),
+                CORES=min(20, groups * tiles),
                 QUERIES=16,
                 num_warps=4,
-                grid=(min(20, tiles),),
+                grid=(min(20, groups * tiles),),
             )
             ref_mode = record_launch_mode(ref)
             assert (
                 ref_mode["mix_mode"] == "aic" and ref_mode["bs_task_type"] == 20
             ), ref_mode
-            module.raw_query16_cube[(min(20, tiles),)](
+            module.raw_query16_cube[(min(20, groups * tiles),)](
                 pq,
                 pk,
                 pw,
                 raw,
-                GROUPS=1,
+                GROUPS=groups,
                 TILES=tiles,
-                CORES=min(20, tiles),
+                CORES=min(20, groups * tiles),
                 QUERIES=16,
                 num_warps=4,
             )
@@ -171,7 +209,7 @@ def main():
                 vd,
                 expected_d,
                 lks,
-                ROWS=16,
+                ROWS=rows,
                 WIDTH=width,
                 RAW_TILES=tiles,
                 CORES=20,
@@ -182,7 +220,7 @@ def main():
             # Independent CPU half-chain oracle, including NZ and weight packing.
             keys = cache[table[0].long(), :, 0].reshape(-1, 128)[:width].int()
             scales = ks[table[0].long(), :, 0].reshape(-1)[:width].float()
-            for row in range(16):
+            for row in range(rows):
                 dot = q[row].int() @ keys.T
                 oracle = (
                     (dot.float() / 1024).relu().half().float()
@@ -192,30 +230,66 @@ def main():
                 torch.testing.assert_close(
                     expected[row, :n], oracle[:n], rtol=1e-3, atol=1e-3
                 )
+            packed_keys = torch.zeros((shape["padded_width"], 128), dtype=torch.int8)
+            packed_keys[:width] = keys.to(torch.int8)
+            expected_pk = (
+                packed_keys.view(tiles, 2, 32, 4, 32)
+                .permute(0, 3, 1, 2, 4)
+                .contiguous()
+                .view(tiles, 8192)
+            )
+            expected_ks = torch.zeros((shape["padded_width"],), dtype=torch.float16)
+            expected_ks[:width] = scales.half()
+            torch.testing.assert_close(pk.cpu(), expected_pk, rtol=0, atol=0)
+            torch.testing.assert_close(lks.cpu(), expected_ks, rtol=0, atol=0)
+            entry["packing_check"] = dict(
+                k_exact=True,
+                ks_exact=True,
+                padded_width=shape["padded_width"],
+                table_columns=pages,
+            )
             arms = {}
             hosts = {}
             # Compile every arm and both trace settings before the first target launch.
             for slots in (1, 2):
                 label = f"slots{slots}"
-                g = geometry(width, slots)
+                g = (
+                    boundary_geometry(rows, width, slots)
+                    if args.boundaries
+                    else geometry(width, slots)
+                )
                 ring = torch.empty(
                     (g["ring_elements"],), dtype=torch.float32, device=device
                 )
-                idx = torch.empty((16, 512), dtype=torch.int32, device=device)
-                val = torch.empty((16, 512), dtype=torch.float32, device=device)
-                trace = torch.empty((16, width), dtype=torch.float32, device=device)
+                guards = []
+
+                def guarded(columns, dtype, padded_columns):
+                    logical = rows * columns
+                    capacity = shape["padded_rows"] * padded_columns
+                    storage = torch.empty(
+                        (capacity + 2048,), dtype=dtype, device=device
+                    )
+                    guards.append((storage, logical))
+                    return storage[1024 : 1024 + logical].view(rows, columns)
+
+                idx = guarded(512, torch.int32, 512)
+                val = guarded(512, torch.float32, 512)
+                trace = guarded(width, torch.float32, shape["padded_width"])
                 operands = (pq, pk, pw, lks, vd, ring, idx, val, trace)
+                kernel = (
+                    module.raw_mixed_boundaries
+                    if args.boundaries
+                    else module.raw_mixed_online
+                )
+                meta = dict(WIDTH=width, SLOTS=slots, num_warps=4)
+                if args.boundaries:
+                    meta["ROWS"] = rows
                 binaries = {}
                 for traced in (False, True):
-                    result["phase"] = f"compile-{width}-{label}-trace{traced}"
+                    result["phase"] = f"compile-{case_name}-{label}-trace{traced}"
                     save()
-                    compiled = module.raw_mixed_online.warmup(
-                        *operands,
-                        WIDTH=width,
-                        SLOTS=slots,
-                        TRACE=traced,
-                        num_warps=4,
-                        grid=(1,),
+                    compiled = kernel.warmup(
+                        *operands, TRACE=traced, grid=(groups,), **meta
                     )
                     mode = record_launch_mode(compiled)
                     if mode["mix_mode"] != "mix" or mode["bs_task_type"] // 10 not in (
@@ -228,27 +302,40 @@ def main():
                         asm=save_asm(
                             compiled,
                             report,
-                            f"mixed-w{width}-{label}-trace{int(traced)}",
+                            f"mixed-{case_name}-{label}-trace{int(traced)}",
                         ),
                     )
                     if not traced:
                         hosts[label] = {compiled.metadata.kernel_name: 1}
 
-                def launch(traced=False, operands=operands, slots=slots):
-                    return module.raw_mixed_online[(1,)](
-                        *operands, WIDTH=width, SLOTS=slots, TRACE=traced, num_warps=4
-                    )
+                def launch(
+                    traced=False,
+                    operands=operands,
+                    kernel=kernel,
+                    meta=meta,
+                    groups=groups,
+                ):
+                    return kernel[(groups,)](*operands, TRACE=traced, **meta)
 
                 arms[label] = dict(
-                    launch=launch, indices=idx, values=val, trace=trace, ring=ring
+                    launch=launch,
+                    indices=idx,
+                    values=val,
+                    trace=trace,
+                    ring=ring,
+                    guards=guards,
                 )
                 entry["arms"][label] = dict(geometry=g, binaries=binaries)
 
             def validate(phase):
                 checks = {}
                 for label, arm in arms.items():
-                    result["phase"] = f"launch-{width}-{label}-{phase}"
+                    result["phase"] = f"launch-{case_name}-{label}-{phase}"
                     save()
+                    for storage, _ in arm["guards"]:
+                        storage.fill_(
+                            -3 if storage.dtype == torch.int32 else float("nan")
+                        )
                     arm["ring"].fill_(float("nan"))
                     arm["indices"].fill_(-3)
                     arm["values"].fill_(float("nan"))
@@ -265,6 +352,14 @@ def main():
                             arm["values"].fill_(float("nan"))
                             arm["launch"](False)
                             torch.npu.synchronize()
+                        for storage, logical in arm["guards"]:
+                            for region in (storage[:1024], storage[1024 + logical :]):
+                                cpu_guard = region.cpu()
+                                assert (
+                                    bool((cpu_guard == -3).all())
+                                    if storage.dtype == torch.int32
+                                    else bool(torch.isnan(cpu_guard).all())
+                                ), "Output guard overwritten"
                         indices = arm["indices"].cpu()
                         check_rank(torch, indices, expected, visible, rtol=0, atol=0)
                         torch.testing.assert_close(
@@ -275,8 +370,9 @@ def main():
                         )
                     checks[label] = dict(
                         passed=True,
-                        rows=16,
-                        steps=width // 512,
+                        rows=rows,
+                        steps=shape["steps"],
+                        output_guards_unchanged=True,
                         trace_scores_exact=True,
                         selected_scores_exact=True,
                     )
@@ -297,10 +393,10 @@ def main():
                 kernel_active=3,
                 kernel_warmup=1,
                 report=str(report),
-                case=f"raw-mixed-{width}",
+                case=f"raw-mixed-{case_name}",
                 prefix_guard_ms=5,
             )
-            result["phase"] = f"timing-{width}"
+            result["phase"] = f"timing-{case_name}"
             save()
             samples, _ = measure_prefix_plan(
                 options,
@@ -321,7 +417,7 @@ def main():
                 serial_over_buffered=med["slots1"] / med["slots2"],
             )
             entry["postcheck"] = validate("after")
-            if width == 4096:
+            if width == 4096 and not args.boundaries:
                 entry["hardware"] = {}
                 for label, arm in arms.items():
                     result["phase"] = f"hardware-{label}"
@@ -346,7 +442,7 @@ def main():
             save()
             print(
                 "RAW_MIXED_RESULT",
-                width,
+                case_name,
                 json.dumps(
                     dict(
                         mean_us=med,

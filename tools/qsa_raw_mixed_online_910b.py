@@ -117,3 +117,120 @@ def raw_mixed_online(PQ,PK,PW,LogicalKS,Visible,Ring,Indices,Values,Trace,
             tl.store(Values+final_row*512+rank,tl.where(valid,values,-float("inf")))
 """
     )
+
+
+def boundary_cases():
+    return ((16, 4096), (1, 1088), (15, 1088), (17, 8256), (112, 8512), (128, 29696))
+
+
+def boundary_geometry(rows, width, slots):
+    if rows < 1 or width < 512 or slots not in (1, 2) or (rows + 15) // 16 > 20:
+        raise ValueError(
+            "Positive rows, width>=512, <=20 groups and one/two slots required"
+        )
+    groups = (rows + 15) // 16
+    steps = (width + 511) // 512
+    return dict(
+        rows=rows,
+        width=width,
+        slots=slots,
+        groups=groups,
+        steps=steps,
+        padded_width=steps * 512,
+        padded_rows=groups * 16,
+        tiles=steps * 8,
+        table_columns=(width + 191) // 192,
+        ring_elements=groups * slots * 8 * 16 * 64,
+        query_bytes=8192,
+        weight_bytes=2048,
+    )
+
+
+def padded_pack_source():
+    from qsa_fused_ks_pack_probe_910b import source as logical_source
+    from qsa_k_pack_2d_probe_910b import source as k_source
+
+    text = k_source() + logical_source()
+    tree = ast.parse(text)
+    names = ("raw_k_2d_part", "raw_pack_k_ks")
+    funcs = {
+        n.name: ast.get_source_segment(text, n)
+        for n in tree.body
+        if isinstance(n, ast.FunctionDef) and n.name in names
+    }
+    result = "\n".join("@triton.jit\n" + funcs[n] for n in names)
+    result = result.replace("raw_k_2d_part", "raw_k_2d_part_padded").replace(
+        "raw_pack_k_ks", "raw_pack_k_ks_padded"
+    )
+    if result.count("physical = tl.load(Table+tile//3)") != 2:
+        raise RuntimeError("Frozen packing table access changed")
+    return result.replace(
+        "physical = tl.load(Table+tile//3)",
+        "physical = tl.load(Table+tl.where(tile*64<MAX_VISIBLE,tile//3,0),mask=tile*64<MAX_VISIBLE,other=0)",
+    )
+
+
+def boundary_source():
+    text = source()
+    tree = ast.parse(text)
+    fn = next(
+        n
+        for n in tree.body
+        if isinstance(n, ast.FunctionDef) and n.name == "raw_mixed_online"
+    )
+    text = "@triton.jit\n" + ast.get_source_segment(text, fn)
+    changes = {
+        "def raw_mixed_online(": ("def raw_mixed_boundaries("),
+        "WIDTH:tl.constexpr,SLOTS:tl.constexpr,TRACE:tl.constexpr)": (
+            "WIDTH:tl.constexpr,SLOTS:tl.constexpr,TRACE:tl.constexpr,ROWS:tl.const"
+            "expr)"
+        ),
+        "range(WIDTH//512)": ("range(triton.cdiv(WIDTH,512))"),
+        "rbase = tl.cast(Ring,tl.uint64)": (
+            "rbase = tl.cast(Ring,tl.uint64)\n        group_q = qbase+tl.program_id("
+            "0).to(tl.uint64)*8192\n        group_w = wbase+tl.program_id(0).to(tl.u"
+            "int64)*2048"
+        ),
+        "(cube_slot*8+cube_inner)": (
+            "((tl.program_id(0)*SLOTS+cube_slot)*8+cube_inner)"
+        ),
+        "[qbase,key,wbase,bits,dest]": ("[group_q,key,group_w,bits,dest]"),
+        "update_row = al.sub_vec_id()*8+update_query": (
+            "update_local_row = al.sub_vec_id()*8+update_query\n                upda"
+            "te_row = tl.program_id(0)*16+update_local_row"
+        ),
+        "Ring+(vector_slot*8+tile[:,None])*1024+update_row*64": (
+            "Ring+((tl.program_id(0)*SLOTS+vector_slot)*8+tile[:,None])*1024+update"
+            "_local_row*64"
+        ),
+        "tl.load(Visible+update_row)": (
+            "tl.load(Visible+tl.where(update_row<ROWS,update_row,0),mask=update_row<ROWS,other=0)"
+        ),
+        "tl.where(vector_block*512+lane<visible,": (
+            "tl.where((update_row<ROWS)&(vector_block*512+lane<WIDTH)&(vector_block"
+            "*512+lane<visible),"
+        ),
+        "tl.store(Trace+update_row*WIDTH+vector_block*512+lane,score)": (
+            "tl.store(Trace+update_row*WIDTH+vector_block*512+lane,score,mask=(upda"
+            "te_row<ROWS)&(vector_block*512+lane<WIDTH))"
+        ),
+        "final_row = al.sub_vec_id()*8+final_query": (
+            "final_row = tl.program_id(0)*16+al.sub_vec_id()*8+final_query"
+        ),
+        "tl.load(Visible+final_row)": (
+            "tl.load(Visible+tl.where(final_row<ROWS,final_row,0),mask=final_row<ROWS,other=0)"
+        ),
+        "tl.store(Indices+final_row*512+rank,tl.where(valid,indices,-1))": (
+            "tl.store(Indices+final_row*512+rank,tl.where(valid,indices,-1),mask=fi"
+            "nal_row<ROWS)"
+        ),
+        'tl.store(Values+final_row*512+rank,tl.where(valid,values,-float("inf")))': (
+            'tl.store(Values+final_row*512+rank,tl.where(valid,values,-float("inf")'
+            "),mask=final_row<ROWS)"
+        ),
+    }
+    for old, new in changes.items():
+        if old not in text:
+            raise RuntimeError("Frozen mixed expression changed: " + old)
+        text = text.replace(old, new)
+    return "\n" + padded_pack_source() + "\n" + text + "\n"

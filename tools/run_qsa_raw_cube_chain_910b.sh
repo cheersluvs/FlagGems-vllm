@@ -39,7 +39,11 @@ qsa_empty_pair=0
 qsa_empty_ten=0
 qsa_serial_harness=0
 qsa_raw_mixed=0
+qsa_boundaries=0
 for qsa_argument in "$@"; do
+    if [[ "$qsa_argument" == --boundaries ]]; then
+        qsa_boundaries=1
+    fi
     if [[ "$qsa_argument" == --raw-mixed-online ]]; then
         qsa_raw_mixed=1
         qsa_score_chunks=1
@@ -146,6 +150,9 @@ if [[ "$qsa_serial_harness" == 1 ]]; then
 fi
 if [[ "$qsa_raw_mixed" == 1 ]]; then
     qsa_kind=raw-mixed-online
+fi
+if [[ "$qsa_raw_mixed" == 1 && "$qsa_boundaries" == 1 ]]; then
+    qsa_kind=raw-mixed-boundaries
 fi
 # Re-activate after shell startup files have run; lock the environment at execution.
 if [[ -n "${QSA_ENV_ROOT:-}" ]]; then
@@ -260,6 +267,11 @@ if [[ "$qsa_status" == 0 && "$qsa_raw_mixed" == 1 ]]; then
     if [[ "$qsa_status" == 0 ]]; then
         "$qsa_python" -u "$qsa_repo/tools/test_qsa_raw_mixed_abi.py" -v \
             2>&1 | tee "$qsa_report/raw-mixed-abi-cpu-tests.txt"
+        qsa_status=${PIPESTATUS[0]}
+    fi
+    if [[ "$qsa_status" == 0 && "$qsa_boundaries" == 1 ]]; then
+        "$qsa_python" -u "$qsa_repo/tools/test_qsa_raw_mixed_boundaries.py" -v \
+            2>&1 | tee "$qsa_report/raw-mixed-boundaries-cpu-tests.txt"
         qsa_status=${PIPESTATUS[0]}
     fi
 fi
