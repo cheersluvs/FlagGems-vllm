@@ -114,7 +114,7 @@ def store_evidence(text):
     )
 
 
-def prepare(module, arm, values, torch, variants=None):
+def prepare(module, arm, values, torch, variants=None, extra_args=None):
     rows, width = arm["output"].shape
     tiles = arm["raw"].shape[1]
     expected = arm["output"].cpu()
@@ -136,6 +136,7 @@ def prepare(module, arm, values, torch, variants=None):
                 values["row_table"],
                 values["visible"],
                 targets[label],
+                *(extra_args or {}).get(label, ()),
                 ROWS=rows,
                 WIDTH=width,
                 RAW_TILES=tiles,
@@ -187,6 +188,7 @@ def run_probe(
     kind="merge",
     variants=None,
     boundary_validator=None,
+    trial_factory=prepare,
 ):
     import torch
     from qsa_cube_query_pack_probe_910b import boundary_checks, validate_arm
@@ -214,7 +216,27 @@ def run_probe(
     probe["implementation"] = kind
     record["finish_merge_probe" if kind == "merge" else "finish_blocked_probe"] = probe
     save()
-    trial = prepare(module, arm, values, torch, variants)
+    trial = trial_factory(module, arm, values, torch, variants)
+    preparation_kernels = {}
+    for label, packer in trial.get("packers", {}).items():
+        capture = capture_type(report, name + "-" + label + "-packing")
+        try:
+            with patch.object(compiler, "subprocess", capture):
+                kernel = packer()
+            torch.npu.synchronize()
+            preparation_kernels[label] = kernel
+            probe.setdefault("preparation", {})[label] = dict(
+                metadata=str(kernel.metadata),
+                asm=save_asm(kernel, report, name + "-" + label + "-packing"),
+            )
+        finally:
+            probe.setdefault("preparation", {}).setdefault(label, {})[
+                "compiler_calls"
+            ] = capture.calls
+            save()
+    if "packing_check" in trial:
+        probe["packing_precheck"] = trial["packing_check"]()
+        save()
     expected = trial["expected"]
     raw_cpu = arm["raw"].cpu()
     raw_reference = torch.stack(
@@ -234,7 +256,10 @@ def run_probe(
                 metadata=str(kernel.metadata),
                 asm=save_asm(kernel, report, name + "-" + label),
             )
-            probe["liveness"][label] = ir_liveness(kernel.asm.get("bcmlir", ""), "full")
+            probe["liveness"][label] = ir_liveness(
+                kernel.asm.get("bcmlir", ""),
+                trial.get("liveness", {}).get(label, "full"),
+            )
             check = check_output(torch, trial["targets"][label], expected)
             probe["prechecks"][label] = check
             print(
@@ -243,7 +268,9 @@ def run_probe(
             save()
             if not check["exact"]:
                 raise AssertionError(f"{label} differs from original finish")
-            if name == args.score_cases[0]:
+            if name == args.score_cases[0] and not trial.get(
+                "skip_basic_boundary", False
+            ):
 
                 def finish_boundary(
                     boundary_arm, boundary_values, boundary_cpu, label=label
@@ -303,9 +330,11 @@ def run_probe(
     complete = {}
     for label, finish in finishes.items():
 
-        def launch(finish=finish):
+        packer = trial.get("packers", {}).get(label, fast_k)
+
+        def launch(finish=finish, packer=packer):
             arm["qw"]()
-            fast_k()
+            packer()
             arm["cube"]()
             finish()
 
@@ -317,6 +346,9 @@ def run_probe(
         k={key_kernel.metadata.kernel_name: 1},
         cube={selected["cube"].metadata.kernel_name: 1},
     )
+    for label, kernel in preparation_kernels.items():
+        launches[label + "_packing"] = trial["packers"][label]
+        hosts[label + "_packing"] = {kernel.metadata.kernel_name: 1}
     common = collections.Counter()
     for label in ("qw", "k", "cube"):
         common.update(hosts[label])
@@ -325,7 +357,11 @@ def run_probe(
         launches[label + "_complete"] = complete[label]
         host = {compiled[label].metadata.kernel_name: 1}
         hosts[label] = host
-        hosts[label + "_complete"] = dict(common + collections.Counter(host))
+        own_common = common.copy()
+        if label in preparation_kernels:
+            own_common.subtract(hosts["k"])
+            own_common.update({preparation_kernels[label].metadata.kernel_name: 1})
+        hosts[label + "_complete"] = dict(+own_common + collections.Counter(host))
     options = SimpleNamespace(
         rounds=args.rounds,
         kernel_warmup=args.warmup,
@@ -393,6 +429,17 @@ def run_probe(
             report,
         )
         save()
+    if name == "int8_long100k" and preparation_kernels:
+        for label, function, kernel in [("old_k", fast_k, key_kernel)] + [
+            (label + "_packing", trial["packers"][label], kernel)
+            for label, kernel in preparation_kernels.items()
+        ]:
+            probe["hardware"][label] = hardware_pass(
+                args, name, label, function, kernel.metadata.kernel_name, torch, report
+            )
+            save()
+    if "packing_check" in trial:
+        probe["packing_postcheck"] = trial["packing_check"]()
     for label in valid:
         complete[label]()
         torch.npu.synchronize()
@@ -406,6 +453,8 @@ def run_probe(
     probe["full_postcheck"] = validate_arm(
         arm, cpu, expected, reference_cpu, pack_nz, torch, raw_reference
     )
+    if "packing_check" in trial:
+        probe["packing_postcheck"] = trial["packing_check"]()
     probe["k_exact"] = bool(torch.equal(arm["pk"].cpu(), expected_k))
     probe["hardware_complete"] = all(
         entry[metric]["status"] == "available"
@@ -432,6 +481,13 @@ def run_probe(
             f"{probe['original_complete_over_candidate'][label]:>18.4f} {probe['current_over_complete'][label]:>14.4f}",
             flush=True,
         )
+    if preparation_kernels:
+        print(f"Original K packing: {med['k']:.3f} us", flush=True)
+        for label in preparation_kernels:
+            print(
+                f"{label} fused K/KS packing: {med[label+'_packing']:.3f} us",
+                flush=True,
+            )
     print("TopK excluded; score chunks only, not formal harness acceptance", flush=True)
     if probe["status"] != "passed":
         raise RuntimeError(

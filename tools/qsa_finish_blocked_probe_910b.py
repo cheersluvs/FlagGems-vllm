@@ -48,13 +48,15 @@ def raw_finish_merge{block}(Raw, KS, Table, Visible, Out, ROWS:tl.constexpr,
 
 
 def run_probe(*args):
-    from qsa_finish_full_block_probe_910b import VARIANTS, boundary
-    from qsa_finish_full_block_probe_910b import source as full_source
+    from qsa_fused_ks_pack_probe_910b import VARIANTS, boundary
+    from qsa_fused_ks_pack_probe_910b import source as fused_source
+    from qsa_fused_ks_pack_probe_910b import trial
 
     return run_width_sweep(
         *args,
-        source_factory=full_source,
-        kind="fullblocks",
+        source_factory=fused_source,
+        kind="fusedks",
         variants=VARIANTS,
         boundary_validator=boundary,
+        trial_factory=trial,
     )

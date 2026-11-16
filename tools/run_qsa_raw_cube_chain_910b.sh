@@ -91,7 +91,7 @@ if [[ "$qsa_probe_finish_merge" == 1 ]]; then
     qsa_kind=raw-finish-merge
 fi
 if [[ "$qsa_probe_finish_blocked" == 1 ]]; then
-    qsa_kind=raw-finish-fullblocks
+    qsa_kind=raw-fused-ks-pack
 fi
 # Re-activate after shell startup files have run; lock the environment at execution.
 if [[ -n "${QSA_ENV_ROOT:-}" ]]; then
@@ -172,6 +172,11 @@ fi
 if [[ "$qsa_status" == 0 && "$qsa_probe_finish_blocked" == 1 ]]; then
     "$qsa_python" -u "$qsa_repo/tools/test_qsa_finish_full_block_probe.py" -v \
         2>&1 | tee "$qsa_report/finish-full-block-cpu-tests.txt"
+    qsa_status=${PIPESTATUS[0]}
+fi
+if [[ "$qsa_status" == 0 && "$qsa_probe_finish_blocked" == 1 ]]; then
+    "$qsa_python" -u "$qsa_repo/tools/test_qsa_fused_ks_pack_probe.py" -v \
+        2>&1 | tee "$qsa_report/fused-ks-cpu-tests.txt"
     qsa_status=${PIPESTATUS[0]}
 fi
 command -v timeout >/dev/null || { echo 'timeout is required'; exit 2; }

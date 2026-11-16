@@ -27,6 +27,7 @@ from qsa_raw_vector_profile_910b import hardware_pass, summarize_vector_ir
 
 MODES = dict(fill=0, raw=1, ks=2, sum=3, no_visible=4)
 READS = dict(
+    logicalfull={"Raw", "KS", "LogicalKS", "Table", "Visible"},
     fill={"Visible"},
     raw={"Raw", "Visible"},
     ks={"KS", "Table", "Visible"},
@@ -111,7 +112,7 @@ def ir_liveness(text, arm):
     aliases = {}
     for segment in re.split(r"(?=%arg\d+:)", header):
         arg = re.match(r"(%arg\d+):", segment)
-        name = re.search(r'loc\("(Raw|KS|Table|Visible|Out|Dense)"', segment)
+        name = re.search(r'loc\("(Raw|KS|LogicalKS|Table|Visible|Out|Dense)"', segment)
         if arg and name:
             aliases[arg[1]] = name[1]
     reads, writes = set(), set()
