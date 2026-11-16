@@ -1,0 +1,77 @@
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+VERIFIED_COMPILER_CANDIDATE /tmp/qsa-raw-cube-chain.HADtP505/flagtree-corefix/triton/backends/ascend/compiler.py
+BUILD query16-ccec-version: /opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/ccec
+BUILD query16-ccec-version: passed
+BUILD query16-ccec-plain: /opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/ccec
+BUILD query16-ccec-plain: passed
+BUILD query16-llvm-link-text: /opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/llvm-link
+BUILD query16-llvm-link-text: passed
+RAW_MIXED_FAILED compile-512-slots1-traceFalse CompilationError('def raw_mixed_online(PQ,PK,PW,LogicalKS,Visible,Ring,Indices,Values,Trace,\n                     WIDTH:tl.constexpr,SLOTS:tl.constexpr,TRACE:tl.constexpr):\n    with al.scope(core_mode="cube"):\n        qbase = tl.cast(PQ,tl.uint64)\n        kbase = tl.cast(PK,tl.uint64)\n        wbase = tl.cast(PW,tl.uint64)\n        rbase = tl.cast(Ring,tl.uint64)\n        for block in range(WIDTH//512):\n            slot = block%SLOTS\n            al.sync_block_wait("vector","cube",slot,pipe.PIPE_MTE3,pipe.PIPE_FIX)\n            for inner in range(8):\n                key = kbase+(block*8+inner).to(tl.uint64)*8192\n                dest = rbase+(slot*8+inner).to(tl.uint64)*4096\n                bits = tl.full((),0x3a800000,tl.int64)\n                raw.call(chain_op,[qbase,key,wbase,bits,dest],output_indices=[])\n            al.sync_block_set("cube","vector",slot,pipe.PIPE_FIX,pipe.PIPE_MTE2)\n        for slot in tl.static_range(SLOTS):\n            al.sync_block_wait("vector","cube",slot,pipe.PIPE_MTE3,pipe.PIPE_FIX)\n\n    with al.scope(core_mode="vector"):\n        state_storage = tle.dsa.alloc([8*1024],dtype=tl.float32,mem_addr_space=tle.dsa.ascend.UB)\n        word = tl.arange(0,1024)\n        initial = tl.where(word%2==0,-float("inf"),tl.full((),-1,tl.int32).to(tl.float32,bitcast=True))\n        for query in range(8):\n            state_slot = tle.dsa.subview(state_storage,[query*1024],[1024],[1])\n            tle.dsa.to_buffer(initial,space=tle.dsa.ascend.UB,bind_buffer=state_slot)\n        tl.debug_barrier()\n        for slot in tl.static_range(SLOTS):\n            al.sync_block_set("vector","cube",slot,pipe.PIPE_MTE3,pipe.PIPE_FIX)\n        for block in range(WIDTH//512):\n            slot = block%SLOTS\n            al.sync_block_wait("cube","vector",slot,pipe.PIPE_FIX,pipe.PIPE_MTE2)\n            for query in range(8):\n                row = al.sub_vec_id()*8+query\n                tile = tl.arange(0,8)\n                col = tl.arange(0,64)\n                lane = tl.arange(0,512)\n                received = tl.load(Ring+(slot*8+tile[:,None])*1024+row*64+col[None,:])\n                ks = tl.load(LogicalKS+block*512+lane).to(tl.float32)\n                visible = tl.load(Visible+row)\n                score = tl.where(block*512+lane<visible,tl.reshape(received,(512,))*ks,-float("inf"))\n                if TRACE:\n                    tl.store(Trace+row*WIDTH+block*512+lane,score)\n                pairs = tle.dsa.ascend.raw("sort_1d_pack",score,tl.zeros((2048,),tl.float32),\n                    True,512,block*512,SORT_IMPL_BASE,out=tl.zeros((1024,),tl.float32))\n                state_slot = tle.dsa.subview(state_storage,[query*1024],[1024],[1])\n                state = tle.dsa.to_tensor(state_slot)\n                state = _update_online_topk_ub_snapshot(state,pairs,512,512)\n                tle.dsa.to_buffer(state,space=tle.dsa.ascend.UB,bind_buffer=state_slot)\n                tl.debug_barrier()\n            tl.debug_barrier()\n            al.sync_block_set("vector","cube",slot,pipe.PIPE_MTE3,pipe.PIPE_FIX)\n        for query in range(8):\n            row = al.sub_vec_id()*8+query\n            state_slot = tle.dsa.subview(state_storage,[query*1024],[1024],[1])\n            state = tle.dsa.to_tensor(state_slot)\n            values,indices = tle.dsa.ascend.raw("unpack_sort",state,512,\n                out=[tl.zeros((512,),tl.float32),tl.zeros((512,),tl.int32)])\n            rank = tl.arange(0,512)\n            valid = rank<tl.load(Visible+row)\n            tl.store(Indices+row*512+rank,tl.where(valid,indices,-1))\n            tl.store(Values+row*512+rank,tl.where(valid,values,-float("inf")))\n', <ast.For object at 0xfffbb2f42e00>, 'AssertionError("Loop carried variable slot changed type, was <class \'triton.language.core.tensor\'> but is now <class \'triton.language.core.constexpr\'>")')
+Traceback (most recent call last):
+  File "/tmp/flaggems-qsa-raw-mixed.qEGFvUkE/tools/probe_qsa_raw_mixed_online_910b.py", line 207, in main
+    compiled = module.raw_mixed_online.warmup(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.HADtP505/flagtree-corefix/triton/spec/ascend/runtime/jit.py", line 804, in warmup
+    return self.run(grid=grid, warmup=True, *map(MockTensor.wrap_dtype, args), **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.HADtP505/flagtree-corefix/triton/spec/ascend/runtime/jit.py", line 736, in run
+    kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.HADtP505/flagtree-corefix/triton/spec/ascend/runtime/jit.py", line 864, in _do_compile
+    kernel = self.compile(src, target=target, options=options.__dict__)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.HADtP505/flagtree-corefix/triton/experimental/tle/__init__.py", line 83, in tle_compile
+    compiled_kernel = original_compile_fn(src, target, options)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.HADtP505/flagtree-corefix/triton/spec/ascend/compiler/compiler.py", line 309, in compile
+    module = src.make_ir(target, options, codegen_fns, module_map, context)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.HADtP505/flagtree-corefix/triton/spec/ascend/compiler/compiler.py", line 83, in make_ir
+    return ast_to_ttir(self.fn, self, context=context, options=options, codegen_fns=codegen_fns,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.HADtP505/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 1724, in ast_to_ttir
+    generator.visit(fn.parse())
+  File "/tmp/qsa-raw-cube-chain.HADtP505/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 1628, in visit
+    ret = super().visit(node)
+          ^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.HADtP505/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 563, in visit_Module
+    ast.NodeVisitor.generic_visit(self, node)
+  File "/tmp/qsa-raw-cube-chain.HADtP505/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 1628, in visit
+    ret = super().visit(node)
+          ^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.HADtP505/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 661, in visit_FunctionDef
+    self.visit_compound_statement(node.body)
+  File "/tmp/qsa-raw-cube-chain.HADtP505/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 555, in visit_compound_statement
+    ret = self.visit(stmt)
+          ^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.HADtP505/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 1628, in visit
+    ret = super().visit(node)
+          ^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.HADtP505/flagtree-corefix/triton/experimental/tle/__init__.py", line 143, in visit_With
+    return super().visit_With(node)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.HADtP505/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 1044, in visit_With
+    return handler(self, node)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.HADtP505/flagtree-corefix/triton/language/extra/cann/extension/code_generator.py", line 161, in handle_scope_with
+    generator.visit_compound_statement(node.body)
+  File "/tmp/qsa-raw-cube-chain.HADtP505/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 555, in visit_compound_statement
+    ret = self.visit(stmt)
+          ^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.HADtP505/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 1636, in visit
+    raise CompilationError(self.jit_fn.src, self.cur_node, repr(e)) from None
+triton.compiler.errors.CompilationError: at 30:8:
+
+    with al.scope(core_mode="vector"):
+        state_storage = tle.dsa.alloc([8*1024],dtype=tl.float32,mem_addr_space=tle.dsa.ascend.UB)
+        word = tl.arange(0,1024)
+        initial = tl.where(word%2==0,-float("inf"),tl.full((),-1,tl.int32).to(tl.float32,bitcast=True))
+        for query in range(8):
+            state_slot = tle.dsa.subview(state_storage,[query*1024],[1024],[1])
+            tle.dsa.to_buffer(initial,space=tle.dsa.ascend.UB,bind_buffer=state_slot)
+        tl.debug_barrier()
+        for slot in tl.static_range(SLOTS):
+            al.sync_block_set("vector","cube",slot,pipe.PIPE_MTE3,pipe.PIPE_FIX)
+        for block in range(WIDTH//512):
+        ^
+AssertionError("Loop carried variable slot changed type, was <class 'triton.language.core.tensor'> but is now <class 'triton.language.core.constexpr'>")
