@@ -36,7 +36,17 @@ def main():
     parser.add_argument("--critical-path", action="store_true")
     parser.add_argument("--topk-prefix", action="store_true")
     parser.add_argument("--sort-buffers", action="store_true")
+    parser.add_argument("--tle-sort512", action="store_true")
     args = parser.parse_args()
+    if args.tle_sort512 and (
+        not args.cube_block512
+        or args.critical_path
+        or args.topk_prefix
+        or args.sort_buffers
+    ):
+        parser.error(
+            "--tle-sort512 requires --cube-block512 without other diagnostic variants"
+        )
     if args.sort_buffers and (
         not args.cube_block512 or args.critical_path or args.topk_prefix
     ):
@@ -124,6 +134,10 @@ def main():
             from qsa_raw_sort_buffers_910b import source as buffers_source
 
             text += buffers_source()
+        if args.tle_sort512:
+            from qsa_raw_tle_sort512_910b import source as tle_sort_source
+
+            text += tle_sort_source()
         path.write_text(text)
         path.with_suffix(".py.txt").write_text(path.read_text())
         spec = importlib.util.spec_from_file_location("_qsa_raw_mixed_online", path)
@@ -148,7 +162,7 @@ def main():
             result["phase"] = "replay_tick_build"
             save()
             module.replay_tick_op = bind_tick(report, result, save)
-        if args.sort_buffers:
+        if args.sort_buffers or args.tle_sort512:
             from qsa_raw_sort_buffers_910b import capture_installed
 
             result["installed_sort_audit"] = capture_installed(report)
@@ -209,6 +223,15 @@ def main():
                 "Zero-filled operands observed in pre-device IR; hardware fill savings not assumed",
                 "Poison validation is empirical for these fixtures,not a general proof",
                 "No production change or CANN acceptance ratio",
+            ]
+        if args.tle_sort512:
+            result["mode"] = "tle_sort512"
+            result["scope"] = (
+                "Same full mixed kernel;generic local sort versus fixed TLE primitive network"
+            )
+            result["limitations"] = [
+                "Prepared micro comparison,not full-input or CANN acceptance",
+                "Equal-score index order may differ;ranked scores and index validity checked",
             ]
         for rows, width in fixtures:
             case_name = f"r{rows}-w{width}" if args.boundaries else str(width)
@@ -367,6 +390,8 @@ def main():
                 configurations = ((2, "full"), (2, "sort"), (2, "merge"))
             if args.sort_buffers:
                 configurations = ((2, "poison"), (2, "zero"), (2, "uninit"))
+            if args.tle_sort512:
+                configurations = ((2, "generic"), (2, "fixed"))
             for slots, label in configurations:
                 g = (
                     boundary_geometry(rows, width, slots)
@@ -407,6 +432,8 @@ def main():
                 )
                 if args.sort_buffers:
                     kernel = getattr(module, "raw_sort_" + label)
+                if args.tle_sort512:
+                    kernel = getattr(module, "raw_tle_sort_" + label)
                 if label == "block512":
                     kernel = module.raw_mixed_block512
                 if args.critical_path:
@@ -436,6 +463,12 @@ def main():
                         entry.setdefault("sort_ir", {}).setdefault(label, {})[
                             str(traced)
                         ] = sort_ir_evidence(compiled)
+                    if args.tle_sort512:
+                        from qsa_raw_tle_sort512_910b import ir_evidence
+
+                        entry.setdefault("primitive_ir", {}).setdefault(label, {})[
+                            str(traced)
+                        ] = ir_evidence(compiled, label == "fixed")
                     binaries[str(traced)] = dict(
                         launch=mode,
                         asm=save_asm(
@@ -634,18 +667,22 @@ def main():
                 for name, arr in samples.items()
             }
             numerator, denominator = (
-                ("zero", "uninit")
-                if args.sort_buffers
+                ("generic", "fixed")
+                if args.tle_sort512
                 else (
-                    ("full", "sort")
-                    if args.topk_prefix
+                    ("zero", "uninit")
+                    if args.sort_buffers
                     else (
-                        ("full", "light")
-                        if args.critical_path
+                        ("full", "sort")
+                        if args.topk_prefix
                         else (
-                            ("baseline64", "block512")
-                            if args.cube_block512
-                            else ("slots1", "slots2")
+                            ("full", "light")
+                            if args.critical_path
+                            else (
+                                ("baseline64", "block512")
+                                if args.cube_block512
+                                else ("slots1", "slots2")
+                            )
                         )
                     )
                 )
@@ -655,6 +692,9 @@ def main():
             entry[
                 "call64_over_block512" if args.cube_block512 else "serial_over_buffered"
             ] = ratio
+            if args.tle_sort512:
+                entry["generic_over_fixed"] = ratio
+                entry.pop("call64_over_block512", None)
             if args.sort_buffers:
                 entry["zero_over_uninit"] = ratio
                 entry.pop("call64_over_block512", None)
@@ -672,7 +712,12 @@ def main():
                     scope="Diagnostic work removal; not internal stage times",
                 )
                 entry.pop("call64_over_block512", None)
-            if args.cube_block512 and not args.critical_path and not args.sort_buffers:
+            if (
+                args.cube_block512
+                and not args.critical_path
+                and not args.sort_buffers
+                and not args.tle_sort512
+            ):
                 entry["expected_native_calls"] = dict(
                     baseline64=groups * shape["steps"] * 8,
                     block512=groups * shape["steps"],

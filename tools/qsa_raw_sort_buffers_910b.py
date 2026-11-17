@@ -109,6 +109,8 @@ def capture_installed(report):
         "sort_ops/sort_1d_pack.cpp",
         "sort_ops/sort_base.h",
         "sort_ops/sort_common.h",
+        "sort_ops/sort32.cpp",
+        "sort_ops/mrgsort.cpp",
     ):
         path = root / relative
         row = dict(path=str(path), available=path.is_file())
@@ -152,6 +154,8 @@ def capture_installed(report):
                 n in f.splitlines()[0]
                 for n in (
                     "sort_1d_pack",
+                    "custom_sort32",
+                    "custom_mrgsort",
                     "sort_base_impl",
                     "prepare_src_",
                     "block_sort",
