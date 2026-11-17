@@ -35,7 +35,14 @@ def main():
     parser.add_argument("--cube-block512", action="store_true")
     parser.add_argument("--critical-path", action="store_true")
     parser.add_argument("--topk-prefix", action="store_true")
+    parser.add_argument("--sort-buffers", action="store_true")
     args = parser.parse_args()
+    if args.sort_buffers and (
+        not args.cube_block512 or args.critical_path or args.topk_prefix
+    ):
+        parser.error(
+            "--sort-buffers requires --cube-block512 without critical/prefix modes"
+        )
     if args.topk_prefix and not args.critical_path:
         parser.error("--topk-prefix requires --critical-path")
     if args.critical_path and not args.cube_block512:
@@ -113,6 +120,10 @@ def main():
             from qsa_raw_topk_prefix_910b import source as prefix_source
 
             text += prefix_source()
+        if args.sort_buffers:
+            from qsa_raw_sort_buffers_910b import source as buffers_source
+
+            text += buffers_source()
         path.write_text(text)
         path.with_suffix(".py.txt").write_text(path.read_text())
         spec = importlib.util.spec_from_file_location("_qsa_raw_mixed_online", path)
@@ -137,6 +148,11 @@ def main():
             result["phase"] = "replay_tick_build"
             save()
             module.replay_tick_op = bind_tick(report, result, save)
+        if args.sort_buffers:
+            from qsa_raw_sort_buffers_910b import capture_installed
+
+            result["installed_sort_audit"] = capture_installed(report)
+            save()
         fixtures = (
             boundary_cases() if args.boundaries else ((16, 512), (16, 1024), (16, 4096))
         )
@@ -183,6 +199,16 @@ def main():
                 "Sort/merge export rank-weighted checksums; export cost included",
                 "Merge uses fixed synthetic nonempty history; full uses evolving UB history",
                 "Snapshot/fallback work remains inside merge helper; commit cost not isolated",
+            ]
+        if args.sort_buffers:
+            result["mode"] = "sort_buffer_lifetime"
+            result["scope"] = (
+                "Same full mixed kernel and sort algorithm; explicit buffer lifetime micro A/B"
+            )
+            result["limitations"] = [
+                "Zero-filled operands observed in pre-device IR; hardware fill savings not assumed",
+                "Poison validation is empirical for these fixtures,not a general proof",
+                "No production change or CANN acceptance ratio",
             ]
         for rows, width in fixtures:
             case_name = f"r{rows}-w{width}" if args.boundaries else str(width)
@@ -339,6 +365,8 @@ def main():
                 configurations = ((2, "full"), (2, "light"), (2, "replay"))
             if args.topk_prefix:
                 configurations = ((2, "full"), (2, "sort"), (2, "merge"))
+            if args.sort_buffers:
+                configurations = ((2, "poison"), (2, "zero"), (2, "uninit"))
             for slots, label in configurations:
                 g = (
                     boundary_geometry(rows, width, slots)
@@ -377,6 +405,8 @@ def main():
                     if args.boundaries
                     else module.raw_mixed_online
                 )
+                if args.sort_buffers:
+                    kernel = getattr(module, "raw_sort_" + label)
                 if label == "block512":
                     kernel = module.raw_mixed_block512
                 if args.critical_path:
@@ -400,6 +430,12 @@ def main():
                         4,
                     ):
                         raise RuntimeError(f"Expected mixed Cube/Vector binary: {mode}")
+                    if args.sort_buffers:
+                        from qsa_raw_sort_buffers_910b import sort_ir_evidence
+
+                        entry.setdefault("sort_ir", {}).setdefault(label, {})[
+                            str(traced)
+                        ] = sort_ir_evidence(compiled)
                     binaries[str(traced)] = dict(
                         launch=mode,
                         asm=save_asm(
@@ -582,29 +618,35 @@ def main():
             )
             result["phase"] = f"timing-{case_name}"
             save()
+            timed_arms = {name: arm for name, arm in arms.items() if name != "poison"}
+            timed_hosts = {name: hosts[name] for name in timed_arms}
             samples, _ = measure_prefix_plan(
                 options,
-                arms,
+                timed_arms,
                 lambda name, _: arms[name]["launch"](),
-                dict.fromkeys(arms),
+                dict.fromkeys(timed_arms),
                 torch,
                 entry,
-                expected_hosts=hosts,
+                expected_hosts=timed_hosts,
             )
             med = {
                 name: sum(s["kernel_us"] for s in arr) / len(arr)
                 for name, arr in samples.items()
             }
             numerator, denominator = (
-                ("full", "sort")
-                if args.topk_prefix
+                ("zero", "uninit")
+                if args.sort_buffers
                 else (
-                    ("full", "light")
-                    if args.critical_path
+                    ("full", "sort")
+                    if args.topk_prefix
                     else (
-                        ("baseline64", "block512")
-                        if args.cube_block512
-                        else ("slots1", "slots2")
+                        ("full", "light")
+                        if args.critical_path
+                        else (
+                            ("baseline64", "block512")
+                            if args.cube_block512
+                            else ("slots1", "slots2")
+                        )
                     )
                 )
             )
@@ -613,6 +655,9 @@ def main():
             entry[
                 "call64_over_block512" if args.cube_block512 else "serial_over_buffered"
             ] = ratio
+            if args.sort_buffers:
+                entry["zero_over_uninit"] = ratio
+                entry.pop("call64_over_block512", None)
             if args.topk_prefix:
                 entry["prefix_ratios"] = dict(
                     full_over_sort=med["full"] / med["sort"],
@@ -627,7 +672,7 @@ def main():
                     scope="Diagnostic work removal; not internal stage times",
                 )
                 entry.pop("call64_over_block512", None)
-            if args.cube_block512 and not args.critical_path:
+            if args.cube_block512 and not args.critical_path and not args.sort_buffers:
                 entry["expected_native_calls"] = dict(
                     baseline64=groups * shape["steps"] * 8,
                     block512=groups * shape["steps"],

@@ -44,7 +44,11 @@ qsa_boundaries=0
 qsa_block512=0
 qsa_critical=0
 qsa_topk_prefix=0
+qsa_sort_buffers=0
 for qsa_argument in "$@"; do
+    if [[ "$qsa_argument" == --sort-buffers ]]; then
+        qsa_sort_buffers=1
+    fi
     if [[ "$qsa_argument" == --topk-prefix ]]; then
         qsa_topk_prefix=1
     fi
@@ -196,6 +200,13 @@ if [[ "$qsa_topk_prefix" == 1 ]]; then
     fi
     qsa_kind=raw-topk-prefix
 fi
+if [[ "$qsa_sort_buffers" == 1 ]]; then
+    if [[ "$qsa_block512" != 1 || "$qsa_critical" == 1 || "$qsa_topk_prefix" == 1 ]]; then
+        echo '--sort-buffers requires --cube-block512 without critical/prefix modes'
+        exit 2
+    fi
+    qsa_kind=raw-sort-buffers
+fi
 # Re-activate after shell startup files have run; lock the environment at execution.
 if [[ -n "${QSA_ENV_ROOT:-}" ]]; then
     qsa_env_root=$(realpath -- "$QSA_ENV_ROOT") || exit 1
@@ -335,6 +346,11 @@ fi
 if [[ "$qsa_status" == 0 && "$qsa_topk_prefix" == 1 ]]; then
     "$qsa_python" -u "$qsa_repo/tools/test_qsa_raw_topk_prefix.py" -v \
         2>&1 | tee "$qsa_report/raw-topk-prefix-cpu-tests.txt"
+    qsa_status=${PIPESTATUS[0]}
+fi
+if [[ "$qsa_status" == 0 && "$qsa_sort_buffers" == 1 ]]; then
+    "$qsa_python" -u "$qsa_repo/tools/test_qsa_raw_sort_buffers.py" -v \
+        2>&1 | tee "$qsa_report/raw-sort-buffer-cpu-tests.txt"
     qsa_status=${PIPESTATUS[0]}
 fi
 qsa_worker="$qsa_repo/tools/probe_qsa_raw_cube_chain_910b.py"
