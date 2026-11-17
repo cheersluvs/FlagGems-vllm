@@ -153,8 +153,7 @@ class PreparedRawMixedSelection:
                         )
                     )
 
-                def execute(
-                    traced=False,
+                def pack_qw(
                     q=q,
                     qs=qs,
                     w=w,
@@ -172,6 +171,13 @@ class PreparedRawMixedSelection:
                     module.raw_query16_qw[(g["groups"],)](
                         q, qs, w, pq, pw, ROWS=n, QUERIES=16, num_warps=4
                     )
+
+                def pack_k(
+                    table=table,
+                    pk=pk,
+                    lks=lks,
+                    g=g,
+                ):
                     cores = min(20, g["active_tiles"] * 8)
                     module.raw_pack_k_ks_padded[(cores,)](
                         v["cache"],
@@ -184,7 +190,18 @@ class PreparedRawMixedSelection:
                         CORES=cores,
                         num_warps=4,
                     )
+
+                def mixed_only(
+                    traced=False, kernel=kernel, g=g, operands=operands, meta=meta
+                ):
                     return kernel[(g["groups"],)](*operands, TRACE=traced, **meta)
+
+                def execute(
+                    traced=False, pack_qw=pack_qw, pack_k=pack_k, mixed_only=mixed_only
+                ):
+                    pack_qw()
+                    pack_k()
+                    return mixed_only(traced)
 
                 chunk.append(
                     dict(
@@ -197,6 +214,12 @@ class PreparedRawMixedSelection:
                         target=target,
                         values=vals,
                         online_kernel=online_kernel,
+                        request=item["request"],
+                        maximum=maximum,
+                        blocks=blocks,
+                        pack_qw=pack_qw,
+                        pack_k=pack_k,
+                        mixed_only=mixed_only,
                     )
                 )
                 self.routes.append(

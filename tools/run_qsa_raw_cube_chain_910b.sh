@@ -424,6 +424,12 @@ fi
 if [[ "$qsa_raw_mixed" == 1 ]]; then
     qsa_worker="$qsa_repo/tools/probe_qsa_raw_mixed_online_910b.py"
 fi
+for qsa_argument in "$@"; do
+    if [[ "$qsa_argument" == --packing-probe ]]; then
+        qsa_worker="$qsa_repo/tools/run_qsa_packing_probe_910b.py"
+        qsa_kind=raw-packing-cost-probe
+    fi
+done
 command -v timeout >/dev/null || { echo 'timeout is required'; exit 2; }
 if [[ "$qsa_status" == 0 ]]; then
     timeout --signal=TERM --kill-after=20 "$qsa_timeout" \

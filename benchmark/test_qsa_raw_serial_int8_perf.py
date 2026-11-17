@@ -289,6 +289,15 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
             dtypes=[torch.int8],
             device=f"npu:{device_index}",
         )
+        if os.environ.get("QSA_PACKING_PROBE") == "1":
+            from qsa_packing_cost_probe_910b import probe
+
+            assert history_mode
+            detail["packing_probe"] = probe(context, mixed, raw, benchmark)
+            detail["postcheck"] = verify_pipeline(
+                torch, context, raw, native_call, "after", extra=extra
+            )
+            return detail
         benchmark.run()
         # Auxiliary stages use the same stock get_latency. Native has no stage split.
         timings = {}
