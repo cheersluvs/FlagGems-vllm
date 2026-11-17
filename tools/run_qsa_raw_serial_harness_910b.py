@@ -161,6 +161,12 @@ def summarize(report, outcomes, mixed=False):
             else "Stock harness whole-call speedup of unregistered serial raw candidate"
         ),
     )
+    provenance = report / "resume-provenance.json"
+    if provenance.is_file():
+        summary["resume"] = json.loads(provenance.read_text())
+        reused = summary["resume"]["reused_cases"]
+        for row in rows:
+            row["reused_from_previous_run"] = row["case"] in reused
     if valid:
         summary["arithmetic_mean_speedup"] = sum(r["speedup"] for r in rows) / 10
         if mixed:
@@ -215,6 +221,50 @@ def run_worker(command, root, env, log, timeout):
     return rc
 
 
+def resume_cases(root, source, report, mixed):
+    source = source.resolve()
+    if source == report.resolve():
+        raise ValueError("Resume requires a fresh destination")
+    commit = (source / "code-commit.txt").read_text().strip()
+    if len(commit) != 40 or any(c not in "0123456789abcdef" for c in commit):
+        raise ValueError("Invalid source code commit")
+    changed = subprocess.check_output(
+        ["git", "-C", str(root), "diff", "--name-only", commit, "HEAD"], text=True
+    ).splitlines()
+    allowed = {
+        "tools/run_qsa_raw_serial_harness_910b.py",
+        "tools/test_qsa_raw_serial_selection.py",
+    }
+    if any(p not in allowed and not p.startswith("docs/") for p in changed):
+        raise ValueError(
+            "Candidate, baseline or timing code changed; cannot reuse timings"
+        )
+    old = json.loads((source / "serial-harness-summary.json").read_text())
+    outcomes = {row["case"]: row.get("exit_code") for row in old["cases"]}
+    checked = summarize(source, outcomes, mixed=mixed)
+    reusable = [row["case"] for row in checked["cases"] if row["status"] == "passed"]
+    for path in source.iterdir():
+        if path.is_file() and any(
+            path.name.startswith(name + "-")
+            or path.name.startswith("harness-" + name + ".")
+            or path.name.startswith("harness-" + name + "-")
+            for name in reusable
+        ):
+            shutil.copy2(path, report / path.name)
+    (report / "resume-provenance.json").write_text(
+        json.dumps(
+            dict(
+                source_report=str(source),
+                source_code_commit=commit,
+                reused_cases=reusable,
+                note="Earlier nine-case session retained; remaining cases measured separately",
+            ),
+            indent=2,
+        )
+    )
+    return {name: 0 for name in reusable}
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--serial-harness", action="store_true", required=True)
@@ -224,9 +274,12 @@ def main():
     parser.add_argument("--mixed-harness", action="store_true")
     parser.add_argument("--summarize-only", action="store_true")
     parser.add_argument("--source-report", type=Path)
+    parser.add_argument("--resume-report", type=Path)
     args = parser.parse_args()
     if args.summarize_only != (args.source_report is not None):
         parser.error("--summarize-only requires --source-report and vice versa")
+    if args.resume_report and args.summarize_only:
+        parser.error("Resume and summarize-only are mutually exclusive")
     args.report.mkdir(parents=True, exist_ok=True)
     if args.summarize_only:
         source = args.source_report.resolve()
@@ -267,9 +320,16 @@ def main():
         PYTEST_DISABLE_PLUGIN_AUTOLOAD="1",
         QSA_RAW_MIXED_HARNESS="1" if args.mixed_harness else "0",
     )
-    outcomes = {}
+    outcomes = (
+        resume_cases(root, args.resume_report, args.report, args.mixed_harness)
+        if args.resume_report
+        else {}
+    )
     for plan in cases():
         name = plan["name"]
+        if name in outcomes:
+            print("RAW_SERIAL_HARNESS_REUSED", name, flush=True)
+            continue
         command = [
             sys.executable,
             "-u",

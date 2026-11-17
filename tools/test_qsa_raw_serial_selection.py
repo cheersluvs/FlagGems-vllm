@@ -31,6 +31,7 @@ from run_qsa_raw_serial_harness_910b import (  # noqa: E402
     OP_NAME,
     cases,
     main,
+    resume_cases,
     run_worker,
     summarize,
 )
@@ -194,6 +195,51 @@ class SerialSelectionTests(unittest.TestCase):
                     "recovered_without_npu_execution"
                 ]
             )
+
+    def test_resume_reuses_only_verified_cases_and_preserves_fresh_compiler(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source, dest = root / "source", root / "dest"
+            source.mkdir()
+            dest.mkdir()
+            outcomes = self.populate(source)
+            last = cases()[-1]["name"]
+            outcomes[last] = 1
+            (source / "code-commit.txt").write_text("a" * 40)
+            (source / "serial-harness-summary.json").write_text(
+                json.dumps(
+                    dict(
+                        cases=[dict(case=n, exit_code=rc) for n, rc in outcomes.items()]
+                    )
+                )
+            )
+            (source / "compiler-core-mode-fix.json").write_text("old")
+            (dest / "compiler-core-mode-fix.json").write_text("fresh")
+            with patch(
+                "run_qsa_raw_serial_harness_910b.subprocess.check_output",
+                return_value="tools/run_qsa_raw_serial_harness_910b.py\n",
+            ):
+                kept = resume_cases(root, source, dest, False)
+            self.assertEqual(len(kept), 9)
+            self.assertNotIn(last, kept)
+            self.assertFalse((dest / (last + "-all-score.json")).exists())
+            self.assertEqual(
+                (dest / "compiler-core-mode-fix.json").read_text(), "fresh"
+            )
+            self.assertEqual(
+                len(
+                    json.loads((dest / "resume-provenance.json").read_text())[
+                        "reused_cases"
+                    ]
+                ),
+                9,
+            )
+            with patch(
+                "run_qsa_raw_serial_harness_910b.subprocess.check_output",
+                return_value="tools/qsa_raw_mixed_online_910b.py\n",
+            ):
+                with self.assertRaisesRegex(ValueError, "code changed"):
+                    resume_cases(root, source, dest, False)
 
     def test_rejects_wrong_outcome_test_identity(self):
         with tempfile.TemporaryDirectory() as tmp:
