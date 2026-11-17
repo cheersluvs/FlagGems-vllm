@@ -22,9 +22,11 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 
-from qsa_raw_critical_path_910b import source
+from qsa_raw_critical_path_910b import TICK_STRIDE_BYTES, TICK_STRIDE_WORDS, source
 from qsa_raw_cube_block512_910b import source as block_source
+from test_qsa_raw_mixed_online import Index
 
 
 def functions(text):
@@ -124,6 +126,32 @@ class CriticalTests(unittest.TestCase):
         text = source()
         self.assertIn("Replay +", text)
         self.assertIn("replay_tick_op", text)
+
+    def test_actual_tick_addresses_are_isolated_and_within_audit_capacity(self):
+        replay = functions(source())["raw_critical_replay"]
+        tick = calls(replay.body[0], "raw.call")[0]
+        addr = tick.args[1].elts[-1]
+        self.assertEqual(TICK_STRIDE_WORDS * 4, TICK_STRIDE_BYTES)
+        for rows in (1, 16, 17, 112, 128):
+            groups = (rows + 15) // 16
+            addresses = []
+            for group in range(groups):
+                scope = dict(
+                    Audit=4096,
+                    tl=SimpleNamespace(
+                        cast=lambda a, t: a,
+                        uint64=None,
+                        program_id=lambda _: Index(group),
+                    ),
+                )
+                value = eval(
+                    compile(ast.Expression(addr), "tick-address", "eval"), {}, scope
+                )
+                addresses.append(value)
+                self.assertLessEqual(value + 4, 4096 + rows * TICK_STRIDE_WORDS * 4)
+                self.assertEqual(value, 4096 + group * TICK_STRIDE_BYTES)
+            for a, b in zip(addresses, addresses[1:]):
+                self.assertGreaterEqual(b - a, 512)
 
     def test_native_tick_body_writes_progress_without_score_compute(self):
         clang = shutil.which("clang++")

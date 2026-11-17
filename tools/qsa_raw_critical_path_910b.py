@@ -23,6 +23,8 @@ from qsa_raw_cube_block512_910b import source as full_source
 from qsa_raw_mixed_abi_910b import SYMBOL, check_alias_llvm
 
 TICK = "_mlir_ciface_qsa_raw_replay_tick"
+TICK_STRIDE_BYTES = 512
+TICK_STRIDE_WORDS = TICK_STRIDE_BYTES // 4
 
 
 def source():
@@ -78,9 +80,9 @@ tl.debug_barrier()
     )
     # Retain the exact first wait and final ready-set; replace only production.
     cube_loop.body[2:-1] = ast.parse(
-        """
-raw.call(replay_tick_op,[qbase,kbase,wbase,cube_block.to(tl.int64),tl.cast(Audit,tl.uint64)+tl.program_id(0).to(tl.uint64)*4],output_indices=[])
-"""
+        "raw.call(replay_tick_op,[qbase,kbase,wbase,cube_block.to(tl.int64),"
+        "tl.cast(Audit,tl.uint64)+tl.program_id(0).to(tl.uint64)*"
+        f"{TICK_STRIDE_BYTES}],output_indices=[])"
     ).body
     for n in ast.walk(replay.body[1]):
         if (

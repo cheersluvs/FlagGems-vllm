@@ -45,3 +45,16 @@ constexpr configuration argument. A regression binds all eleven payload pointers
 and four keyword configs for each actual generated signature,and verifies the
 previous ordering reproduces the duplicate-WIDTH failure. Arithmetic,events,
 fixtures and measurement options are unchanged.
+
+## Multi-group progress isolation
+
+Report42dd24abd89e4c89f14fd9d655d75a3abbddc0a6 passed the16x512 fixture:
+full43.334us,light14.2503us,replay38.2837us. At17x8256,the replay trace and
+selected values passed before the additional progress assertion failed. The
+original diagnostic markers were adjacent32-bit GM scalar stores from separate
+Cube groups. Cache-line writeback interference is a hypothesis,not yet proven:
+the old assertion did not preserve observed values. Each group now owns a
+512-byte-spaced marker,with sufficient guarded allocation. Observed per-group
+values,expected step,phase and trace mode are saved and printed before asserting.
+Score payload,TopK and event ordering are unchanged. No assertion is weakened.
+Single-group measurements cannot establish the multi-group critical path.

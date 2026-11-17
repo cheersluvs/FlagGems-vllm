@@ -125,7 +125,7 @@ def main():
             save()
             module.block512_chain_op = bind_block512(report, result, save)
         if args.critical_path:
-            from qsa_raw_critical_path_910b import bind_tick
+            from qsa_raw_critical_path_910b import TICK_STRIDE_WORDS, bind_tick
 
             result["phase"] = "replay_tick_build"
             save()
@@ -328,7 +328,10 @@ def main():
                 operands = (pq, pk, pw, lks, vd, ring, idx, val, trace)
                 audit = None
                 if args.critical_path:
-                    audit = guarded(shape["steps"], torch.float32, shape["steps"])
+                    audit_columns = (
+                        TICK_STRIDE_WORDS if label == "replay" else shape["steps"]
+                    )
+                    audit = guarded(audit_columns, torch.float32, audit_columns)
                     operands += (raw, audit)
                 kernel = (
                     module.raw_mixed_boundaries
@@ -450,11 +453,24 @@ def main():
                                     arm["audit"]
                                     .cpu()
                                     .reshape(-1)
-                                    .view(torch.int32)[:groups]
+                                    .view(torch.int32)[::TICK_STRIDE_WORDS][:groups]
                                 )
+                                observed = dict(
+                                    phase=phase,
+                                    traced=traced,
+                                    groups=groups,
+                                    stride_bytes=TICK_STRIDE_WORDS * 4,
+                                    expected=shape["steps"] - 1,
+                                    observed=ticks.tolist(),
+                                )
+                                entry.setdefault("replay_progress", []).append(observed)
+                                print(
+                                    "REPLAY_PROGRESS", json.dumps(observed), flush=True
+                                )
+                                save()
                                 assert bool(
                                     (ticks == shape["steps"] - 1).all()
-                                ), "Replay AIC progress missing"
+                                ), "Replay AIC progress missing: " + repr(observed)
                     checks[label] = dict(
                         passed=True,
                         rows=rows,
