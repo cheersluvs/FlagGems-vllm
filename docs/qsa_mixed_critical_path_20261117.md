@@ -34,3 +34,14 @@ event sequences, verify visible checksum stores remain outside TRACE branches,
 and execute the native scalar tick body with host counting stubs. Host checks
 are not CANN numerical or scheduling validation. Python compilation,Bash syntax,
 focused pre-commit and diff checks passed. Card validation remains pending.
+
+## Argument binding correction
+
+Report cae4bbd6c65d9cb848fdd80185f66f1302e4cbff failed at the first
+full-kernel warmup:both appended positional payload pointers consumed WIDTH and
+SLOTS before WIDTH was also supplied by keyword. No target kernel was compiled
+or executed and no timing was produced. Replay and Audit now precede the first
+constexpr configuration argument. A regression binds all eleven payload pointers
+and four keyword configs for each actual generated signature,and verifies the
+previous ordering reproduces the duplicate-WIDTH failure. Arithmetic,events,
+fixtures and measurement options are unchanged.

@@ -27,7 +27,13 @@ TICK = "_mlir_ciface_qsa_raw_replay_tick"
 
 def source():
     fn = ast.parse(full_source()).body[0]
-    fn.args.args.extend([ast.arg(arg="Replay"), ast.arg(arg="Audit")])
+    first_config = next(
+        i for i, arg in enumerate(fn.args.args) if arg.annotation is not None
+    )
+    fn.args.args[first_config:first_config] = [
+        ast.arg(arg="Replay"),
+        ast.arg(arg="Audit"),
+    ]
     full = copy.deepcopy(fn)
     full.name = "raw_critical_full"
     light = copy.deepcopy(fn)

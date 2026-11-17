@@ -15,6 +15,8 @@
 """CPU checks for matched events, unchanged work and observable ablation outputs."""
 
 import ast
+import copy
+import inspect
 import shutil
 import subprocess
 import tempfile
@@ -50,7 +52,40 @@ class CriticalTests(unittest.TestCase):
             ast.dump(full.body[0]), ast.dump(fs["raw_critical_light"].body[0])
         )
         for fn in fs.values():
-            self.assertEqual([a.arg for a in fn.args.args][-2:], ["Replay", "Audit"])
+            self.assertEqual([a.arg for a in fn.args.args][9:11], ["Replay", "Audit"])
+
+    def test_all_three_signatures_bind_actual_positional_payload_and_configs(self):
+        payload = [object() for _ in range(11)]
+        configs = dict(WIDTH=8256, SLOTS=2, TRACE=False, ROWS=17)
+        for original in functions(source()).values():
+            fn = copy.deepcopy(original)
+            fn.decorator_list = []
+            fn.body = [ast.Pass()]
+            for arg in fn.args.args:
+                arg.annotation = None
+            module = ast.fix_missing_locations(ast.Module(body=[fn], type_ignores=[]))
+            namespace = {}
+            exec(compile(module, "generated-signature", "exec"), namespace)
+            bound = inspect.signature(namespace[fn.name]).bind(*payload, **configs)
+            self.assertIs(bound.arguments["Replay"], payload[9])
+            self.assertIs(bound.arguments["Audit"], payload[10])
+            for name, value in configs.items():
+                self.assertEqual(bound.arguments[name], value)
+            # This is the failed ordering: appending both pointers after configs
+            # makes the eleventh positional argument consume SLOTS/duplicates WIDTH.
+            bad = inspect.Signature(
+                [
+                    inspect.Parameter(a.arg, inspect.Parameter.POSITIONAL_OR_KEYWORD)
+                    for a in original.args.args
+                    if a.arg not in ("Replay", "Audit")
+                ]
+                + [
+                    inspect.Parameter(name, inspect.Parameter.POSITIONAL_OR_KEYWORD)
+                    for name in ("Replay", "Audit")
+                ]
+            )
+            with self.assertRaisesRegex(TypeError, "multiple values"):
+                bad.bind(*payload, **configs)
 
     def test_all_arms_retain_ordered_event_protocol(self):
         fs = functions(source())
