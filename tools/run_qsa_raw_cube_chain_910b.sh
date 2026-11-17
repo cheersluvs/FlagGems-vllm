@@ -48,7 +48,11 @@ qsa_sort_buffers=0
 qsa_tle_sort=0
 qsa_tle_harness=0
 qsa_history_full=0
+qsa_history_harness=0
 for qsa_argument in "$@"; do
+    if [[ "$qsa_argument" == --history-prefix-harness ]]; then
+        qsa_history_harness=1
+    fi
     if [[ "$qsa_argument" == --history-full-merge ]]; then
         qsa_history_full=1
     fi
@@ -240,6 +244,13 @@ if [[ "$qsa_history_full" == 1 ]]; then
     fi
     qsa_kind=raw-history-full-merge
 fi
+if [[ "$qsa_history_harness" == 1 ]]; then
+    if [[ "$qsa_tle_harness" != 1 || "$qsa_history_full" == 1 ]]; then
+        echo '--history-prefix-harness requires --tle-sort-harness without micro flags'
+        exit 2
+    fi
+    qsa_kind=raw-history-prefix-harness
+fi
 # Re-activate after shell startup files have run; lock the environment at execution.
 if [[ -n "${QSA_ENV_ROOT:-}" ]]; then
     qsa_env_root=$(realpath -- "$QSA_ENV_ROOT") || exit 1
@@ -399,6 +410,11 @@ fi
 if [[ "$qsa_status" == 0 && "$qsa_history_full" == 1 ]]; then
     "$qsa_python" -u "$qsa_repo/tools/test_qsa_raw_history_merge.py" -v \
         2>&1 | tee "$qsa_report/raw-history-cpu-tests.txt"
+    qsa_status=${PIPESTATUS[0]}
+fi
+if [[ "$qsa_status" == 0 && "$qsa_history_harness" == 1 ]]; then
+    "$qsa_python" -u "$qsa_repo/tools/test_qsa_history_policy.py" -v \
+        2>&1 | tee "$qsa_report/history-policy-cpu-tests.txt"
     qsa_status=${PIPESTATUS[0]}
 fi
 qsa_worker="$qsa_repo/tools/probe_qsa_raw_cube_chain_910b.py"

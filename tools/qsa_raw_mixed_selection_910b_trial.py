@@ -40,6 +40,7 @@ class PreparedRawMixedSelection:
         kernel_name="raw_mixed_prepared",
         online_name="raw_online_topk_from_scores",
         evidence=None,
+        dispatch=None,
     ):
         import torch
 
@@ -71,6 +72,7 @@ class PreparedRawMixedSelection:
         self.by_chunk = {}
         self.artifacts = []
         self.routes = []
+        self.dispatch_routes = []
         seen = set()
         v = context["values"]
         for entry, pieces in context["jobs"]:
@@ -79,6 +81,14 @@ class PreparedRawMixedSelection:
                 first, n, maximum = item["first"], item["count"], item["maximum"]
                 g = piece_geometry(n, self.width, maximum)
                 groups, blocks = g["groups"], g["blocks"]
+                kernel, online_kernel, piece_evidence, dispatch_mode = (
+                    dispatch(blocks)
+                    if dispatch
+                    else (self.kernel, self.online_kernel, evidence, "default")
+                )
+                self.dispatch_routes.append(
+                    dict(first=first, count=n, blocks=blocks, mode=dispatch_mode)
+                )
                 q, qs, w = [v[k][first : first + n] for k in ("q", "qs", "weights")]
                 table = v["row_table"][first : first + n]
                 vis = v["visible"][first : first + n]
@@ -97,7 +107,7 @@ class PreparedRawMixedSelection:
                 if len(self.routes) % 16 == 0:
                     print("MIXED_PREPARE", case_name, first, n, blocks, flush=True)
                 for traced in (False, True):
-                    compiled = self.kernel.warmup(
+                    compiled = kernel.warmup(
                         *operands, TRACE=traced, grid=(groups,), **meta
                     )
                     launch = record_launch_mode(compiled)
@@ -105,32 +115,38 @@ class PreparedRawMixedSelection:
                         "bs_task_type"
                     ] // 10 not in (3, 4):
                         raise RuntimeError(str(launch))
-                    key = (traced, str(compiled.metadata))
+                    key = (dispatch_mode, traced, str(compiled.metadata))
                     if key not in seen:
                         seen.add(key)
                         self.artifacts.append(
                             dict(
+                                history_mode=dispatch_mode,
                                 launch=launch,
-                                primitive_ir=evidence(compiled) if evidence else None,
+                                primitive_ir=(
+                                    piece_evidence(compiled) if piece_evidence else None
+                                ),
                                 asm=save_asm(
                                     compiled, report, f"{case_name}-mixed-{len(seen)}"
                                 ),
                             )
                         )
                 online_meta = dict(ROWS=n, WIDTH=self.width, BLOCKS=blocks, num_warps=4)
-                online = self.online_kernel.warmup(
+                online = online_kernel.warmup(
                     trace, vis, target, vals, grid=((n + 7) // 8,), **online_meta
                 )
                 mode = record_launch_mode(online, require_cube=False)
                 if mode["mix_mode"] != "aiv" or mode["bs_task_type"] // 10 != 1:
                     raise RuntimeError(str(mode))
-                key = ("online", str(online.metadata))
+                key = (dispatch_mode, "online", str(online.metadata))
                 if key not in seen:
                     seen.add(key)
                     self.artifacts.append(
                         dict(
+                            history_mode=dispatch_mode,
                             launch=mode,
-                            primitive_ir=evidence(online) if evidence else None,
+                            primitive_ir=(
+                                piece_evidence(online) if piece_evidence else None
+                            ),
                             asm=save_asm(
                                 online, report, f"{case_name}-online-{len(seen)}"
                             ),
@@ -151,6 +167,7 @@ class PreparedRawMixedSelection:
                     g=g,
                     operands=operands,
                     meta=meta,
+                    kernel=kernel,
                 ):
                     module.raw_query16_qw[(g["groups"],)](
                         q, qs, w, pq, pw, ROWS=n, QUERIES=16, num_warps=4
@@ -167,7 +184,7 @@ class PreparedRawMixedSelection:
                         CORES=cores,
                         num_warps=4,
                     )
-                    return self.kernel[(g["groups"],)](*operands, TRACE=traced, **meta)
+                    return kernel[(g["groups"],)](*operands, TRACE=traced, **meta)
 
                 chunk.append(
                     dict(
@@ -179,6 +196,7 @@ class PreparedRawMixedSelection:
                         visible=vis,
                         target=target,
                         values=vals,
+                        online_kernel=online_kernel,
                     )
                 )
                 self.routes.append(
@@ -229,7 +247,7 @@ class PreparedRawMixedSelection:
     def topk_all_from_staged(self, staged):
         for item in self.jobs:
             first, n = item["first"], item["count"]
-            self.online_kernel[((n + 7) // 8,)](
+            item["online_kernel"][((n + 7) // 8,)](
                 staged[first : first + n],
                 item["visible"],
                 item["target"],

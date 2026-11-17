@@ -231,3 +231,36 @@ def transition_checks(module, torch, device, report, save_asm, record_launch_mod
     )
     (report / "history-transitions.json").write_text(json.dumps(result, indent=2))
     return result
+
+
+def harness_source():
+    from qsa_raw_tle_sort512_910b import harness_source as sort_harness
+
+    common = sort_harness()
+    fs = {
+        fn.name: fn for fn in ast.parse(common).body if isinstance(fn, ast.FunctionDef)
+    }
+    result = []
+    for mode in ("snapshot", "prefix"):
+        for original, name in (
+            ("raw_tle_fixed_prepared", "raw_history_prepared_"),
+            ("raw_tle_fixed_topk", "raw_history_topk_"),
+        ):
+            fn = copy.deepcopy(fs[original])
+            fn.name = name + mode
+            if mode == "prefix":
+                for n in ast.walk(fn):
+                    if (
+                        isinstance(n, ast.Call)
+                        and isinstance(n.func, ast.Name)
+                        and n.func.id == "_update_online_topk_ub_snapshot"
+                    ):
+                        n.func.id = "_history_prefix"
+            result.append(fn)
+    return (
+        common
+        + PREFIX
+        + "\n"
+        + "\n".join(ast.unparse(ast.fix_missing_locations(fn)) for fn in result)
+        + "\n"
+    )

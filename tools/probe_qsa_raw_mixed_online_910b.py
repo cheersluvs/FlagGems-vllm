@@ -38,7 +38,10 @@ def main():
     parser.add_argument("--sort-buffers", action="store_true")
     parser.add_argument("--tle-sort512", action="store_true")
     parser.add_argument("--history-full-merge", action="store_true")
+    parser.add_argument("--history-boundary", action="store_true")
     args = parser.parse_args()
+    if args.history_boundary and not args.history_full_merge:
+        parser.error("--history-boundary requires --history-full-merge")
     if args.history_full_merge and (
         not args.cube_block512
         or args.critical_path
@@ -267,6 +270,11 @@ def main():
                 "Complete merge emits all1024 proposals;removes coupled snapshot/count/fallback work",
                 "Outer persistent state commit and final unpack unchanged",
             ]
+        if args.history_boundary:
+            from qsa_history_policy_910b import boundary_cases as history_boundary_cases
+
+            fixtures = history_boundary_cases()
+            result["mode"] = "history_boundary_tuning"
         for rows, width in fixtures:
             case_name = f"r{rows}-w{width}" if args.boundaries else str(width)
             shape = boundary_geometry(rows, width, 1)
@@ -428,6 +436,8 @@ def main():
                 configurations = ((2, "generic"), (2, "fixed"))
             if args.history_full_merge:
                 configurations = ((2, "snapshot"), (2, "prefix"), (2, "complete"))
+            if args.history_boundary:
+                configurations = ((2, "snapshot"), (2, "prefix"))
             for slots, label in configurations:
                 g = (
                     boundary_geometry(rows, width, slots)
@@ -715,24 +725,28 @@ def main():
                 for name, arr in samples.items()
             }
             numerator, denominator = (
-                ("snapshot", "complete")
-                if args.history_full_merge
+                ("snapshot", "prefix")
+                if args.history_boundary
                 else (
-                    ("generic", "fixed")
-                    if args.tle_sort512
+                    ("snapshot", "complete")
+                    if args.history_full_merge
                     else (
-                        ("zero", "uninit")
-                        if args.sort_buffers
+                        ("generic", "fixed")
+                        if args.tle_sort512
                         else (
-                            ("full", "sort")
-                            if args.topk_prefix
+                            ("zero", "uninit")
+                            if args.sort_buffers
                             else (
-                                ("full", "light")
-                                if args.critical_path
+                                ("full", "sort")
+                                if args.topk_prefix
                                 else (
-                                    ("baseline64", "block512")
-                                    if args.cube_block512
-                                    else ("slots1", "slots2")
+                                    ("full", "light")
+                                    if args.critical_path
+                                    else (
+                                        ("baseline64", "block512")
+                                        if args.cube_block512
+                                        else ("slots1", "slots2")
+                                    )
                                 )
                             )
                         )
@@ -746,11 +760,12 @@ def main():
             ] = ratio
             if args.history_full_merge:
                 entry["snapshot_over_prefix"] = med["snapshot"] / med["prefix"]
-                entry["snapshot_over_complete"] = ratio
                 entry["history_ratios"] = dict(
-                    snapshot_over_prefix=entry["snapshot_over_prefix"],
-                    snapshot_over_complete=ratio,
+                    snapshot_over_prefix=entry["snapshot_over_prefix"]
                 )
+                if not args.history_boundary:
+                    entry["snapshot_over_complete"] = ratio
+                    entry["history_ratios"]["snapshot_over_complete"] = ratio
                 entry.pop("call64_over_block512", None)
             if args.tle_sort512:
                 entry["generic_over_fixed"] = ratio

@@ -31,10 +31,20 @@ from tools.qsa_int8_ten_workloads_910b import cases  # noqa: E402
 OP_NAME = "qsa_raw_serial_int8_910b"
 MIXED_OP_NAME = "qsa_raw_mixed_int8_910b"
 FIXED_OP_NAME = "qsa_raw_tle_sort_int8_910b"
+HISTORY_OP_NAME = "qsa_raw_history_prefix_int8_910b"
 
 
-def summarize(report, outcomes, mixed=False, fixed=False):
+def summarize(report, outcomes, mixed=False, fixed=False, history=False):
     rows = []
+    policy = None
+    policy_error = None
+    if history:
+        try:
+            from qsa_history_policy_910b import load_policy
+
+            policy = load_policy(report)
+        except (ValueError, KeyError, TypeError, OSError) as exc:
+            policy_error = repr(exc)
     for plan in cases():
         name = plan["name"]
         path = report / (name + "-all-score.json")
@@ -58,7 +68,15 @@ def summarize(report, outcomes, mixed=False, fixed=False):
                 ):
                     raise ValueError("Harness outcome or test identity mismatch")
                 bench = payload[
-                    FIXED_OP_NAME if fixed else MIXED_OP_NAME if mixed else OP_NAME
+                    (
+                        HISTORY_OP_NAME
+                        if history
+                        else (
+                            FIXED_OP_NAME
+                            if fixed
+                            else MIXED_OP_NAME if mixed else OP_NAME
+                        )
+                    )
                 ]
                 if not bench["details"] or any(
                     d.get("mode") != "kernel" or d.get("dtype") != "torch.int8"
@@ -69,9 +87,13 @@ def summarize(report, outcomes, mixed=False, fixed=False):
                 if len(values) != 1 or values[0]["shape_detail"] != [
                     name,
                     (
-                        "tle_sort512_slots2"
-                        if fixed
-                        else "online512_slots2" if mixed else "auto"
+                        "history_prefix_slots2"
+                        if history
+                        else (
+                            "tle_sort512_slots2"
+                            if fixed
+                            else "online512_slots2" if mixed else "auto"
+                        )
                     ),
                 ]:
                     raise ValueError("Unexpected harness case records")
@@ -112,7 +134,8 @@ def summarize(report, outcomes, mixed=False, fixed=False):
                         not mixed
                         or identity.get("local_sort") != "sort32_mrgsort_fixed512"
                         or identity.get("native") != "block512_query16_cube"
-                        or control.get("local_sort") != "sort_1d_pack"
+                        or control.get("local_sort")
+                        != ("sort32_mrgsort_fixed512" if history else "sort_1d_pack")
                         or control.get("native") != identity.get("native")
                         or control.get("same_packing_and_schedule") is not True
                         or checks["generic_routes"] != checks["mixed_routes"]
@@ -128,11 +151,29 @@ def summarize(report, outcomes, mixed=False, fixed=False):
                     for artifact_key, expected_calls in (
                         (
                             "mixed_compiled_artifacts",
-                            dict(sort_1d_pack=0, sort32=1, mrgsort=2),
+                            (
+                                dict(
+                                    sort32=1,
+                                    mrgsort=2,
+                                    merge_exhaust_sort4=1,
+                                    unpack_sort=1,
+                                )
+                                if history
+                                else dict(sort_1d_pack=0, sort32=1, mrgsort=2)
+                            ),
                         ),
                         (
                             "generic_compiled_artifacts",
-                            dict(sort_1d_pack=1, sort32=0, mrgsort=0),
+                            (
+                                dict(
+                                    sort32=1,
+                                    mrgsort=2,
+                                    merge_exhaust_sort4=1,
+                                    unpack_sort=1,
+                                )
+                                if history
+                                else dict(sort_1d_pack=1, sort32=0, mrgsort=0)
+                            ),
                         ),
                     ):
                         artifacts = checks[artifact_key]
@@ -147,6 +188,44 @@ def summarize(report, outcomes, mixed=False, fixed=False):
                             raise ValueError(
                                 "Missing or mismatched compiled primitive evidence"
                             )
+                if history:
+                    from qsa_history_policy_910b import use_prefix
+
+                    if policy_error:
+                        raise ValueError(policy_error)
+                    if (
+                        not fixed
+                        or checks.get("history_policy") != policy
+                        or checks["mixed_identity"].get("history")
+                        != "prefix_by_threshold"
+                        or checks["generic_identity"].get("history") != "snapshot"
+                    ):
+                        raise ValueError("History policy or control identity mismatch")
+                    routes = checks["mixed_routes"]
+                    dispatch = checks["history_dispatch"]
+                    if len(routes) != len(dispatch) or not routes:
+                        raise ValueError("History dispatch missing")
+                    for route, piece in zip(routes, dispatch):
+                        if any(
+                            route[k] != piece[k] for k in ("first", "count", "blocks")
+                        ):
+                            raise ValueError("History dispatch geometry mismatch")
+                        expected = (
+                            "prefix"
+                            if use_prefix(piece["blocks"], policy)
+                            else "snapshot"
+                        )
+                        if piece["mode"] != expected:
+                            raise ValueError("History fallback policy violated")
+                    artifacts = checks["mixed_compiled_artifacts"]
+                    if {a.get("history_mode") for a in artifacts} != {
+                        p["mode"] for p in dispatch
+                    } or any(
+                        a["history_mode"] == "prefix"
+                        and a["primitive_ir"].get("gather_references") != 0
+                        for a in artifacts
+                    ):
+                        raise ValueError("History dispatch compiled evidence mismatch")
                 stages = checks["stage_ms"]
                 if not all(
                     isinstance(stages.get(key), (int, float))
@@ -201,6 +280,14 @@ def summarize(report, outcomes, mixed=False, fixed=False):
                 )
                 if fixed:
                     entry["generic_over_fixed"] = stages["generic_combined"] / cand
+                if history:
+                    entry["snapshot_over_prefix"] = stages["generic_combined"] / cand
+                    entry["prefix_pieces"] = sum(
+                        r["mode"] == "prefix" for r in checks["history_dispatch"]
+                    )
+                    entry["snapshot_pieces"] = sum(
+                        r["mode"] == "snapshot" for r in checks["history_dispatch"]
+                    )
             except (KeyError, ValueError, TypeError, OSError) as exc:
                 entry["error"] = repr(exc)
         else:
@@ -214,15 +301,21 @@ def summarize(report, outcomes, mixed=False, fixed=False):
         baseline="CANN V1",
         production_changed=False,
         scope=(
-            "Stock harness whole-call CANN/fixed TLE sort candidate;block512 generic control"
-            if fixed
+            "Stock harness CANN/dispatched history prefix candidate;fixed-sort snapshot control"
+            if history
             else (
-                "Stock harness whole-call speedup of prepared two-slot mixed candidate"
-                if mixed
-                else "Stock harness whole-call speedup of unregistered serial raw candidate"
+                "Stock harness whole-call CANN/fixed TLE sort candidate;block512 generic control"
+                if fixed
+                else (
+                    "Stock harness whole-call speedup of prepared two-slot mixed candidate"
+                    if mixed
+                    else "Stock harness whole-call speedup of unregistered serial raw candidate"
+                )
             )
         ),
     )
+    if history:
+        summary["history_policy"] = policy
     provenance = report / "resume-provenance.json"
     if provenance.is_file():
         summary["resume"] = json.loads(provenance.read_text())
@@ -231,6 +324,10 @@ def summarize(report, outcomes, mixed=False, fixed=False):
             row["reused_from_previous_run"] = row["case"] in reused
     if valid:
         summary["arithmetic_mean_speedup"] = sum(r["speedup"] for r in rows) / 10
+        if history:
+            summary["arithmetic_mean_snapshot_over_prefix"] = (
+                sum(r["snapshot_over_prefix"] for r in rows) / 10
+            )
         if fixed:
             summary["arithmetic_mean_generic_over_fixed"] = (
                 sum(r["generic_over_fixed"] for r in rows) / 10
@@ -287,7 +384,7 @@ def run_worker(command, root, env, log, timeout):
     return rc
 
 
-def resume_cases(root, source, report, mixed, fixed=False):
+def resume_cases(root, source, report, mixed, fixed=False, history=False):
     source = source.resolve()
     if source == report.resolve():
         raise ValueError("Resume requires a fresh destination")
@@ -307,7 +404,7 @@ def resume_cases(root, source, report, mixed, fixed=False):
         )
     old = json.loads((source / "serial-harness-summary.json").read_text())
     outcomes = {row["case"]: row.get("exit_code") for row in old["cases"]}
-    checked = summarize(source, outcomes, mixed=mixed, fixed=fixed)
+    checked = summarize(source, outcomes, mixed=mixed, fixed=fixed, history=history)
     reusable = [row["case"] for row in checked["cases"] if row["status"] == "passed"]
     for path in source.iterdir():
         if path.is_file() and any(
@@ -339,10 +436,13 @@ def main():
     parser.add_argument("--case-timeout", type=int, default=1800)
     parser.add_argument("--mixed-harness", action="store_true")
     parser.add_argument("--tle-sort-harness", action="store_true")
+    parser.add_argument("--history-prefix-harness", action="store_true")
     parser.add_argument("--summarize-only", action="store_true")
     parser.add_argument("--source-report", type=Path)
     parser.add_argument("--resume-report", type=Path)
     args = parser.parse_args()
+    if args.history_prefix_harness and not args.tle_sort_harness:
+        parser.error("--history-prefix-harness requires --tle-sort-harness")
     if args.tle_sort_harness and not args.mixed_harness:
         parser.error("--tle-sort-harness requires --mixed-harness")
     if args.summarize_only != (args.source_report is not None):
@@ -372,7 +472,11 @@ def main():
                     name = "original-" + name
                 shutil.copy2(path, args.report / name)
         summary = summarize(
-            args.report, outcomes, mixed=args.mixed_harness, fixed=args.tle_sort_harness
+            args.report,
+            outcomes,
+            mixed=args.mixed_harness,
+            fixed=args.tle_sort_harness,
+            history=args.history_prefix_harness,
         )
         summary["recovered_without_npu_execution"] = True
         summary["source_report"] = str(source)
@@ -391,6 +495,7 @@ def main():
         PYTEST_DISABLE_PLUGIN_AUTOLOAD="1",
         QSA_RAW_MIXED_HARNESS="1" if args.mixed_harness else "0",
         QSA_RAW_TLE_SORT_HARNESS="1" if args.tle_sort_harness else "0",
+        QSA_RAW_HISTORY_HARNESS="1" if args.history_prefix_harness else "0",
     )
     outcomes = (
         resume_cases(
@@ -399,10 +504,32 @@ def main():
             args.report,
             args.mixed_harness,
             fixed=args.tle_sort_harness,
+            history=args.history_prefix_harness,
         )
         if args.resume_report
         else {}
     )
+    if args.history_prefix_harness:
+        from qsa_history_policy_910b import load_policy, preflight
+
+        try:
+            if args.resume_report:
+                load_policy(args.resume_report)
+                for path in args.resume_report.iterdir():
+                    if path.is_file() and (
+                        path.name == "history-policy.json"
+                        or path.name.startswith("boundary-")
+                    ):
+                        shutil.copy2(path, args.report / path.name)
+            else:
+                preflight(root, args.report, args.device)
+        except Exception as exc:
+            (args.report / "history-preflight-failure.json").write_text(
+                json.dumps(dict(status="failed", error=repr(exc)), indent=2)
+            )
+            print("HISTORY_PREFLIGHT_FAILED", repr(exc), flush=True)
+            return 2
+        env["QSA_HISTORY_POLICY"] = str((args.report / "history-policy.json").resolve())
     for plan in cases():
         name = plan["name"]
         if name in outcomes:
@@ -433,7 +560,11 @@ def main():
             rc = 1
         outcomes[name] = rc
         summary = summarize(
-            args.report, outcomes, mixed=args.mixed_harness, fixed=args.tle_sort_harness
+            args.report,
+            outcomes,
+            mixed=args.mixed_harness,
+            fixed=args.tle_sort_harness,
+            history=args.history_prefix_harness,
         )
         (args.report / "serial-harness-summary.json").write_text(
             json.dumps(summary, indent=2)
@@ -442,7 +573,11 @@ def main():
         if rc in (134, -6, 139, -11, 124):
             break
     summary = summarize(
-        args.report, outcomes, mixed=args.mixed_harness, fixed=args.tle_sort_harness
+        args.report,
+        outcomes,
+        mixed=args.mixed_harness,
+        fixed=args.tle_sort_harness,
+        history=args.history_prefix_harness,
     )
     (args.report / "serial-harness-summary.json").write_text(
         json.dumps(summary, indent=2)

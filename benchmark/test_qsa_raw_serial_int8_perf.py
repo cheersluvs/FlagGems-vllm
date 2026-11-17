@@ -38,12 +38,16 @@ from .test_qsa_select_paged_prefill_int8_perf import (
 )
 
 OP_NAME = (
-    "qsa_raw_tle_sort_int8_910b"
-    if os.environ.get("QSA_RAW_TLE_SORT_HARNESS") == "1"
+    "qsa_raw_history_prefix_int8_910b"
+    if os.environ.get("QSA_RAW_HISTORY_HARNESS") == "1"
     else (
-        "qsa_raw_mixed_int8_910b"
-        if os.environ.get("QSA_RAW_MIXED_HARNESS") == "1"
-        else "qsa_raw_serial_int8_910b"
+        "qsa_raw_tle_sort_int8_910b"
+        if os.environ.get("QSA_RAW_TLE_SORT_HARNESS") == "1"
+        else (
+            "qsa_raw_mixed_int8_910b"
+            if os.environ.get("QSA_RAW_MIXED_HARNESS") == "1"
+            else "qsa_raw_serial_int8_910b"
+        )
     )
 )
 
@@ -89,10 +93,14 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
     path = report / (case_name + "-serial-kernels.py")
     mixed_mode = os.environ.get("QSA_RAW_MIXED_HARNESS") == "1"
     fixed_mode = os.environ.get("QSA_RAW_TLE_SORT_HARNESS") == "1"
+    history_mode = os.environ.get("QSA_RAW_HISTORY_HARNESS") == "1"
+    assert not history_mode or fixed_mode
     assert not fixed_mode or mixed_mode
     source_text = runtime_source() + finish_source()
     if mixed_mode:
-        if fixed_mode:
+        if history_mode:
+            from qsa_raw_history_merge_910b import harness_source
+        elif fixed_mode:
             from qsa_raw_tle_sort512_910b import harness_source
         else:
             from qsa_raw_mixed_online_910b import harness_source
@@ -141,16 +149,43 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
                     online_name="raw_tle_fixed_topk",
                     evidence=partial(ir_evidence, fixed=True),
                 )
+                generic = (
+                    None
+                    if history_mode
+                    else PreparedRawMixedSelection(
+                        context,
+                        module,
+                        report,
+                        case_name + "-generic",
+                        save_asm,
+                        record_launch_mode,
+                        kernel_name="raw_tle_generic_prepared",
+                        online_name="raw_tle_generic_topk",
+                        evidence=partial(ir_evidence, fixed=False),
+                    )
+                )
+                if generic is not None:
+                    extra["generic"] = generic
+            if history_mode:
+                from qsa_history_policy_910b import dispatcher
+                from qsa_raw_history_merge_910b import ir_evidence as history_ir
+
+                policy = json.loads(Path(os.environ["QSA_HISTORY_POLICY"]).read_text())
+                options = dict(
+                    kernel_name="raw_history_prepared_snapshot",
+                    online_name="raw_history_topk_snapshot",
+                    dispatch=dispatcher(module, policy),
+                )
                 generic = PreparedRawMixedSelection(
                     context,
                     module,
                     report,
-                    case_name + "-generic",
+                    case_name + "-snapshot",
                     save_asm,
                     record_launch_mode,
-                    kernel_name="raw_tle_generic_prepared",
-                    online_name="raw_tle_generic_topk",
-                    evidence=partial(ir_evidence, fixed=False),
+                    kernel_name="raw_history_prepared_snapshot",
+                    online_name="raw_history_topk_snapshot",
+                    evidence=partial(history_ir, complete=False),
                 )
                 extra["generic"] = generic
             mixed = PreparedRawMixedSelection(
@@ -185,6 +220,15 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
                 detail["generic_compiled_artifacts"] = generic.artifacts
                 detail["generic_routes"] = generic.routes
                 assert generic.routes == mixed.routes
+            if history_mode:
+                detail["mixed_identity"]["history"] = "prefix_by_threshold"
+                detail["mixed_identity"]["kernel"] = "raw_history_dispatch"
+                detail["mixed_identity"]["topk"] = "online512_prefix_dispatch"
+                detail["generic_identity"]["kernel"] = "raw_history_prepared_snapshot"
+                detail["generic_identity"]["local_sort"] = "sort32_mrgsort_fixed512"
+                detail["generic_identity"]["history"] = "snapshot"
+                detail["history_policy"] = policy
+                detail["history_dispatch"] = mixed.dispatch_routes
         v = context["values"]
         native_call = partial(
             torch_npu.npu_quant_lightning_indexer,
@@ -223,9 +267,13 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
                 dict(
                     case_name=case_name,
                     route=(
-                        "tle_sort512_slots2"
-                        if fixed_mode
-                        else "online512_slots2" if mixed_mode else "auto"
+                        "history_prefix_slots2"
+                        if history_mode
+                        else (
+                            "tle_sort512_slots2"
+                            if fixed_mode
+                            else "online512_slots2" if mixed_mode else "auto"
+                        )
                     ),
                     reference=native_call,
                     candidate=mixed if mixed_mode else raw,
