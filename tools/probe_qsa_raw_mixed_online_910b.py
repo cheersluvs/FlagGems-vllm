@@ -32,7 +32,10 @@ def main():
     parser.add_argument("--device", type=int, default=0)
     parser.add_argument("--rounds", type=int, choices=(1, 2), default=2)
     parser.add_argument("--boundaries", action="store_true")
+    parser.add_argument("--cube-block512", action="store_true")
     args = parser.parse_args()
+    if args.cube_block512 and not args.boundaries:
+        parser.error("--cube-block512 requires --boundaries")
     report = args.report
     report.mkdir(parents=True, exist_ok=True)
     result = dict(
@@ -89,9 +92,14 @@ def main():
         save()
         native = native_module(report, 16, result, save)
         path = report / "raw-mixed-online-kernels.py"
-        path.write_text(
+        text = (
             runtime_source() + source() + (boundary_source() if args.boundaries else "")
         )
+        if args.cube_block512:
+            from qsa_raw_cube_block512_910b import source as block512_source
+
+            text += block512_source()
+        path.write_text(text)
         path.with_suffix(".py.txt").write_text(path.read_text())
         spec = importlib.util.spec_from_file_location("_qsa_raw_mixed_online", path)
         module = importlib.util.module_from_spec(spec)
@@ -103,6 +111,12 @@ def main():
         result["phase"] = "mixed_abi_build"
         save()
         module.mixed_chain_op = bind_mixed_chain(report, result, save)
+        if args.cube_block512:
+            from qsa_raw_cube_block512_910b import bind_block512
+
+            result["phase"] = "block512_native_build"
+            save()
+            module.block512_chain_op = bind_block512(report, result, save)
         fixtures = (
             boundary_cases() if args.boundaries else ((16, 512), (16, 1024), (16, 4096))
         )
@@ -115,6 +129,12 @@ def main():
             if args.boundaries
             else "single_group_whole_updates"
         )
+        if args.cube_block512:
+            fixtures = ((16, 512), (17, 8256), (112, 29696))
+            result["scope"] = (
+                "Prepared two-slot baseline64/block512 pair; no full-input/CANN acceptance mean"
+            )
+            result["mode"] = "cube_block512_reuse"
         for rows, width in fixtures:
             case_name = f"r{rows}-w{width}" if args.boundaries else str(width)
             shape = boundary_geometry(rows, width, 1)
@@ -251,8 +271,12 @@ def main():
             arms = {}
             hosts = {}
             # Compile every arm and both trace settings before the first target launch.
-            for slots in (1, 2):
-                label = f"slots{slots}"
+            configurations = (
+                ((2, "baseline64"), (2, "block512"))
+                if args.cube_block512
+                else ((1, "slots1"), (2, "slots2"))
+            )
+            for slots, label in configurations:
                 g = (
                     boundary_geometry(rows, width, slots)
                     if args.boundaries
@@ -281,6 +305,8 @@ def main():
                     if args.boundaries
                     else module.raw_mixed_online
                 )
+                if label == "block512":
+                    kernel = module.raw_mixed_block512
                 meta = dict(WIDTH=width, SLOTS=slots, num_warps=4)
                 if args.boundaries:
                     meta["ROWS"] = rows
@@ -411,11 +437,22 @@ def main():
                 name: sum(s["kernel_us"] for s in arr) / len(arr)
                 for name, arr in samples.items()
             }
-            entry.update(
-                samples=samples,
-                mean_us=med,
-                serial_over_buffered=med["slots1"] / med["slots2"],
+            numerator, denominator = (
+                ("baseline64", "block512")
+                if args.cube_block512
+                else ("slots1", "slots2")
             )
+            ratio = med[numerator] / med[denominator]
+            entry.update(samples=samples, mean_us=med)
+            entry[
+                "call64_over_block512" if args.cube_block512 else "serial_over_buffered"
+            ] = ratio
+            if args.cube_block512:
+                entry["expected_native_calls"] = dict(
+                    baseline64=groups * shape["steps"] * 8,
+                    block512=groups * shape["steps"],
+                    scope="Source schedule count; not measured hardware instruction count",
+                )
             entry["postcheck"] = validate("after")
             if width == 4096 and not args.boundaries:
                 entry["hardware"] = {}
@@ -446,7 +483,7 @@ def main():
                 json.dumps(
                     dict(
                         mean_us=med,
-                        speedup=entry["serial_over_buffered"],
+                        speedup=ratio,
                         overlap_proven=False,
                     )
                 ),

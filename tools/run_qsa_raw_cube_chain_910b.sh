@@ -41,7 +41,11 @@ qsa_serial_harness=0
 qsa_mixed_harness=0
 qsa_raw_mixed=0
 qsa_boundaries=0
+qsa_block512=0
 for qsa_argument in "$@"; do
+    if [[ "$qsa_argument" == --cube-block512 ]]; then
+        qsa_block512=1
+    fi
     if [[ "$qsa_argument" == --mixed-harness ]]; then
         qsa_mixed_harness=1
         qsa_serial_harness=1
@@ -162,6 +166,13 @@ if [[ "$qsa_raw_mixed" == 1 ]]; then
 fi
 if [[ "$qsa_raw_mixed" == 1 && "$qsa_boundaries" == 1 ]]; then
     qsa_kind=raw-mixed-boundaries
+fi
+if [[ "$qsa_block512" == 1 ]]; then
+    if [[ "$qsa_raw_mixed" != 1 || "$qsa_boundaries" != 1 || "$qsa_serial_harness" == 1 ]]; then
+        echo '--cube-block512 requires --raw-mixed-online --boundaries without harness flags'
+        exit 2
+    fi
+    qsa_kind=raw-cube-block512
 fi
 # Re-activate after shell startup files have run; lock the environment at execution.
 if [[ -n "${QSA_ENV_ROOT:-}" ]]; then
@@ -288,6 +299,11 @@ if [[ "$qsa_status" == 0 && "$qsa_raw_mixed" == 1 ]]; then
             2>&1 | tee "$qsa_report/raw-mixed-boundaries-cpu-tests.txt"
         qsa_status=${PIPESTATUS[0]}
     fi
+fi
+if [[ "$qsa_status" == 0 && "$qsa_block512" == 1 ]]; then
+    "$qsa_python" -u "$qsa_repo/tools/test_qsa_raw_cube_block512.py" -v \
+        2>&1 | tee "$qsa_report/raw-block512-cpu-tests.txt"
+    qsa_status=${PIPESTATUS[0]}
 fi
 qsa_worker="$qsa_repo/tools/probe_qsa_raw_cube_chain_910b.py"
 if [[ "$qsa_serial_harness" == 1 ]]; then
