@@ -38,9 +38,13 @@ from .test_qsa_select_paged_prefill_int8_perf import (
 )
 
 OP_NAME = (
-    "qsa_raw_mixed_int8_910b"
-    if os.environ.get("QSA_RAW_MIXED_HARNESS") == "1"
-    else "qsa_raw_serial_int8_910b"
+    "qsa_raw_tle_sort_int8_910b"
+    if os.environ.get("QSA_RAW_TLE_SORT_HARNESS") == "1"
+    else (
+        "qsa_raw_mixed_int8_910b"
+        if os.environ.get("QSA_RAW_MIXED_HARNESS") == "1"
+        else "qsa_raw_serial_int8_910b"
+    )
 )
 
 
@@ -84,9 +88,14 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
     native = native_module(report, 16, build, save)
     path = report / (case_name + "-serial-kernels.py")
     mixed_mode = os.environ.get("QSA_RAW_MIXED_HARNESS") == "1"
+    fixed_mode = os.environ.get("QSA_RAW_TLE_SORT_HARNESS") == "1"
+    assert not fixed_mode or mixed_mode
     source_text = runtime_source() + finish_source()
     if mixed_mode:
-        from qsa_raw_mixed_online_910b import harness_source
+        if fixed_mode:
+            from qsa_raw_tle_sort512_910b import harness_source
+        else:
+            from qsa_raw_mixed_online_910b import harness_source
         from qsa_raw_mixed_online_910b import source as mixed_source
 
         source_text += mixed_source() + harness_source()
@@ -101,6 +110,10 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
         from qsa_raw_mixed_abi_910b import bind_mixed_chain
 
         module.mixed_chain_op = bind_mixed_chain(report, build, save)
+        if fixed_mode:
+            from qsa_raw_cube_block512_910b import bind_block512
+
+            module.block512_chain_op = bind_block512(report, build, save)
     build["boundary"] = boundary(
         module, torch, f"npu:{device_index}", variants=("empty1024",)
     )
@@ -114,23 +127,64 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
         adapter.topk = topk
         raw = SerialRawSelection(context)
         mixed = None
+        generic = None
         extra = {}
         if mixed_mode:
             from qsa_raw_mixed_selection_910b_trial import PreparedRawMixedSelection
 
+            options = {}
+            if fixed_mode:
+                from qsa_raw_tle_sort512_910b import ir_evidence
+
+                options = dict(
+                    kernel_name="raw_tle_fixed_prepared",
+                    online_name="raw_tle_fixed_topk",
+                    evidence=partial(ir_evidence, fixed=True),
+                )
+                generic = PreparedRawMixedSelection(
+                    context,
+                    module,
+                    report,
+                    case_name + "-generic",
+                    save_asm,
+                    record_launch_mode,
+                    kernel_name="raw_tle_generic_prepared",
+                    online_name="raw_tle_generic_topk",
+                    evidence=partial(ir_evidence, fixed=False),
+                )
+                extra["generic"] = generic
             mixed = PreparedRawMixedSelection(
-                context, module, report, case_name, save_asm, record_launch_mode
+                context,
+                module,
+                report,
+                case_name,
+                save_asm,
+                record_launch_mode,
+                **options,
             )
             extra["mixed"] = mixed
             detail["mixed_identity"] = dict(
                 slots=2,
-                kernel="raw_mixed_prepared",
+                kernel="raw_tle_fixed_prepared" if fixed_mode else "raw_mixed_prepared",
                 topk="online512_UB_snapshot",
-                native="unchanged_query16_cube",
+                native=(
+                    "block512_query16_cube" if fixed_mode else "unchanged_query16_cube"
+                ),
+                local_sort="sort32_mrgsort_fixed512" if fixed_mode else "sort_1d_pack",
                 source_import=str(Path(module.__file__)),
             )
             detail["mixed_routes"] = mixed.routes
             detail["mixed_compiled_artifacts"] = mixed.artifacts
+            if fixed_mode:
+                detail["generic_identity"] = dict(
+                    kernel="raw_tle_generic_prepared",
+                    local_sort="sort_1d_pack",
+                    native="block512_query16_cube",
+                    same_packing_and_schedule=True,
+                )
+                detail["generic_compiled_artifacts"] = generic.artifacts
+                detail["generic_routes"] = generic.routes
+                assert generic.routes == mixed.routes
         v = context["values"]
         native_call = partial(
             torch_npu.npu_quant_lightning_indexer,
@@ -168,7 +222,11 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
             yield (
                 dict(
                     case_name=case_name,
-                    route="online512_slots2" if mixed_mode else "auto",
+                    route=(
+                        "tle_sort512_slots2"
+                        if fixed_mode
+                        else "online512_slots2" if mixed_mode else "auto"
+                    ),
                     reference=native_call,
                     candidate=mixed if mixed_mode else raw,
                 ),
@@ -193,6 +251,8 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
         ]
         if mixed_mode:
             stage_calls.insert(1, ("serial_combined", raw))
+        if fixed_mode:
+            stage_calls.insert(1, ("generic_combined", generic))
         for name, call in stage_calls:
             timings[name] = float(benchmark.get_latency(call))
             assert math.isfinite(timings[name]) and timings[name] > 0
@@ -243,6 +303,28 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
                     atol=0,
                 )
             mixed.check_guards()
+        if fixed_mode:
+            timings["generic_online_topk"] = float(
+                benchmark.get_latency(
+                    lambda staged=staged: generic.topk_all_from_staged(staged)
+                )
+            )
+            assert (
+                math.isfinite(timings["generic_online_topk"])
+                and timings["generic_online_topk"] > 0
+            )
+            torch.npu.synchronize()
+            selected = generic.output.cpu()
+            for first, count in adapter.chunks:
+                check_rank(
+                    torch,
+                    selected[first : first + count],
+                    staged[first : first + count].cpu(),
+                    context["cpu"]["visible"][first : first + count],
+                    rtol=0,
+                    atol=0,
+                )
+            generic.check_guards()
         del staged
         detail["stage_ms"] = timings
         detail["postcheck"] = verify_pipeline(

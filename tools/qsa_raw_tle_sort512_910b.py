@@ -86,3 +86,68 @@ def ir_evidence(kernel, fixed):
         lines=lines,
         scope="Pre-device IR primitive structure;not hardware instruction counts",
     )
+
+
+def harness_source():
+    from qsa_raw_mixed_online_910b import harness_source as original_harness_source
+
+    common = original_harness_source()
+    funcs = {
+        n.name: n for n in ast.parse(common).body if isinstance(n, ast.FunctionDef)
+    }
+    proven = ast.parse(source()).body
+    generic = copy.deepcopy(proven[0])
+    generic.name = "raw_tle_generic_prepared"
+    generic.args = copy.deepcopy(funcs["raw_mixed_prepared"].args)
+    for loop in ast.walk(generic):
+        if isinstance(loop, ast.For) and loop.target.id in (
+            "cube_block",
+            "vector_block",
+        ):
+            loop.iter = ast.parse("range(BLOCKS)", mode="eval").body
+    fixed = copy.deepcopy(generic)
+    fixed.name = "raw_tle_fixed_prepared"
+    online = copy.deepcopy(funcs["raw_online_topk_from_scores"])
+    online.name = "raw_tle_generic_topk"
+    online_fixed = copy.deepcopy(online)
+    online_fixed.name = "raw_tle_fixed_topk"
+    reference_update = next(
+        n
+        for n in ast.walk(proven[1])
+        if isinstance(n, ast.For) and n.target.id == "update_query"
+    )
+    begin = next(
+        i
+        for i, n in enumerate(reference_update.body)
+        if isinstance(n, ast.Assign) and n.targets[0].id == "local_indices"
+    )
+    end = (
+        next(
+            i
+            for i, n in enumerate(reference_update.body)
+            if isinstance(n, ast.Assign) and n.targets[0].id == "pairs"
+        )
+        + 2
+    )
+    network = reference_update.body[begin:end]
+    for fn in (fixed, online_fixed):
+        update = next(
+            n
+            for n in ast.walk(fn)
+            if isinstance(n, ast.For) and n.target.id == "update_query"
+        )
+        pos = next(
+            i
+            for i, n in enumerate(update.body)
+            if isinstance(n, ast.Assign) and n.targets[0].id == "pairs"
+        )
+        update.body[pos : pos + 1] = copy.deepcopy(network)
+    return (
+        common
+        + "\n"
+        + "\n".join(
+            ast.unparse(ast.fix_missing_locations(fn))
+            for fn in (generic, fixed, online, online_fixed)
+        )
+        + "\n"
+    )

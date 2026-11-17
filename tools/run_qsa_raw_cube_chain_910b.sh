@@ -46,7 +46,11 @@ qsa_critical=0
 qsa_topk_prefix=0
 qsa_sort_buffers=0
 qsa_tle_sort=0
+qsa_tle_harness=0
 for qsa_argument in "$@"; do
+    if [[ "$qsa_argument" == --tle-sort-harness ]]; then
+        qsa_tle_harness=1
+    fi
     if [[ "$qsa_argument" == --tle-sort512 ]]; then
         qsa_tle_sort=1
     fi
@@ -218,6 +222,13 @@ if [[ "$qsa_tle_sort" == 1 ]]; then
     fi
     qsa_kind=raw-tle-sort512
 fi
+if [[ "$qsa_tle_harness" == 1 ]]; then
+    if [[ "$qsa_serial_harness" != 1 || "$qsa_mixed_harness" != 1 || "$qsa_tle_sort" == 1 || "$qsa_raw_mixed" == 1 ]]; then
+        echo '--tle-sort-harness requires --serial-harness --mixed-harness without micro flags'
+        exit 2
+    fi
+    qsa_kind=raw-tle-sort-harness
+fi
 # Re-activate after shell startup files have run; lock the environment at execution.
 if [[ -n "${QSA_ENV_ROOT:-}" ]]; then
     qsa_env_root=$(realpath -- "$QSA_ENV_ROOT") || exit 1
@@ -367,6 +378,11 @@ fi
 if [[ "$qsa_status" == 0 && "$qsa_tle_sort" == 1 ]]; then
     "$qsa_python" -u "$qsa_repo/tools/test_qsa_raw_tle_sort512.py" -v \
         2>&1 | tee "$qsa_report/raw-tle-sort512-cpu-tests.txt"
+    qsa_status=${PIPESTATUS[0]}
+fi
+if [[ "$qsa_status" == 0 && "$qsa_tle_harness" == 1 ]]; then
+    "$qsa_python" -u "$qsa_repo/tools/test_qsa_raw_tle_sort_harness.py" -v \
+        2>&1 | tee "$qsa_report/raw-tle-sort-harness-cpu-tests.txt"
     qsa_status=${PIPESTATUS[0]}
 fi
 qsa_worker="$qsa_repo/tools/probe_qsa_raw_cube_chain_910b.py"

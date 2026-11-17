@@ -30,9 +30,10 @@ from tools.qsa_int8_ten_workloads_910b import cases  # noqa: E402
 
 OP_NAME = "qsa_raw_serial_int8_910b"
 MIXED_OP_NAME = "qsa_raw_mixed_int8_910b"
+FIXED_OP_NAME = "qsa_raw_tle_sort_int8_910b"
 
 
-def summarize(report, outcomes, mixed=False):
+def summarize(report, outcomes, mixed=False, fixed=False):
     rows = []
     for plan in cases():
         name = plan["name"]
@@ -56,7 +57,9 @@ def summarize(report, outcomes, mixed=False):
                     or outcome.get("test_case") != expected_test
                 ):
                     raise ValueError("Harness outcome or test identity mismatch")
-                bench = payload[MIXED_OP_NAME if mixed else OP_NAME]
+                bench = payload[
+                    FIXED_OP_NAME if fixed else MIXED_OP_NAME if mixed else OP_NAME
+                ]
                 if not bench["details"] or any(
                     d.get("mode") != "kernel" or d.get("dtype") != "torch.int8"
                     for d in bench["details"]
@@ -65,7 +68,11 @@ def summarize(report, outcomes, mixed=False):
                 values = [r for d in bench["details"] for r in d["result"]]
                 if len(values) != 1 or values[0]["shape_detail"] != [
                     name,
-                    "online512_slots2" if mixed else "auto",
+                    (
+                        "tle_sort512_slots2"
+                        if fixed
+                        else "online512_slots2" if mixed else "auto"
+                    ),
                 ]:
                     raise ValueError("Unexpected harness case records")
                 metric = values[0]
@@ -98,6 +105,48 @@ def summarize(report, outcomes, mixed=False):
                         for k in ("precheck", "postcheck")
                     ):
                         raise ValueError("Missing mixed pre/post trace coverage")
+                if fixed:
+                    identity = checks["mixed_identity"]
+                    control = checks["generic_identity"]
+                    if (
+                        not mixed
+                        or identity.get("local_sort") != "sort32_mrgsort_fixed512"
+                        or identity.get("native") != "block512_query16_cube"
+                        or control.get("local_sort") != "sort_1d_pack"
+                        or control.get("native") != identity.get("native")
+                        or control.get("same_packing_and_schedule") is not True
+                        or checks["generic_routes"] != checks["mixed_routes"]
+                        or any(
+                            "generic" not in checks[k].get("extra_candidates", [])
+                            for k in ("precheck", "postcheck")
+                        )
+                    ):
+                        raise ValueError(
+                            "Fixed candidate/control identity or coverage mismatch"
+                        )
+                if fixed:
+                    for artifact_key, expected_calls in (
+                        (
+                            "mixed_compiled_artifacts",
+                            dict(sort_1d_pack=0, sort32=1, mrgsort=2),
+                        ),
+                        (
+                            "generic_compiled_artifacts",
+                            dict(sort_1d_pack=1, sort32=0, mrgsort=0),
+                        ),
+                    ):
+                        artifacts = checks[artifact_key]
+                        if not artifacts or any(
+                            any(
+                                (a.get("primitive_ir") or {}).get("calls", {}).get(k)
+                                != v
+                                for k, v in expected_calls.items()
+                            )
+                            for a in artifacts
+                        ):
+                            raise ValueError(
+                                "Missing or mismatched compiled primitive evidence"
+                            )
                 stages = checks["stage_ms"]
                 if not all(
                     isinstance(stages.get(key), (int, float))
@@ -118,6 +167,13 @@ def summarize(report, outcomes, mixed=False):
                     for k in ("serial_combined", "online_topk")
                 ):
                     raise ValueError("Missing mixed comparison stages")
+                if fixed and not all(
+                    isinstance(stages.get(k), (int, float))
+                    and math.isfinite(stages[k])
+                    and stages[k] > 0
+                    for k in ("generic_combined", "generic_online_topk")
+                ):
+                    raise ValueError("Missing generic control or TopK timing")
                 entry.update(
                     status="passed",
                     cann_ms=base,
@@ -143,6 +199,8 @@ def summarize(report, outcomes, mixed=False):
                         else checks["postcheck"]["raw_current_changed_index_sets"]
                     ),
                 )
+                if fixed:
+                    entry["generic_over_fixed"] = stages["generic_combined"] / cand
             except (KeyError, ValueError, TypeError, OSError) as exc:
                 entry["error"] = repr(exc)
         else:
@@ -156,9 +214,13 @@ def summarize(report, outcomes, mixed=False):
         baseline="CANN V1",
         production_changed=False,
         scope=(
-            "Stock harness whole-call speedup of prepared two-slot mixed candidate"
-            if mixed
-            else "Stock harness whole-call speedup of unregistered serial raw candidate"
+            "Stock harness whole-call CANN/fixed TLE sort candidate;block512 generic control"
+            if fixed
+            else (
+                "Stock harness whole-call speedup of prepared two-slot mixed candidate"
+                if mixed
+                else "Stock harness whole-call speedup of unregistered serial raw candidate"
+            )
         ),
     )
     provenance = report / "resume-provenance.json"
@@ -169,6 +231,10 @@ def summarize(report, outcomes, mixed=False):
             row["reused_from_previous_run"] = row["case"] in reused
     if valid:
         summary["arithmetic_mean_speedup"] = sum(r["speedup"] for r in rows) / 10
+        if fixed:
+            summary["arithmetic_mean_generic_over_fixed"] = (
+                sum(r["generic_over_fixed"] for r in rows) / 10
+            )
         if mixed:
             summary["arithmetic_mean_serial_over_mixed"] = (
                 sum(r["serial_over_mixed"] for r in rows) / 10
@@ -221,7 +287,7 @@ def run_worker(command, root, env, log, timeout):
     return rc
 
 
-def resume_cases(root, source, report, mixed):
+def resume_cases(root, source, report, mixed, fixed=False):
     source = source.resolve()
     if source == report.resolve():
         raise ValueError("Resume requires a fresh destination")
@@ -241,7 +307,7 @@ def resume_cases(root, source, report, mixed):
         )
     old = json.loads((source / "serial-harness-summary.json").read_text())
     outcomes = {row["case"]: row.get("exit_code") for row in old["cases"]}
-    checked = summarize(source, outcomes, mixed=mixed)
+    checked = summarize(source, outcomes, mixed=mixed, fixed=fixed)
     reusable = [row["case"] for row in checked["cases"] if row["status"] == "passed"]
     for path in source.iterdir():
         if path.is_file() and any(
@@ -257,7 +323,7 @@ def resume_cases(root, source, report, mixed):
                 source_report=str(source),
                 source_code_commit=commit,
                 reused_cases=reusable,
-                note="Earlier nine-case session retained; remaining cases measured separately",
+                note="Verified completed cases retained; remaining cases measured separately",
             ),
             indent=2,
         )
@@ -272,10 +338,13 @@ def main():
     parser.add_argument("--device", type=int, default=0)
     parser.add_argument("--case-timeout", type=int, default=1800)
     parser.add_argument("--mixed-harness", action="store_true")
+    parser.add_argument("--tle-sort-harness", action="store_true")
     parser.add_argument("--summarize-only", action="store_true")
     parser.add_argument("--source-report", type=Path)
     parser.add_argument("--resume-report", type=Path)
     args = parser.parse_args()
+    if args.tle_sort_harness and not args.mixed_harness:
+        parser.error("--tle-sort-harness requires --mixed-harness")
     if args.summarize_only != (args.source_report is not None):
         parser.error("--summarize-only requires --source-report and vice versa")
     if args.resume_report and args.summarize_only:
@@ -302,7 +371,9 @@ def main():
                 ):
                     name = "original-" + name
                 shutil.copy2(path, args.report / name)
-        summary = summarize(args.report, outcomes, mixed=args.mixed_harness)
+        summary = summarize(
+            args.report, outcomes, mixed=args.mixed_harness, fixed=args.tle_sort_harness
+        )
         summary["recovered_without_npu_execution"] = True
         summary["source_report"] = str(source)
         (args.report / "serial-harness-summary.json").write_text(
@@ -319,9 +390,16 @@ def main():
         QSA_DEVICE=str(args.device),
         PYTEST_DISABLE_PLUGIN_AUTOLOAD="1",
         QSA_RAW_MIXED_HARNESS="1" if args.mixed_harness else "0",
+        QSA_RAW_TLE_SORT_HARNESS="1" if args.tle_sort_harness else "0",
     )
     outcomes = (
-        resume_cases(root, args.resume_report, args.report, args.mixed_harness)
+        resume_cases(
+            root,
+            args.resume_report,
+            args.report,
+            args.mixed_harness,
+            fixed=args.tle_sort_harness,
+        )
         if args.resume_report
         else {}
     )
@@ -354,14 +432,18 @@ def main():
             print(repr(exc), flush=True)
             rc = 1
         outcomes[name] = rc
-        summary = summarize(args.report, outcomes, mixed=args.mixed_harness)
+        summary = summarize(
+            args.report, outcomes, mixed=args.mixed_harness, fixed=args.tle_sort_harness
+        )
         (args.report / "serial-harness-summary.json").write_text(
             json.dumps(summary, indent=2)
         )
         # A fatal NPU error needs explicit diagnosis before more device work.
         if rc in (134, -6, 139, -11, 124):
             break
-    summary = summarize(args.report, outcomes, mixed=args.mixed_harness)
+    summary = summarize(
+        args.report, outcomes, mixed=args.mixed_harness, fixed=args.tle_sort_harness
+    )
     (args.report / "serial-harness-summary.json").write_text(
         json.dumps(summary, indent=2)
     )

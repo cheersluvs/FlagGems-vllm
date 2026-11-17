@@ -29,12 +29,24 @@ def piece_geometry(rows, width, maximum):
 
 class PreparedRawMixedSelection:
     def __init__(
-        self, context, module, report, case_name, save_asm, record_launch_mode
+        self,
+        context,
+        module,
+        report,
+        case_name,
+        save_asm,
+        record_launch_mode,
+        *,
+        kernel_name="raw_mixed_prepared",
+        online_name="raw_online_topk_from_scores",
+        evidence=None,
     ):
         import torch
 
         self.context = context
         self.module = module
+        self.kernel = getattr(module, kernel_name)
+        self.online_kernel = getattr(module, online_name)
         adapter = context["adapter"]
         self.rows, self.width, self.cap = adapter.rows, adapter.width, adapter.chunk
         device = adapter.output.device
@@ -85,7 +97,7 @@ class PreparedRawMixedSelection:
                 if len(self.routes) % 16 == 0:
                     print("MIXED_PREPARE", case_name, first, n, blocks, flush=True)
                 for traced in (False, True):
-                    compiled = module.raw_mixed_prepared.warmup(
+                    compiled = self.kernel.warmup(
                         *operands, TRACE=traced, grid=(groups,), **meta
                     )
                     launch = record_launch_mode(compiled)
@@ -99,13 +111,14 @@ class PreparedRawMixedSelection:
                         self.artifacts.append(
                             dict(
                                 launch=launch,
+                                primitive_ir=evidence(compiled) if evidence else None,
                                 asm=save_asm(
                                     compiled, report, f"{case_name}-mixed-{len(seen)}"
                                 ),
                             )
                         )
                 online_meta = dict(ROWS=n, WIDTH=self.width, BLOCKS=blocks, num_warps=4)
-                online = module.raw_online_topk_from_scores.warmup(
+                online = self.online_kernel.warmup(
                     trace, vis, target, vals, grid=((n + 7) // 8,), **online_meta
                 )
                 mode = record_launch_mode(online, require_cube=False)
@@ -117,6 +130,7 @@ class PreparedRawMixedSelection:
                     self.artifacts.append(
                         dict(
                             launch=mode,
+                            primitive_ir=evidence(online) if evidence else None,
                             asm=save_asm(
                                 online, report, f"{case_name}-online-{len(seen)}"
                             ),
@@ -153,9 +167,7 @@ class PreparedRawMixedSelection:
                         CORES=cores,
                         num_warps=4,
                     )
-                    return module.raw_mixed_prepared[(g["groups"],)](
-                        *operands, TRACE=traced, **meta
-                    )
+                    return self.kernel[(g["groups"],)](*operands, TRACE=traced, **meta)
 
                 chunk.append(
                     dict(
@@ -217,7 +229,7 @@ class PreparedRawMixedSelection:
     def topk_all_from_staged(self, staged):
         for item in self.jobs:
             first, n = item["first"], item["count"]
-            self.module.raw_online_topk_from_scores[((n + 7) // 8,)](
+            self.online_kernel[((n + 7) // 8,)](
                 staged[first : first + n],
                 item["visible"],
                 item["target"],
