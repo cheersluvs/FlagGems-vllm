@@ -400,6 +400,8 @@ def resume_cases(root, source, report, mixed, fixed=False, history=False, rerun=
     allowed = {
         "tools/run_qsa_raw_serial_harness_910b.py",
         "tools/test_qsa_raw_serial_selection.py",
+        "tools/qsa_timer_diagnostic_worker_910b.py",
+        "tools/test_qsa_timer_diagnostic.py",
     }
     if any(p not in allowed and not p.startswith("docs/") for p in changed):
         raise ValueError(
@@ -567,6 +569,9 @@ def main():
             "--output",
             str(args.report / ("harness-" + name + ".json")),
         ]
+        if os.environ.get("QSA_TIMER_DIAGNOSTICS") == "1":
+            command[2:4] = [str(root / "tools/qsa_timer_diagnostic_worker_910b.py")]
+            env["QSA_TIMER_CASE"] = name
         print("RAW_SERIAL_HARNESS_WORKER", name, flush=True)
         try:
             # Stream stdout while retaining the exact case log; bound worker lifetime.
