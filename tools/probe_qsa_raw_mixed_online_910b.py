@@ -33,7 +33,10 @@ def main():
     parser.add_argument("--rounds", type=int, choices=(1, 2), default=2)
     parser.add_argument("--boundaries", action="store_true")
     parser.add_argument("--cube-block512", action="store_true")
+    parser.add_argument("--critical-path", action="store_true")
     args = parser.parse_args()
+    if args.critical_path and not args.cube_block512:
+        parser.error("--critical-path requires --cube-block512")
     if args.cube_block512 and not args.boundaries:
         parser.error("--cube-block512 requires --boundaries")
     report = args.report
@@ -99,6 +102,10 @@ def main():
             from qsa_raw_cube_block512_910b import source as block512_source
 
             text += block512_source()
+        if args.critical_path:
+            from qsa_raw_critical_path_910b import source as critical_source
+
+            text += critical_source()
         path.write_text(text)
         path.with_suffix(".py.txt").write_text(path.read_text())
         spec = importlib.util.spec_from_file_location("_qsa_raw_mixed_online", path)
@@ -117,6 +124,12 @@ def main():
             result["phase"] = "block512_native_build"
             save()
             module.block512_chain_op = bind_block512(report, result, save)
+        if args.critical_path:
+            from qsa_raw_critical_path_910b import bind_tick
+
+            result["phase"] = "replay_tick_build"
+            save()
+            module.replay_tick_op = bind_tick(report, result, save)
         fixtures = (
             boundary_cases() if args.boundaries else ((16, 512), (16, 1024), (16, 4096))
         )
@@ -135,6 +148,17 @@ def main():
                 "Prepared two-slot baseline64/block512 pair; no full-input/CANN acceptance mean"
             )
             result["mode"] = "cube_block512_reuse"
+        if args.critical_path:
+            result["scope"] = (
+                "Prepared mixed critical-path ablations; no additive phase timing or acceptance ratio"
+            )
+            result["mode"] = "critical_path"
+            result["limitations"] = [
+                "Light consumer retains scaling/masking plus checksum reduction and GM stores",
+                "Replay preserves control events but bypasses ring payload writes; "
+                "full raw-buffer cache footprint differs",
+                "No inference of exact internal phase duration or proven overlap",
+            ]
         for rows, width in fixtures:
             case_name = f"r{rows}-w{width}" if args.boundaries else str(width)
             shape = boundary_geometry(rows, width, 1)
@@ -276,6 +300,8 @@ def main():
                 if args.cube_block512
                 else ((1, "slots1"), (2, "slots2"))
             )
+            if args.critical_path:
+                configurations = ((2, "full"), (2, "light"), (2, "replay"))
             for slots, label in configurations:
                 g = (
                     boundary_geometry(rows, width, slots)
@@ -300,6 +326,10 @@ def main():
                 val = guarded(512, torch.float32, 512)
                 trace = guarded(width, torch.float32, shape["padded_width"])
                 operands = (pq, pk, pw, lks, vd, ring, idx, val, trace)
+                audit = None
+                if args.critical_path:
+                    audit = guarded(shape["steps"], torch.float32, shape["steps"])
+                    operands += (raw, audit)
                 kernel = (
                     module.raw_mixed_boundaries
                     if args.boundaries
@@ -307,6 +337,8 @@ def main():
                 )
                 if label == "block512":
                     kernel = module.raw_mixed_block512
+                if args.critical_path:
+                    kernel = getattr(module, "raw_critical_" + label)
                 meta = dict(WIDTH=width, SLOTS=slots, num_warps=4)
                 if args.boundaries:
                     meta["ROWS"] = rows
@@ -350,6 +382,7 @@ def main():
                     trace=trace,
                     ring=ring,
                     guards=guards,
+                    audit=audit,
                 )
                 entry["arms"][label] = dict(geometry=g, binaries=binaries)
 
@@ -386,21 +419,55 @@ def main():
                                     if storage.dtype == torch.int32
                                     else bool(torch.isnan(cpu_guard).all())
                                 ), "Output guard overwritten"
-                        indices = arm["indices"].cpu()
-                        check_rank(torch, indices, expected, visible, rtol=0, atol=0)
-                        torch.testing.assert_close(
-                            arm["values"].cpu(),
-                            expected.topk(512, dim=1).values,
-                            rtol=0,
-                            atol=0,
-                        )
+                        if args.critical_path and label == "light":
+                            padded = torch.zeros(
+                                (rows, shape["padded_width"]), dtype=torch.float32
+                            )
+                            padded[:, :width] = torch.where(
+                                torch.isfinite(expected), expected, 0
+                            )
+                            torch.testing.assert_close(
+                                arm["audit"].cpu(),
+                                padded.view(rows, shape["steps"], 512).sum(2),
+                                rtol=1e-3,
+                                atol=1e-3,
+                            )
+                            assert bool((arm["indices"].cpu() == -3).all())
+                            assert bool(torch.isnan(arm["values"].cpu()).all())
+                        else:
+                            indices = arm["indices"].cpu()
+                            check_rank(
+                                torch, indices, expected, visible, rtol=0, atol=0
+                            )
+                            torch.testing.assert_close(
+                                arm["values"].cpu(),
+                                expected.topk(512, dim=1).values,
+                                rtol=0,
+                                atol=0,
+                            )
+                            if args.critical_path and label == "replay":
+                                ticks = (
+                                    arm["audit"]
+                                    .cpu()
+                                    .reshape(-1)
+                                    .view(torch.int32)[:groups]
+                                )
+                                assert bool(
+                                    (ticks == shape["steps"] - 1).all()
+                                ), "Replay AIC progress missing"
                     checks[label] = dict(
                         passed=True,
                         rows=rows,
                         steps=shape["steps"],
                         output_guards_unchanged=True,
                         trace_scores_exact=True,
-                        selected_scores_exact=True,
+                        selected_scores_exact=not (
+                            args.critical_path and label == "light"
+                        ),
+                        checksum_checked=bool(args.critical_path and label == "light"),
+                        replay_progress_checked=bool(
+                            args.critical_path and label == "replay"
+                        ),
                     )
                     print(
                         "RAW_MIXED_CHECK",
@@ -438,16 +505,27 @@ def main():
                 for name, arr in samples.items()
             }
             numerator, denominator = (
-                ("baseline64", "block512")
-                if args.cube_block512
-                else ("slots1", "slots2")
+                ("full", "light")
+                if args.critical_path
+                else (
+                    ("baseline64", "block512")
+                    if args.cube_block512
+                    else ("slots1", "slots2")
+                )
             )
             ratio = med[numerator] / med[denominator]
             entry.update(samples=samples, mean_us=med)
             entry[
                 "call64_over_block512" if args.cube_block512 else "serial_over_buffered"
             ] = ratio
-            if args.cube_block512:
+            if args.critical_path:
+                entry["ablation_ratios"] = dict(
+                    full_over_light=med["full"] / med["light"],
+                    full_over_replay=med["full"] / med["replay"],
+                    scope="Diagnostic work removal; not internal stage times",
+                )
+                entry.pop("call64_over_block512", None)
+            if args.cube_block512 and not args.critical_path:
                 entry["expected_native_calls"] = dict(
                     baseline64=groups * shape["steps"] * 8,
                     block512=groups * shape["steps"],
@@ -485,6 +563,7 @@ def main():
                         mean_us=med,
                         speedup=ratio,
                         overlap_proven=False,
+                        ablation_ratios=entry.get("ablation_ratios"),
                     )
                 ),
                 flush=True,
