@@ -241,6 +241,60 @@ class SerialSelectionTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "code changed"):
                     resume_cases(root, source, dest, False)
 
+    def test_resume_remeasures_suspect_success_without_reusing_its_artifacts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source, dest = root / "source", root / "dest"
+            source.mkdir()
+            dest.mkdir()
+            outcomes = self.populate(source)
+            outcomes.update(int8_short_tail=1, int8_long100k=1)
+            suspect = "int8_compact"
+            (source / "code-commit.txt").write_text("a" * 40)
+            (source / "serial-harness-summary.json").write_text(
+                json.dumps(
+                    dict(
+                        cases=[dict(case=n, exit_code=rc) for n, rc in outcomes.items()]
+                    )
+                )
+            )
+            original = (source / (suspect + "-all-score.json")).read_bytes()
+            with patch(
+                "run_qsa_raw_serial_harness_910b.subprocess.check_output",
+                return_value="tools/run_qsa_raw_serial_harness_910b.py\n",
+            ):
+                kept = resume_cases(root, source, dest, False, rerun=[suspect])
+            self.assertEqual(len(kept), 7)
+            for name in (suspect, "int8_short_tail", "int8_long100k"):
+                self.assertNotIn(name, kept)
+                self.assertFalse((dest / (name + "-all-score.json")).exists())
+                self.assertFalse((dest / ("harness-" + name + ".json")).exists())
+            self.assertEqual(
+                (source / (suspect + "-all-score.json")).read_bytes(), original
+            )
+            provenance = json.loads((dest / "resume-provenance.json").read_text())
+            self.assertEqual(provenance["requested_rerun_cases"], [suspect])
+            self.assertEqual(set(provenance["reused_cases"]), set(kept))
+            with self.assertRaisesRegex(ValueError, "Unknown case"):
+                resume_cases(root, source, dest, False, rerun=["unknown"])
+
+    def test_rerun_requires_resume_report(self):
+        with patch.object(
+            sys,
+            "argv",
+            [
+                "runner",
+                "--serial-harness",
+                "--report",
+                "/unused",
+                "--rerun-cases",
+                "int8_compact",
+            ],
+        ), contextlib.redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit) as exc:
+                main()
+            self.assertEqual(exc.exception.code, 2)
+
     def test_rejects_wrong_outcome_test_identity(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

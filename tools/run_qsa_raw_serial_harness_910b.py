@@ -384,10 +384,13 @@ def run_worker(command, root, env, log, timeout):
     return rc
 
 
-def resume_cases(root, source, report, mixed, fixed=False, history=False):
+def resume_cases(root, source, report, mixed, fixed=False, history=False, rerun=()):
     source = source.resolve()
     if source == report.resolve():
         raise ValueError("Resume requires a fresh destination")
+    rerun = set(rerun)
+    if not rerun.issubset({plan["name"] for plan in cases()}):
+        raise ValueError("Unknown case requested for remeasurement")
     commit = (source / "code-commit.txt").read_text().strip()
     if len(commit) != 40 or any(c not in "0123456789abcdef" for c in commit):
         raise ValueError("Invalid source code commit")
@@ -405,7 +408,11 @@ def resume_cases(root, source, report, mixed, fixed=False, history=False):
     old = json.loads((source / "serial-harness-summary.json").read_text())
     outcomes = {row["case"]: row.get("exit_code") for row in old["cases"]}
     checked = summarize(source, outcomes, mixed=mixed, fixed=fixed, history=history)
-    reusable = [row["case"] for row in checked["cases"] if row["status"] == "passed"]
+    reusable = [
+        row["case"]
+        for row in checked["cases"]
+        if row["status"] == "passed" and row["case"] not in rerun
+    ]
     for path in source.iterdir():
         if path.is_file() and any(
             path.name.startswith(name + "-")
@@ -420,6 +427,7 @@ def resume_cases(root, source, report, mixed, fixed=False, history=False):
                 source_report=str(source),
                 source_code_commit=commit,
                 reused_cases=reusable,
+                requested_rerun_cases=sorted(rerun),
                 note="Verified completed cases retained; remaining cases measured separately",
             ),
             indent=2,
@@ -440,6 +448,12 @@ def main():
     parser.add_argument("--summarize-only", action="store_true")
     parser.add_argument("--source-report", type=Path)
     parser.add_argument("--resume-report", type=Path)
+    parser.add_argument(
+        "--rerun-cases",
+        nargs="+",
+        choices=[plan["name"] for plan in cases()],
+        default=[],
+    )
     args = parser.parse_args()
     if args.history_prefix_harness and not args.tle_sort_harness:
         parser.error("--history-prefix-harness requires --tle-sort-harness")
@@ -449,6 +463,8 @@ def main():
         parser.error("--summarize-only requires --source-report and vice versa")
     if args.resume_report and args.summarize_only:
         parser.error("Resume and summarize-only are mutually exclusive")
+    if args.rerun_cases and not args.resume_report:
+        parser.error("--rerun-cases requires --resume-report")
     args.report.mkdir(parents=True, exist_ok=True)
     if args.summarize_only:
         source = args.source_report.resolve()
@@ -505,6 +521,7 @@ def main():
             args.mixed_harness,
             fixed=args.tle_sort_harness,
             history=args.history_prefix_harness,
+            rerun=args.rerun_cases,
         )
         if args.resume_report
         else {}
