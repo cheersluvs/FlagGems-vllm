@@ -34,7 +34,10 @@ def main():
     parser.add_argument("--boundaries", action="store_true")
     parser.add_argument("--cube-block512", action="store_true")
     parser.add_argument("--critical-path", action="store_true")
+    parser.add_argument("--topk-prefix", action="store_true")
     args = parser.parse_args()
+    if args.topk_prefix and not args.critical_path:
+        parser.error("--topk-prefix requires --critical-path")
     if args.critical_path and not args.cube_block512:
         parser.error("--critical-path requires --cube-block512")
     if args.cube_block512 and not args.boundaries:
@@ -106,6 +109,10 @@ def main():
             from qsa_raw_critical_path_910b import source as critical_source
 
             text += critical_source()
+        if args.topk_prefix:
+            from qsa_raw_topk_prefix_910b import source as prefix_source
+
+            text += prefix_source()
         path.write_text(text)
         path.with_suffix(".py.txt").write_text(path.read_text())
         spec = importlib.util.spec_from_file_location("_qsa_raw_mixed_online", path)
@@ -158,6 +165,24 @@ def main():
                 "Replay preserves control events but bypasses ring payload writes; "
                 "full raw-buffer cache footprint differs",
                 "No inference of exact internal phase duration or proven overlap",
+            ]
+        if args.topk_prefix:
+            result["mode"] = "topk_prefix"
+            result["scope"] = (
+                "Sort/merge fixed-history diagnostic; no internal phase subtraction or acceptance ratio"
+            )
+            result["seed_contract"] = dict(
+                dtype="float32",
+                count=512,
+                high=0.5,
+                low=-0.5,
+                indices="packed int32 0..511",
+                history="fixed per row",
+            )
+            result["limitations"] = [
+                "Sort/merge export rank-weighted checksums; export cost included",
+                "Merge uses fixed synthetic nonempty history; full uses evolving UB history",
+                "Snapshot/fallback work remains inside merge helper; commit cost not isolated",
             ]
         for rows, width in fixtures:
             case_name = f"r{rows}-w{width}" if args.boundaries else str(width)
@@ -292,6 +317,16 @@ def main():
                 padded_width=shape["padded_width"],
                 table_columns=pages,
             )
+            seed = None
+            seed_values = None
+            if args.topk_prefix:
+                seed_values = torch.linspace(0.5, -0.5, 512, dtype=torch.float32)
+                seed_cpu = torch.empty((rows, 1024), dtype=torch.float32)
+                seed_cpu[:, 0::2] = seed_values
+                seed_cpu[:, 1::2] = torch.arange(512, dtype=torch.int32).view(
+                    torch.float32
+                )
+                seed = seed_cpu.to(device)
             arms = {}
             hosts = {}
             # Compile every arm and both trace settings before the first target launch.
@@ -302,6 +337,8 @@ def main():
             )
             if args.critical_path:
                 configurations = ((2, "full"), (2, "light"), (2, "replay"))
+            if args.topk_prefix:
+                configurations = ((2, "full"), (2, "sort"), (2, "merge"))
             for slots, label in configurations:
                 g = (
                     boundary_geometry(rows, width, slots)
@@ -333,6 +370,8 @@ def main():
                     )
                     audit = guarded(audit_columns, torch.float32, audit_columns)
                     operands += (raw, audit)
+                if args.topk_prefix:
+                    operands += (seed,)
                 kernel = (
                     module.raw_mixed_boundaries
                     if args.boundaries
@@ -341,7 +380,10 @@ def main():
                 if label == "block512":
                     kernel = module.raw_mixed_block512
                 if args.critical_path:
-                    kernel = getattr(module, "raw_critical_" + label)
+                    kernel = getattr(
+                        module,
+                        ("raw_topk_" if args.topk_prefix else "raw_critical_") + label,
+                    )
                 meta = dict(WIDTH=width, SLOTS=slots, num_warps=4)
                 if args.boundaries:
                     meta["ROWS"] = rows
@@ -422,7 +464,32 @@ def main():
                                     if storage.dtype == torch.int32
                                     else bool(torch.isnan(cpu_guard).all())
                                 ), "Output guard overwritten"
-                        if args.critical_path and label == "light":
+                        if args.topk_prefix and label in ("sort", "merge"):
+                            padded = torch.full(
+                                (rows, shape["padded_width"]), -float("inf")
+                            )
+                            padded[:, :width] = expected
+                            tiles_cpu = padded.view(rows, shape["steps"], 512)
+                            if label == "merge":
+                                history = seed_values.view(1, 1, 512).expand(
+                                    rows, shape["steps"], 512
+                                )
+                                tiles_cpu = torch.cat((history, tiles_cpu), dim=2)
+                            selected_cpu = tiles_cpu.sort(
+                                dim=2, descending=True
+                            ).values[:, :, :512]
+                            weighted = (
+                                torch.where(
+                                    torch.isfinite(selected_cpu), selected_cpu, 0
+                                )
+                                * torch.arange(1, 513, dtype=torch.float32)
+                            ).sum(2)
+                            torch.testing.assert_close(
+                                arm["audit"].cpu(), weighted, rtol=1e-3, atol=1e-3
+                            )
+                            assert bool((arm["indices"].cpu() == -3).all())
+                            assert bool(torch.isnan(arm["values"].cpu()).all())
+                        elif args.critical_path and label == "light":
                             padded = torch.zeros(
                                 (rows, shape["padded_width"]), dtype=torch.float32
                             )
@@ -478,9 +545,17 @@ def main():
                         output_guards_unchanged=True,
                         trace_scores_exact=True,
                         selected_scores_exact=not (
-                            args.critical_path and label == "light"
+                            args.critical_path
+                            and label == "light"
+                            or args.topk_prefix
+                            and label in ("sort", "merge")
                         ),
-                        checksum_checked=bool(args.critical_path and label == "light"),
+                        checksum_checked=bool(
+                            args.critical_path
+                            and label == "light"
+                            or args.topk_prefix
+                            and label in ("sort", "merge")
+                        ),
                         replay_progress_checked=bool(
                             args.critical_path and label == "replay"
                         ),
@@ -521,12 +596,16 @@ def main():
                 for name, arr in samples.items()
             }
             numerator, denominator = (
-                ("full", "light")
-                if args.critical_path
+                ("full", "sort")
+                if args.topk_prefix
                 else (
-                    ("baseline64", "block512")
-                    if args.cube_block512
-                    else ("slots1", "slots2")
+                    ("full", "light")
+                    if args.critical_path
+                    else (
+                        ("baseline64", "block512")
+                        if args.cube_block512
+                        else ("slots1", "slots2")
+                    )
                 )
             )
             ratio = med[numerator] / med[denominator]
@@ -534,7 +613,14 @@ def main():
             entry[
                 "call64_over_block512" if args.cube_block512 else "serial_over_buffered"
             ] = ratio
-            if args.critical_path:
+            if args.topk_prefix:
+                entry["prefix_ratios"] = dict(
+                    full_over_sort=med["full"] / med["sort"],
+                    full_over_merge=med["full"] / med["merge"],
+                    scope="Fixed-history diagnostic; not phase durations",
+                )
+                entry.pop("call64_over_block512", None)
+            elif args.critical_path:
                 entry["ablation_ratios"] = dict(
                     full_over_light=med["full"] / med["light"],
                     full_over_replay=med["full"] / med["replay"],
@@ -580,6 +666,7 @@ def main():
                         speedup=ratio,
                         overlap_proven=False,
                         ablation_ratios=entry.get("ablation_ratios"),
+                        prefix_ratios=entry.get("prefix_ratios"),
                     )
                 ),
                 flush=True,
