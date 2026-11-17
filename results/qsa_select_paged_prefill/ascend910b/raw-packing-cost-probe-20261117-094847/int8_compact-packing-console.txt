@@ -1,0 +1,89 @@
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+[base-data] 未指定 --base-data，'vs Base' 列关闭。
+F
+=================================== FAILURES ===================================
+___________________ test_qsa_raw_serial_kernel[int8_compact] ___________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0xfff9a937dfd0>
+case_name = 'int8_compact'
+
+    @pytest.mark.qsa_select_paged_prefill_int8_910b
+    @pytest.mark.parametrize("case_name", [p["name"] for p in cases()])
+    def test_qsa_raw_serial_kernel(monkeypatch, case_name):
+        torch_npu = pytest.importorskip("torch_npu")
+        assert Config.mode == consts.BenchMode.KERNEL, "Requires --mode kernel"
+        assert torch.npu.is_available()
+        assert os.getenv("ASCEND_LAUNCH_BLOCKING") != "1"
+        root = Path(__file__).resolve().parents[1]
+        monkeypatch.syspath_prepend(str(root / "tools"))
+        from probe_qsa_raw_cube_chain_910b import (
+            record_launch_mode,
+            save_asm,
+            verify_compiler_candidate,
+        )
+        from qsa_cube_query_pack_probe_910b import native_module
+        from qsa_finish_routing_probe_910b import boundary
+        from qsa_finish_routing_probe_910b import source as finish_source
+        from qsa_prefill_pipeline_910b_trial import load_topk
+        from qsa_raw_serial_selection_910b_trial import SerialRawSelection, verify_pipeline
+        from qsa_ten_score_suite_910b import run_case, runtime_source
+        from triton.backends.ascend import compiler
+    
+        report = Path(os.environ["QSA_RAW_SERIAL_REPORT"])
+        device_index = int(os.environ.get("QSA_DEVICE", "0"))
+>       torch.npu.set_device(device_index)
+
+benchmark/test_qsa_raw_serial_int8_perf.py:79: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+device = 2
+
+    def set_device(device):
+        device_id = _get_device_index(device, optional=True)
+        if device_id >= 0:
+>           torch_npu._C._npu_setDevice(device_id)
+E           RuntimeError: ExchangeDevice:../torch_npu/csrc/core/npu/sys_ctrl/npu_sys_ctrl.cpp:286 NPU function error: c10_npu::SetDevice(device), error code is 507033
+E           [ERROR] 2026-11-17-17:42:22 (PID:1195560, Device:0, RankID:-1) ERR00100 PTA call acl api failed
+E           [Error]: Failed to start the device. 
+E                   Rectify the fault based on the error information in the ascend log.
+E           [PID: 1195560] 2026-11-17-17:42:21.064.448 Inner_Error_Device_Subprocess_Startup_Timeout(E39007): Starting a subprocess on the device timed out.
+E                   Possible Cause: 1.Failed to start the subprocess. 2. The HDC link is faulty.
+E                   Solution: Obtain the host and device logs, and contact technical support at https://www.hiascend.com/support.
+E           TraceBack (most recent call last):
+E                   tsd client wait response fail, hostpid:1195560, receive device response data failed, check hdc service.[FUNC:WaitRsp][FILE:process_mode_manager.cpp][LINE:378]
+E                   Starting a subprocess on the device timed out.
+E                   TsdOpen failed. devId=2, tdt error=31.[FUNC:PrintfTsdError][FILE:runtime.cc][LINE:1834]
+E                   Check param failed, dev can not be NULL![FUNC:DeviceRetain][FILE:runtime.cc][LINE:2773]
+E                   Check param failed, ctx can not be NULL![FUNC:PrimaryContextRetain][FILE:runtime.cc][LINE:2414]
+E                   rtSetDevice execution failed, reason=device retain error[FUNC:FuncErrorReason][FILE:error_message_manage.cc][LINE:69]
+
+/flagos/lib/python3.11/site-packages/torch_npu/npu/utils.py:91: RuntimeError
+=============================== warnings summary ===============================
+../../flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: 14 warnings
+  /flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: DeprecationWarning: `torch.jit.script_method` is deprecated. Please switch to `torch.compile` or `torch.export`.
+    warnings.warn(
+
+../../flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539
+  /flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539: UserWarning: You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. The return value of get_device_capability is only for compatibility with PyTorch and does not represent the actual capability of the NPU device.
+    warnings.warn(f"You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. {warning_str}")
+
+src/flaggems_vllm/utils/device_info.py:60
+  /tmp/flaggems-qsa-packing-fixed.rlnlOH0e/src/flaggems_vllm/utils/device_info.py:60: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728: DeprecationWarning: use_cuda_graph is deprecated; use benchmark_mode='replay' or benchmark_mode='event'
+    super().__init__(*args, **kwargs)
+
+../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411: RuntimeWarning: active Triton backend does not provide a replay benchmarker; falling back to event timing
+    resolved_benchmark = resolve_benchmarker(
+
+../../flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED benchmark/test_qsa_raw_serial_int8_perf.py::test_qsa_raw_serial_kernel[int8_compact]
+1 failed, 19 warnings in 173.37s (0:02:53)
