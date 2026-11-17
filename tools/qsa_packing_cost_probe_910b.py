@@ -59,6 +59,12 @@ def traffic(pieces, key_bytes, scale_bytes):
     )
 
 
+def prepare_trace(mixed, rows):
+    mixed.trace.fill_(float("nan"))
+    mixed.trace[:rows].fill_(-float("inf"))
+    mixed.values.fill_(float("nan"))
+
+
 def probe(context, mixed, raw, benchmark):
     import torch
 
@@ -126,6 +132,7 @@ def probe(context, mixed, raw, benchmark):
             request=job["request"],
         )
         sample["mixed_only_ms"] = time(f"piece{index}_mixed", job["mixed_only"])
+        prepare_trace(mixed, job["count"])
         job["mixed_only"](True)
         torch.npu.synchronize()
         entry, raw_pieces = next(
@@ -140,6 +147,12 @@ def probe(context, mixed, raw, benchmark):
         torch.testing.assert_close(
             mixed.trace[: job["count"]].cpu(), expected, rtol=0, atol=0
         )
+        assert bool(
+            torch.isnan(mixed.trace[job["count"] :].cpu()).all()
+        ), "Trace row-tail store"
+        assert bool(
+            torch.isnan(mixed.values[job["count"] :].cpu()).all()
+        ), "Values row-tail store"
         from qsa_raw_serial_selection_910b_trial import check_rank
 
         check_rank(

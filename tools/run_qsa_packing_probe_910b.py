@@ -105,6 +105,8 @@ def main():
         row = dict(case=name, exit_code=rc, status="failed")
         try:
             d = json.loads((args.report / (name + "-all-score.json")).read_text())
+            if d.get("status") != "passed":
+                raise ValueError(d.get("traceback", d.get("error", "Worker failed")))
             detail = d["serial_harness"]
             if (
                 rc

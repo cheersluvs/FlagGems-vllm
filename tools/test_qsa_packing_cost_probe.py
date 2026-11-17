@@ -15,13 +15,41 @@
 """Check repeated prefix accounting without depending on NPU imports."""
 
 import ast
+import math
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 
-from qsa_packing_cost_probe_910b import traffic
+from qsa_packing_cost_probe_910b import prepare_trace, traffic
 
 
 class PackingTests(unittest.TestCase):
+    def test_trace_initialization_covers_unwritten_columns_and_preserves_row_guards(
+        self,
+    ):
+        class Matrix:
+            def __init__(self, rows):
+                self.rows = rows
+
+            def fill_(self, value):
+                for row in self.rows:
+                    row[:] = [value] * len(row)
+
+            def __getitem__(self, index):
+                return Matrix(self.rows[index])
+
+        mixed = SimpleNamespace(
+            trace=Matrix([[23.0] * 1024 for _ in range(3)]),
+            values=Matrix([[23.0] * 512 for _ in range(3)]),
+        )
+        prepare_trace(mixed, 2)
+        # A one-block trace writes only 512 columns; the other half must be -inf.
+        mixed.trace.rows[0][:512] = [1.0] * 512
+        self.assertTrue(all(v == -float("inf") for v in mixed.trace.rows[0][512:]))
+        self.assertTrue(all(v == -float("inf") for v in mixed.trace.rows[1]))
+        self.assertTrue(all(math.isnan(v) for v in mixed.trace.rows[2]))
+        self.assertTrue(all(math.isnan(v) for row in mixed.values.rows for v in row))
+
     def test_growth_tail_and_requests_are_counted_separately(self):
         pieces = [
             dict(request=0, maximum=192, blocks=1, pages=[4]),
