@@ -37,7 +37,18 @@ def main():
     parser.add_argument("--topk-prefix", action="store_true")
     parser.add_argument("--sort-buffers", action="store_true")
     parser.add_argument("--tle-sort512", action="store_true")
+    parser.add_argument("--history-full-merge", action="store_true")
     args = parser.parse_args()
+    if args.history_full_merge and (
+        not args.cube_block512
+        or args.critical_path
+        or args.topk_prefix
+        or args.sort_buffers
+        or args.tle_sort512
+    ):
+        parser.error(
+            "--history-full-merge requires --cube-block512 without other diagnostic variants"
+        )
     if args.tle_sort512 and (
         not args.cube_block512
         or args.critical_path
@@ -138,6 +149,10 @@ def main():
             from qsa_raw_tle_sort512_910b import source as tle_sort_source
 
             text += tle_sort_source()
+        if args.history_full_merge:
+            from qsa_raw_history_merge_910b import source as history_source
+
+            text += history_source()
         path.write_text(text)
         path.with_suffix(".py.txt").write_text(path.read_text())
         spec = importlib.util.spec_from_file_location("_qsa_raw_mixed_online", path)
@@ -162,6 +177,15 @@ def main():
             result["phase"] = "replay_tick_build"
             save()
             module.replay_tick_op = bind_tick(report, result, save)
+        if args.history_full_merge:
+            from qsa_raw_history_merge_910b import transition_checks
+
+            result["phase"] = "history_transitions"
+            save()
+            result["history_transitions"] = transition_checks(
+                module, torch, device, report, save_asm, record_launch_mode
+            )
+            save()
         if args.sort_buffers or args.tle_sort512:
             from qsa_raw_sort_buffers_910b import capture_installed
 
@@ -232,6 +256,16 @@ def main():
             result["limitations"] = [
                 "Prepared micro comparison,not full-input or CANN acceptance",
                 "Equal-score index order may differ;ranked scores and index validity checked",
+            ]
+        if args.history_full_merge:
+            result["mode"] = "history_merge_strategies"
+            result["scope"] = (
+                "Fixed local sort with evolving history;snapshot,prefix-only and complete merge"
+            )
+            result["limitations"] = [
+                "Prepared micro pair,not full-input/CANN acceptance",
+                "Complete merge emits all1024 proposals;removes coupled snapshot/count/fallback work",
+                "Outer persistent state commit and final unpack unchanged",
             ]
         for rows, width in fixtures:
             case_name = f"r{rows}-w{width}" if args.boundaries else str(width)
@@ -392,6 +426,8 @@ def main():
                 configurations = ((2, "poison"), (2, "zero"), (2, "uninit"))
             if args.tle_sort512:
                 configurations = ((2, "generic"), (2, "fixed"))
+            if args.history_full_merge:
+                configurations = ((2, "snapshot"), (2, "prefix"), (2, "complete"))
             for slots, label in configurations:
                 g = (
                     boundary_geometry(rows, width, slots)
@@ -434,6 +470,8 @@ def main():
                     kernel = getattr(module, "raw_sort_" + label)
                 if args.tle_sort512:
                     kernel = getattr(module, "raw_tle_sort_" + label)
+                if args.history_full_merge:
+                    kernel = getattr(module, "raw_history_" + label)
                 if label == "block512":
                     kernel = module.raw_mixed_block512
                 if args.critical_path:
@@ -469,6 +507,16 @@ def main():
                         entry.setdefault("primitive_ir", {}).setdefault(label, {})[
                             str(traced)
                         ] = ir_evidence(compiled, label == "fixed")
+                    if args.history_full_merge:
+                        from qsa_raw_history_merge_910b import ir_evidence as history_ir
+
+                        entry.setdefault("history_ir", {}).setdefault(label, {})[
+                            str(traced)
+                        ] = history_ir(
+                            compiled,
+                            label == "complete",
+                            expect_no_gather=label != "snapshot",
+                        )
                     binaries[str(traced)] = dict(
                         launch=mode,
                         asm=save_asm(
@@ -667,21 +715,25 @@ def main():
                 for name, arr in samples.items()
             }
             numerator, denominator = (
-                ("generic", "fixed")
-                if args.tle_sort512
+                ("snapshot", "complete")
+                if args.history_full_merge
                 else (
-                    ("zero", "uninit")
-                    if args.sort_buffers
+                    ("generic", "fixed")
+                    if args.tle_sort512
                     else (
-                        ("full", "sort")
-                        if args.topk_prefix
+                        ("zero", "uninit")
+                        if args.sort_buffers
                         else (
-                            ("full", "light")
-                            if args.critical_path
+                            ("full", "sort")
+                            if args.topk_prefix
                             else (
-                                ("baseline64", "block512")
-                                if args.cube_block512
-                                else ("slots1", "slots2")
+                                ("full", "light")
+                                if args.critical_path
+                                else (
+                                    ("baseline64", "block512")
+                                    if args.cube_block512
+                                    else ("slots1", "slots2")
+                                )
                             )
                         )
                     )
@@ -692,6 +744,14 @@ def main():
             entry[
                 "call64_over_block512" if args.cube_block512 else "serial_over_buffered"
             ] = ratio
+            if args.history_full_merge:
+                entry["snapshot_over_prefix"] = med["snapshot"] / med["prefix"]
+                entry["snapshot_over_complete"] = ratio
+                entry["history_ratios"] = dict(
+                    snapshot_over_prefix=entry["snapshot_over_prefix"],
+                    snapshot_over_complete=ratio,
+                )
+                entry.pop("call64_over_block512", None)
             if args.tle_sort512:
                 entry["generic_over_fixed"] = ratio
                 entry.pop("call64_over_block512", None)
@@ -717,6 +777,7 @@ def main():
                 and not args.critical_path
                 and not args.sort_buffers
                 and not args.tle_sort512
+                and not args.history_full_merge
             ):
                 entry["expected_native_calls"] = dict(
                     baseline64=groups * shape["steps"] * 8,
@@ -757,6 +818,7 @@ def main():
                         overlap_proven=False,
                         ablation_ratios=entry.get("ablation_ratios"),
                         prefix_ratios=entry.get("prefix_ratios"),
+                        history_ratios=entry.get("history_ratios"),
                     )
                 ),
                 flush=True,
