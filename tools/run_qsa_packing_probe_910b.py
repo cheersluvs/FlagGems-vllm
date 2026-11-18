@@ -33,6 +33,7 @@ def main():
     probe.add_argument("--packing-probe", action="store_true")
     probe.add_argument("--paired-history", action="store_true")
     probe.add_argument("--paired-handoff", action="store_true")
+    probe.add_argument("--combined-history", action="store_true")
     probe.add_argument(
         "--short-history", "--short-history-compact", action="store_true"
     )
@@ -51,7 +52,12 @@ def main():
     selection.add_argument("--cases", nargs="+", choices=suite)
     selection.add_argument("--all-cases", action="store_true")
     args = parser.parse_args()
-    if args.short_history:
+    if args.combined_history:
+        args.cases = args.cases or suite
+        mode, result_key = "combined-history", "combined_history"
+        scope = "Ten-input 512-key handoff with short routes and paired prefix updates"
+        log_key = "COMBINED_HISTORY"
+    elif args.short_history:
         args.cases = suite if args.all_cases else args.cases or ["int8_compact"]
         mode, result_key = "short-history", "short_history"
         scope = "Complete fixtures with two rounds of stock kernel timing"
@@ -74,7 +80,7 @@ def main():
             log_key = "PAIRED_HISTORY"
     else:
         if args.all_cases:
-            parser.error("--all-cases requires --short-history")
+            parser.error("--all-cases requires --short-history or --combined-history")
         args.cases = args.cases or [
             "int8_first_chunk",
             "int8_budget_exact",
@@ -117,6 +123,7 @@ def main():
         QSA_SHORT_HISTORY="1" if args.short_history else "0",
         QSA_PAIRED_HISTORY="1" if args.paired_history or args.paired_handoff else "0",
         QSA_PAIRED_HANDOFF="1" if args.paired_handoff else "0",
+        QSA_COMBINED_HISTORY="1" if args.combined_history else "0",
         QSA_HISTORY_POLICY=str((args.report / "history-policy.json").resolve()),
     )
     for name in dict.fromkeys(args.cases):
@@ -161,7 +168,7 @@ def main():
             measurement = detail[result_key]
             if measurement.get("status") != "passed":
                 raise ValueError("Measurement did not finish")
-            if args.paired_history or args.paired_handoff:
+            if args.paired_history or args.paired_handoff or args.combined_history:
                 check = json.loads(
                     (args.report / (name + "-three-way-merge.json")).read_text()
                 )
@@ -184,11 +191,11 @@ def main():
         else "incomplete"
     )
     if (
-        args.short_history
+        (args.short_history or args.combined_history)
         and result["status"] == "passed"
         and set(args.cases) == set(suite)
     ):
-        measurements = [row["short_history"] for row in result["cases"]]
+        measurements = [row[result_key] for row in result["cases"]]
         for ratio in (
             "cann_over_candidate",
             "cann_over_control",

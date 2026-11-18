@@ -97,10 +97,12 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
     short_history = os.environ.get("QSA_SHORT_HISTORY") == "1"
     paired_history = os.environ.get("QSA_PAIRED_HISTORY") == "1"
     paired_handoff = os.environ.get("QSA_PAIRED_HANDOFF") == "1"
+    combined_history = os.environ.get("QSA_COMBINED_HISTORY") == "1"
+    history_comparison = short_history or paired_history or combined_history
     assert not history_mode or fixed_mode
     assert not fixed_mode or mixed_mode
-    assert not (short_history or paired_history) or history_mode
-    assert not (short_history and paired_history)
+    assert not history_comparison or history_mode
+    assert sum((short_history, paired_history, combined_history)) <= 1
     assert not paired_handoff or paired_history
     source_text = runtime_source() + finish_source()
     if mixed_mode:
@@ -113,11 +115,11 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
         from qsa_raw_mixed_online_910b import source as mixed_source
 
         source_text += mixed_source() + harness_source()
-    if short_history:
+    if short_history or combined_history:
         from qsa_short_history_910b import source as short_source
 
         source_text += short_source()
-    if paired_history:
+    if paired_history or combined_history:
         from qsa_paired_history_910b import source as paired_source
 
         source_text += paired_source(source_text)
@@ -145,7 +147,7 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
     )
     build["topk_identity"] = topk.probe_identity
     save()
-    if paired_history:
+    if paired_history or combined_history:
         from qsa_paired_history_910b import check_three_way
 
         check_three_way(
@@ -205,29 +207,33 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
                     online_name="raw_history_topk_snapshot",
                     evidence=partial(history_ir, complete=False),
                 )
-                if short_history or paired_history:
-                    from qsa_short_history_910b import short_dispatcher
-
+                if history_comparison:
                     control_options = options.copy()
-                    if paired_history:
+                    if short_history or combined_history:
+                        from qsa_short_history_910b import short_dispatcher
+
+                        options["dispatch"] = short_dispatcher(module, policy)
+                    if combined_history:
+                        control_options["dispatch"] = options["dispatch"]
+                    if paired_history or combined_history:
                         from qsa_paired_history_910b import paired_dispatcher
 
                         options["dispatch"] = paired_dispatcher(
-                            module, policy, handoff1024=paired_handoff
+                            module,
+                            policy,
+                            handoff1024=paired_handoff,
+                            fallback=options["dispatch"],
                         )
                         if paired_handoff:
                             control_options["dispatch"] = paired_dispatcher(
                                 module, policy
                             )
                             options["ring_blocks_per_slot"] = 2
-                    else:
-                        options["dispatch"] = short_dispatcher(module, policy)
                 generic = PreparedRawMixedSelection(
                     context,
                     module,
                     report,
-                    case_name
-                    + ("-control" if short_history or paired_history else "-snapshot"),
+                    case_name + ("-control" if history_comparison else "-snapshot"),
                     save_asm,
                     record_launch_mode,
                     **control_options,
@@ -274,7 +280,7 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
                 detail["generic_identity"]["history"] = "snapshot"
                 detail["history_policy"] = policy
                 detail["history_dispatch"] = mixed.dispatch_routes
-                if short_history or paired_history:
+                if history_comparison:
                     detail["mixed_identity"].update(
                         history=(
                             "paired_prefix"
@@ -306,6 +312,19 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
                         kernel="raw_history_prepared_paired",
                         history="paired_prefix",
                         topk="three_way_with_odd_tail",
+                        handoff_keys=512,
+                    )
+                if combined_history:
+                    detail["mixed_identity"].update(
+                        kernel="raw_history_combined_dispatch",
+                        history="short_and_paired_prefix",
+                        topk="single_direct_first_seed_or_paired_prefix",
+                        handoff_keys=512,
+                    )
+                    detail["generic_identity"].update(
+                        kernel="raw_history_short_dispatch",
+                        history="short_history_with_original_fallback",
+                        topk="single_direct_first_seed_or_original",
                         handoff_keys=512,
                     )
         v = context["values"]
@@ -368,8 +387,12 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
             dtypes=[torch.int8],
             device=f"npu:{device_index}",
         )
-        if short_history or paired_history:
-            if paired_history:
+        if history_comparison:
+            if combined_history:
+                from qsa_paired_history_910b import measure_combined as measure
+
+                measure_key = "combined_history"
+            elif paired_history:
                 from qsa_paired_history_910b import measure
 
                 measure_key = "paired_handoff" if paired_handoff else "paired_history"

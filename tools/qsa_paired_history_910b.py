@@ -198,8 +198,8 @@ def ir_evidence(kernel):
     )
 
 
-def paired_dispatcher(module, policy, handoff1024=False):
-    original = dispatcher(module, policy)
+def paired_dispatcher(module, policy, handoff1024=False, *, fallback=None):
+    original = fallback if fallback is not None else dispatcher(module, policy)
     kernel = (
         module.raw_history_prepared_paired_handoff1024
         if handoff1024
@@ -218,6 +218,44 @@ def paired_dispatcher(module, policy, handoff1024=False):
         return original(blocks)
 
     return choose
+
+
+def measure_combined(case_name, benchmark, native, control, candidate, path):
+    if (
+        control.ring_blocks_per_slot != 1
+        or candidate.ring_blocks_per_slot != 1
+        or control.routes != candidate.routes
+        or len(control.dispatch_routes) != len(candidate.routes)
+        or len(candidate.dispatch_routes) != len(candidate.routes)
+    ):
+        raise ValueError(f"Unexpected combined history schedule for {case_name}")
+    transitions = Counter()
+    paired_blocks = Counter()
+    for old, new in zip(control.dispatch_routes, candidate.dispatch_routes):
+        mode = "paired_prefix" if old["mode"] == "prefix" else old["mode"]
+        if new != dict(old, mode=mode):
+            raise ValueError(f"Unexpected combined history route: {old} -> {new}")
+        transitions[f'{old["mode"]}->{mode}'] += 1
+        if mode == "paired_prefix":
+            paired_blocks[new["blocks"]] += 1
+    routing = dict(
+        route_transitions=dict(transitions),
+        paired_pieces_by_blocks=dict(paired_blocks),
+        paired_odd_tail_pieces=sum(n for b, n in paired_blocks.items() if b % 2),
+        handoff_keys=512,
+        slots=2,
+    )
+    return measure_arms(
+        case_name,
+        benchmark,
+        native,
+        control,
+        candidate,
+        path,
+        routing,
+        "COMBINED_HISTORY",
+        control_name="short-history dispatch with per-block prefix updates",
+    )
 
 
 def check_three_way(module, torch, device, report, save_asm, case_name):
