@@ -1,0 +1,31 @@
+{
+  "status": "failed",
+  "phase": "imports",
+  "production_changed": false,
+  "overlap_proven": false,
+  "pipeline_proven": false,
+  "scope": "16-row prepared mixed raw+online TopK feasibility; no full-input/CANN mean",
+  "native_builds": {},
+  "cases": [],
+  "compiler_variant": "isolated-final-task-mode-candidate",
+  "compiler_candidate": {
+    "status": "prepared",
+    "source_root": "/opt/qsa-topk-env.ojEsoQz5/flagtree",
+    "candidate_root": "/tmp/qsa-raw-cube-chain.6sEw4D6s/flagtree-corefix",
+    "source_compiler": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/compiler.py",
+    "candidate_compiler": "/tmp/qsa-raw-cube-chain.6sEw4D6s/flagtree-corefix/triton/backends/ascend/compiler.py",
+    "source_compiler_sha256": "d11660971dc400be7cb26cc47eb308609464d8fb69ecee1c9191fe32a366e0e3",
+    "patched_compiler_sha256": "31f481e4aa43569c563bf22a34e30b727b636c85ab2c73207f568bee221239af",
+    "patch_sha256": "a6ae6ba6989f714210b99427a10acdcbf8ce50455a2f77d2d223aea2e50cac2e",
+    "callback_routes": [
+      "linalg_to_bin_enable_npu_compile_910_95",
+      "linalg_to_bin_enable_npu_compile_A2_A3"
+    ],
+    "helper": "_reconcile_mix_mode_from_task_type",
+    "original_unchanged": true,
+    "scope": "Experimental compiler source candidate in a materialized copy; no installed package or operator changes"
+  },
+  "error": "RuntimeError('ExchangeDevice:../torch_npu/csrc/core/npu/sys_ctrl/npu_sys_ctrl.cpp:286 NPU function error: c10_npu::SetDevice(device), error code is 507033\\n[ERROR] 2026-11-18-08:58:30 (PID:2623575, Device:0, RankID:-1) ERR00100 PTA call acl api failed\\n[Error]: Failed to start the device. \\n        Rectify the fault based on the error information in the ascend log.\\n[PID: 2623575] 2026-11-18-08:58:29.384.183 Inner_Error_Device_Subprocess_Startup_Timeout(E39007): Starting a subprocess on the device timed out.\\n        Possible Cause: 1.Failed to start the subprocess. 2. The HDC link is faulty.\\n        Solution: Obtain the host and device logs, and contact technical support at https://www.hiascend.com/support.\\nTraceBack (most recent call last):\\n        tsd client wait response fail, hostpid:2623575, receive device response data failed, check hdc service.[FUNC:WaitRsp][FILE:process_mode_manager.cpp][LINE:378]\\n        Starting a subprocess on the device timed out.\\n        TsdOpen failed. devId=2, tdt error=31.[FUNC:PrintfTsdError][FILE:runtime.cc][LINE:1834]\\n        Check param failed, dev can not be NULL![FUNC:DeviceRetain][FILE:runtime.cc][LINE:2773]\\n        Check param failed, ctx can not be NULL![FUNC:PrimaryContextRetain][FILE:runtime.cc][LINE:2414]\\n        rtSetDevice execution failed, reason=device retain error[FUNC:FuncErrorReason][FILE:error_message_manage.cc][LINE:69]\\n')",
+  "traceback": "Traceback (most recent call last):\n  File \"/tmp/flaggems-qsa-history-bound.cum20E9A/tools/probe_qsa_raw_mixed_online_910b.py\", line 129, in main\n    torch.npu.set_device(args.device)\n  File \"/flagos/lib/python3.11/site-packages/torch_npu/npu/utils.py\", line 91, in set_device\n    torch_npu._C._npu_setDevice(device_id)\nRuntimeError: ExchangeDevice:../torch_npu/csrc/core/npu/sys_ctrl/npu_sys_ctrl.cpp:286 NPU function error: c10_npu::SetDevice(device), error code is 507033\n[ERROR] 2026-11-18-08:58:30 (PID:2623575, Device:0, RankID:-1) ERR00100 PTA call acl api failed\n[Error]: Failed to start the device. \n        Rectify the fault based on the error information in the ascend log.\n[PID: 2623575] 2026-11-18-08:58:29.384.183 Inner_Error_Device_Subprocess_Startup_Timeout(E39007): Starting a subprocess on the device timed out.\n        Possible Cause: 1.Failed to start the subprocess. 2. The HDC link is faulty.\n        Solution: Obtain the host and device logs, and contact technical support at https://www.hiascend.com/support.\nTraceBack (most recent call last):\n        tsd client wait response fail, hostpid:2623575, receive device response data failed, check hdc service.[FUNC:WaitRsp][FILE:process_mode_manager.cpp][LINE:378]\n        Starting a subprocess on the device timed out.\n        TsdOpen failed. devId=2, tdt error=31.[FUNC:PrintfTsdError][FILE:runtime.cc][LINE:1834]\n        Check param failed, dev can not be NULL![FUNC:DeviceRetain][FILE:runtime.cc][LINE:2773]\n        Check param failed, ctx can not be NULL![FUNC:PrimaryContextRetain][FILE:runtime.cc][LINE:2414]\n        rtSetDevice execution failed, reason=device retain error[FUNC:FuncErrorReason][FILE:error_message_manage.cc][LINE:69]\n\n",
+  "process_exit_code": 1
+}
