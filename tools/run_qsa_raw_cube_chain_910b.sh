@@ -52,7 +52,11 @@ qsa_history_harness=0
 qsa_query_batch=0
 qsa_history_direct=0
 qsa_single_block=0
+qsa_first_block_seed=0
 for qsa_argument in "$@"; do
+    if [[ "$qsa_argument" == --first-block-seed ]]; then
+        qsa_first_block_seed=1
+    fi
     if [[ "$qsa_argument" == --single-block ]]; then
         qsa_single_block=1
     fi
@@ -284,6 +288,13 @@ if [[ "$qsa_single_block" == 1 ]]; then
     fi
     qsa_kind=raw-single-block
 fi
+if [[ "$qsa_first_block_seed" == 1 ]]; then
+    if [[ "$qsa_history_full" != 1 || "$qsa_query_batch" == 1 || "$qsa_history_direct" == 1 || "$qsa_single_block" == 1 ]]; then
+        echo '--first-block-seed requires --history-full-merge without other history variants'
+        exit 2
+    fi
+    qsa_kind=raw-first-block-seed
+fi
 # Re-activate after shell startup files have run; lock the environment at execution.
 if [[ -n "${QSA_ENV_ROOT:-}" ]]; then
     qsa_env_root=$(realpath -- "$QSA_ENV_ROOT") || exit 1
@@ -458,6 +469,11 @@ fi
 if [[ "$qsa_status" == 0 && "$qsa_single_block" == 1 ]]; then
     "$qsa_python" -u "$qsa_repo/tools/test_qsa_single_block_probe.py" -v \
         2>&1 | tee "$qsa_report/single-block-cpu-tests.txt"
+    qsa_status=${PIPESTATUS[0]}
+fi
+if [[ "$qsa_status" == 0 && "$qsa_first_block_seed" == 1 ]]; then
+    "$qsa_python" -u "$qsa_repo/tools/test_qsa_first_block_seed_probe.py" -v \
+        2>&1 | tee "$qsa_report/first-block-seed-cpu-tests.txt"
     qsa_status=${PIPESTATUS[0]}
 fi
 if [[ "$qsa_status" == 0 && "$qsa_history_harness" == 1 ]]; then

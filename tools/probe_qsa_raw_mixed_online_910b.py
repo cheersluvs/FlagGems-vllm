@@ -42,7 +42,18 @@ def main():
     parser.add_argument("--query-batch", type=int, choices=(2, 4))
     parser.add_argument("--history-direct", action="store_true")
     parser.add_argument("--single-block", action="store_true")
+    parser.add_argument("--first-block-seed", action="store_true")
     args = parser.parse_args()
+    if args.first_block_seed and (
+        not args.history_full_merge
+        or args.history_boundary
+        or args.query_batch
+        or args.history_direct
+        or args.single_block
+    ):
+        parser.error(
+            "--first-block-seed requires --history-full-merge without other history variants"
+        )
     if args.single_block and (
         not args.history_full_merge
         or args.history_boundary
@@ -190,6 +201,10 @@ def main():
             from qsa_single_block_probe_910b import source as single_source
 
             text += single_source()
+        if args.first_block_seed:
+            from qsa_first_block_seed_probe_910b import source as first_seed_source
+
+            text += first_seed_source()
         path.write_text(text)
         path.with_suffix(".py.txt").write_text(path.read_text())
         spec = importlib.util.spec_from_file_location("_qsa_raw_mixed_online", path)
@@ -214,7 +229,7 @@ def main():
             result["phase"] = "replay_tick_build"
             save()
             module.replay_tick_op = bind_tick(report, result, save)
-        if args.history_full_merge and not args.single_block:
+        if args.history_full_merge and not (args.single_block or args.first_block_seed):
             from qsa_raw_history_merge_910b import transition_checks
 
             result["phase"] = "history_transitions"
@@ -333,6 +348,16 @@ def main():
             )
             result["limitations"] = [
                 "WIDTH=512 only, padded visibility and row tails included",
+                "Prepared timings exclude packing and full-input CANN comparison",
+            ]
+        if args.first_block_seed:
+            fixtures = ((17, 769), (80, 1024), (17, 1281), (112, 1536))
+            result["mode"] = "first_block_seed_topk"
+            result["scope"] = (
+                "Prepared mixed kernel, snapshot versus first-block history seed"
+            )
+            result["limitations"] = [
+                "Peel the first Vector block, preserve Cube, ring and events",
                 "Prepared timings exclude packing and full-input CANN comparison",
             ]
         for rows, width in fixtures:
@@ -504,6 +529,8 @@ def main():
                 configurations = ((2, "prefix"), (2, "direct"))
             if args.single_block:
                 configurations = ((2, "snapshot"), (2, "single"))
+            if args.first_block_seed:
+                configurations = ((2, "snapshot"), (2, "firstseed"))
             for slots, label in configurations:
                 g = (
                     boundary_geometry(rows, width, slots)
@@ -636,6 +663,23 @@ def main():
                             )
                             save()
                             evidence = single_ir(compiled)
+                        elif args.first_block_seed and label == "firstseed":
+                            from qsa_first_block_seed_probe_910b import (
+                                ir_evidence as first_seed_ir,
+                            )
+
+                            entry.setdefault("first_seed_compilation", {})[
+                                str(traced)
+                            ] = dict(
+                                launch=mode,
+                                asm=save_asm(
+                                    compiled,
+                                    report,
+                                    f"first-seed-{case_name}-trace{int(traced)}",
+                                ),
+                            )
+                            save()
+                            evidence = first_seed_ir(compiled)
                         else:
                             evidence = history_ir(
                                 compiled,
@@ -877,13 +921,18 @@ def main():
                 numerator, denominator = "prefix", "direct"
             if args.single_block:
                 numerator, denominator = "snapshot", "single"
+            if args.first_block_seed:
+                numerator, denominator = "snapshot", "firstseed"
             ratio = med[numerator] / med[denominator]
             entry.update(samples=samples, mean_us=med)
             entry[
                 "call64_over_block512" if args.cube_block512 else "serial_over_buffered"
             ] = ratio
             if args.history_full_merge and not (
-                args.query_batch or args.history_direct or args.single_block
+                args.query_batch
+                or args.history_direct
+                or args.single_block
+                or args.first_block_seed
             ):
                 entry["snapshot_over_prefix"] = med["snapshot"] / med["prefix"]
                 entry["history_ratios"] = dict(
@@ -903,6 +952,9 @@ def main():
                 entry.pop("call64_over_block512", None)
             if args.single_block:
                 entry["snapshot_over_single"] = ratio
+                entry.pop("call64_over_block512", None)
+            if args.first_block_seed:
+                entry["snapshot_over_first_seed"] = ratio
                 entry.pop("call64_over_block512", None)
             if args.tle_sort512:
                 entry["generic_over_fixed"] = ratio
