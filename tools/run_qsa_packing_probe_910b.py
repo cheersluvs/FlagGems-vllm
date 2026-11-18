@@ -20,13 +20,14 @@ import os
 import shutil
 import sys
 from pathlib import Path
+from statistics import mean
 
 from qsa_history_policy_910b import load_policy
-from qsa_short_history_910b import EXPECTED_BLOCK_COUNTS
 from run_qsa_raw_serial_harness_910b import cases, run_worker
 
 
 def main():
+    suite = [p["name"] for p in cases()]
     parser = argparse.ArgumentParser()
     probe = parser.add_mutually_exclusive_group(required=True)
     probe.add_argument("--packing-probe", action="store_true")
@@ -44,20 +45,18 @@ def main():
     parser.add_argument("--resume-report", type=Path, required=True)
     parser.add_argument("--device", type=int, default=2)
     parser.add_argument("--case-timeout", type=int, default=1800)
-    parser.add_argument(
-        "--cases",
-        nargs="+",
-        choices=[p["name"] for p in cases()],
-    )
+    selection = parser.add_mutually_exclusive_group()
+    selection.add_argument("--cases", nargs="+", choices=suite)
+    selection.add_argument("--all-cases", action="store_true")
     args = parser.parse_args()
     if args.short_history:
-        args.cases = args.cases or ["int8_compact"]
-        if any(name not in EXPECTED_BLOCK_COUNTS for name in args.cases):
-            parser.error("--short-history supports int8_compact and int8_first_chunk")
+        args.cases = suite if args.all_cases else args.cases or ["int8_compact"]
         mode, result_key = "short-history", "short_history"
         scope = "Complete fixtures with two rounds of stock kernel timing"
         log_key = "SHORT_HISTORY"
     else:
+        if args.all_cases:
+            parser.error("--all-cases requires --short-history")
         args.cases = args.cases or [
             "int8_first_chunk",
             "int8_budget_exact",
@@ -157,6 +156,18 @@ def main():
         and all(r["status"] == "passed" for r in result["cases"])
         else "incomplete"
     )
+    if (
+        args.short_history
+        and result["status"] == "passed"
+        and set(args.cases) == set(suite)
+    ):
+        measurements = [row["short_history"] for row in result["cases"]]
+        for ratio in (
+            "cann_over_candidate",
+            "cann_over_control",
+            "control_over_candidate",
+        ):
+            result["arithmetic_mean_" + ratio] = mean(m[ratio] for m in measurements)
     save()
     print(log_key + "_SUMMARY", json.dumps(result), flush=True)
     return 0 if result["status"] == "passed" else 1

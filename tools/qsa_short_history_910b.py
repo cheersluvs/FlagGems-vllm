@@ -81,10 +81,13 @@ def short_dispatcher(module, policy):
 
 def measure(case_name, benchmark, native, control, candidate, path):
     block_counts = Counter(r["blocks"] for r in candidate.routes)
+    short_counts = {b: n for b, n in block_counts.items() if b <= 3}
+    expected = EXPECTED_BLOCK_COUNTS.get(case_name, {})
     if (
-        block_counts != EXPECTED_BLOCK_COUNTS[case_name]
+        (block_counts if expected else short_counts) != expected
         or control.routes != candidate.routes
-        or len(control.dispatch_routes) != len(candidate.dispatch_routes)
+        or len(control.dispatch_routes) != len(candidate.routes)
+        or len(candidate.dispatch_routes) != len(candidate.routes)
     ):
         raise ValueError(f"Unexpected {case_name} schedule: {block_counts}")
     transitions = Counter()
@@ -132,6 +135,7 @@ def measure(case_name, benchmark, native, control, candidate, path):
             print("SHORT_HISTORY_TIMING", len(rounds), name, latency, "ms", flush=True)
         round_result.update(
             control_over_candidate=timings["control"] / timings["candidate"],
+            cann_over_control=timings["cann_v1"] / timings["control"],
             cann_over_candidate=timings["cann_v1"] / timings["candidate"],
         )
         save()
@@ -139,7 +143,7 @@ def measure(case_name, benchmark, native, control, candidate, path):
         status="passed",
         mean_ms={name: mean(r["latency_ms"][name] for r in rounds) for name in calls},
     )
-    for label in ("control_over_candidate", "cann_over_candidate"):
+    for label in ("control_over_candidate", "cann_over_control", "cann_over_candidate"):
         result[label] = mean(r[label] for r in rounds)
     save()
     print("SHORT_HISTORY_RESULT", json.dumps(result), flush=True)

@@ -97,6 +97,7 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
     short_history = os.environ.get("QSA_SHORT_HISTORY") == "1"
     assert not history_mode or fixed_mode
     assert not fixed_mode or mixed_mode
+    assert not short_history or history_mode
     source_text = runtime_source() + finish_source()
     if mixed_mode:
         if history_mode:
@@ -109,10 +110,8 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
 
         source_text += mixed_source() + harness_source()
     if short_history:
-        from qsa_short_history_910b import EXPECTED_BLOCK_COUNTS
         from qsa_short_history_910b import source as short_source
 
-        assert history_mode and case_name in EXPECTED_BLOCK_COUNTS
         source_text += short_source()
     path.write_text(source_text)
     path.with_suffix(".py.txt").write_text(path.read_text())
@@ -247,8 +246,8 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
                 if short_history:
                     detail["mixed_identity"].update(
                         history="short_history_with_original_fallback",
-                        kernel="raw_history_single_or_firstseed",
-                        topk="single_direct_or_first_seed",
+                        kernel="raw_history_short_dispatch",
+                        topk="single_direct_first_seed_or_original",
                     )
                     detail["generic_identity"].update(
                         kernel="raw_history_dispatch", history="prefix_by_threshold"
