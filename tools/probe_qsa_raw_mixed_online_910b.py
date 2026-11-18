@@ -50,9 +50,12 @@ def main():
     paired.add_argument("--paired-ub-audit", action="store_true")
     paired.add_argument("--paired-final-mrgsort-ub", action="store_true")
     paired.add_argument("--paired-final-mrgsort-poison-check", action="store_true")
+    paired.add_argument("--paired-final-mrgsort-reuse", action="store_true")
     args = parser.parse_args()
     final_mrgsort_probe = (
-        args.paired_final_mrgsort_ub or args.paired_final_mrgsort_poison_check
+        args.paired_final_mrgsort_ub
+        or args.paired_final_mrgsort_poison_check
+        or args.paired_final_mrgsort_reuse
     )
     sort_barrier_probe = args.paired_sort_barrier or args.paired_sort32_barrier
     paired_probe = (
@@ -251,7 +254,7 @@ def main():
                 source as final_mrgsort_source,
             )
 
-            text += final_mrgsort_source()
+            text += final_mrgsort_source(reuse_local32=args.paired_final_mrgsort_reuse)
         path.write_text(text)
         path.with_suffix(".py.txt").write_text(path.read_text())
         spec = importlib.util.spec_from_file_location("_qsa_raw_mixed_online", path)
@@ -471,6 +474,9 @@ def main():
                     ),
                 ],
             )
+            if args.paired_final_mrgsort_reuse:
+                result["mode"] = "paired_final_mrgsort_reuse"
+                result["scope"] = "Final local mrgsort with a zero template or out=local32"
         for rows, width in fixtures:
             case_name = f"r{rows}-w{width}" if args.boundaries else str(width)
             shape = boundary_geometry(rows, width, 1)
@@ -652,7 +658,9 @@ def main():
                 configurations = ((2, "full"), (2, removed_barrier))
             if final_mrgsort_probe:
                 configurations = ((2, "full"), (2, "poison"))
-                if not args.paired_final_mrgsort_poison_check:
+                if args.paired_final_mrgsort_reuse:
+                    configurations = ((2, "full"), (2, "reuse_local32"))
+                elif not args.paired_final_mrgsort_poison_check:
                     configurations += ((2, "uninit"),)
             trace_options = (
                 (True,) if args.paired_final_mrgsort_poison_check else (False, True)
@@ -880,6 +888,18 @@ def main():
                         entry.setdefault("mrgsort_init", {})[label] = evidence
                         save()
                         gate_output_init(evidence, label)
+                        print(
+                            "FINAL_MRGSORT_INIT",
+                            case_name,
+                            label,
+                            json.dumps(dict(
+                                copies=len(evidence["copies"]),
+                                fills=len(evidence["fills"]),
+                                reuses_sort32_buffer=evidence["reuses_sort32_buffer"],
+                                aliases_final_input=evidence["aliases_final_input"],
+                            )),
+                            flush=True,
+                        )
                     if not traced:
                         hosts[label] = {compiled.metadata.kernel_name: 1}
 
@@ -1158,7 +1178,8 @@ def main():
                 numerator, denominator = "full", removed_barrier
                 entry["saved_us"] = med[numerator] - med[denominator]
             if final_mrgsort_probe:
-                numerator, denominator = "full", "uninit"
+                numerator = "full"
+                denominator = "reuse_local32" if args.paired_final_mrgsort_reuse else "uninit"
                 entry["saved_us"] = med[numerator] - med[denominator]
             ratio = med[numerator] / med[denominator]
             entry.update(samples=samples, mean_us=med)

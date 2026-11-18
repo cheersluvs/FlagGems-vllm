@@ -27,14 +27,15 @@ from qsa_paired_history_910b import sort_barrier_source
 POISON_VALUE = -1234567.0
 
 
-def source():
+def source(*, reuse_local32=False):
     common = sort_barrier_source(sort32_boundary=True)
     full = ast.parse(common).body[-1]
     assert full.name == "raw_history_prepared_paired_no_sort_barriers"
     first_constexpr = next(i for i, arg in enumerate(full.args.args) if arg.annotation)
     full.args.args.insert(first_constexpr, ast.arg(arg="PairTrace"))
     variants = []
-    for label in ("full", "poison", "uninit"):
+    labels = ("full", "reuse_local32") if reuse_local32 else ("full", "poison", "uninit")
+    for label in labels:
         kernel = copy.deepcopy(full)
         kernel.name = "raw_final_mrgsort_" + label
         vector = kernel.body[1].body
@@ -55,6 +56,9 @@ def source():
             out = next(keyword for keyword in call.keywords if keyword.arg == "out")
             if label == "poison":
                 expression = f"tl.full((1024,), {POISON_VALUE}, tl.float32)"
+            elif label == "reuse_local32":
+                assert ast.unparse(call.args[1]) == "local128"
+                expression = "local32"
             else:
                 vector.insert(
                     vector.index(block),
@@ -92,15 +96,34 @@ def check_output_init(text):
         i for i, line in enumerate(merge_lines)
         if "hivm.hir.custom" in line and '"mrgsort"' in line
     ]
-    dest = re.search(r"outs\((%[\w.]+) :", merge_lines[last])
-    if dest is None:
-        raise ValueError("Cannot identify the final mrgsort output in post-solver IR")
-    out = dest[1]
-    interval = merge_lines[first + 1:last]
-    writes = [
-        line.strip() for line in interval
-        if re.search(rf"\bouts\({re.escape(out)}\s*:", line)
+    sort32, = [
+        i for i, line in enumerate(merge_lines[:first])
+        if "hivm.hir.custom" in line and '"sort32"' in line
     ]
+    original = re.search(r"outs\((%[\w.]+) :", merge_lines[sort32])
+    dest = re.search(r"outs\((%[\w.]+) :", merge_lines[last])
+    final_input = re.search(r"ins\((%[\w.]+),", merge_lines[last])
+    if original is None or dest is None or final_input is None:
+        raise ValueError("Cannot identify local-sort buffers in post-solver IR")
+    out = dest[1]
+    pointer_bases = {}
+    for line in merge_lines[:last]:
+        if pointer := re.search(r"(%[\w.]+) = hivm.hir.pointer_cast\((%[\w.]+)\)", line):
+            pointer_bases[pointer[1]] = pointer[2]
+
+    def shares_buffer(left, right):
+        return left == right or (
+            left in pointer_bases
+            and right in pointer_bases
+            and pointer_bases[left] == pointer_bases[right]
+        )
+
+    interval = merge_lines[first + 1 : last]
+    writes = []
+    for line in interval:
+        destination = re.search(r"\bouts\((%[\w.]+)\s*:", line)
+        if destination and shares_buffer(destination[1], out):
+            writes.append(line.strip())
     copies = [line for line in writes if "hivm.hir.copy" in line or "memref.copy" in line]
     fills = [line for line in writes if "hivm.hir.vbrc" in line]
     copy_sources = {
@@ -123,6 +146,10 @@ def check_output_init(text):
             fill_values.append(constant_defs[match[1]])
     return dict(
         destination=out,
+        sort32_destination=original[1],
+        final_input=final_input[1],
+        reuses_sort32_buffer=shares_buffer(original[1], out),
+        aliases_final_input=shares_buffer(final_input[1], out),
         output_call=merge_lines[last].strip(),
         copies=copies,
         fills=fills,
@@ -160,9 +187,11 @@ def gate_output_init(evidence, label):
     copies, fills = evidence["copies"], evidence["fills"]
     if evidence["other_writes"]:
         raise RuntimeError(f"Unexpected writes to final mrgsort output in {label}")
-    if label == "uninit":
+    if label in ("uninit", "reuse_local32"):
         if copies or fills:
             raise RuntimeError("Final mrgsort candidate still initializes its output")
+        if evidence["aliases_final_input"]:
+            raise RuntimeError("Final mrgsort output overlaps the live input buffer")
         return
     if label == "full":
         if len(copies) != 1 or "memref<1024xf32" not in copies[0] or fills:
