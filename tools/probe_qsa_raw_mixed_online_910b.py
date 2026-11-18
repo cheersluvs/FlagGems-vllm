@@ -48,10 +48,14 @@ def main():
     paired.add_argument("--paired-sort-barrier", action="store_true")
     paired.add_argument("--paired-sort32-barrier", action="store_true")
     paired.add_argument("--paired-ub-audit", action="store_true")
+    paired.add_argument("--paired-final-mrgsort-ub", action="store_true")
     args = parser.parse_args()
     sort_barrier_probe = args.paired_sort_barrier or args.paired_sort32_barrier
     paired_probe = (
-        args.paired_vector_profile or sort_barrier_probe or args.paired_ub_audit
+        args.paired_vector_profile
+        or sort_barrier_probe
+        or args.paired_ub_audit
+        or args.paired_final_mrgsort_ub
     )
     removed_barrier = (
         "no_sort32_barrier" if args.paired_sort32_barrier else "no_merge_barrier"
@@ -235,6 +239,15 @@ def main():
             text += sort_barrier_source(
                 sort32_boundary=args.paired_sort32_barrier or args.paired_ub_audit
             )
+        if args.paired_final_mrgsort_ub:
+            from qsa_final_mrgsort_ub_910b import (
+                compile_capture,
+                gate_output_init,
+                replay_output_init,
+                source as final_mrgsort_source,
+            )
+
+            text += final_mrgsort_source()
         path.write_text(text)
         path.with_suffix(".py.txt").write_text(path.read_text())
         spec = importlib.util.spec_from_file_location("_qsa_raw_mixed_online", path)
@@ -436,6 +449,16 @@ def main():
                 "Barrier evidence is from pre-device backend IR",
                 "Timings include the full mixed kernel on two causal chunks",
             ]
+        if args.paired_final_mrgsort_ub:
+            result.update(
+                mode="paired_final_mrgsort_ub",
+                scope="Complete mixed history kernel; only final local sort output storage varies",
+                limitations=[
+                    "Exact score/index words recorded with TRACE=True before history update",
+                    "Timed binaries exclude the pair trace",
+                    "Copy evidence is from post-sync-solver IR",
+                ],
+            )
         for rows, width in fixtures:
             case_name = f"r{rows}-w{width}" if args.boundaries else str(width)
             shape = boundary_geometry(rows, width, 1)
@@ -469,6 +492,8 @@ def main():
                 visible[-1] = width
             if paired_probe:
                 visible = torch.arange(width - rows + 1, width + 1, dtype=torch.int32)
+            if args.paired_final_mrgsort_ub:
+                visible[:8] = torch.tensor([0, 1, 64, 65, 511, 512, 513, 1023])
             values = [x.to(device) for x in (q, cache, table, qs, ks, weights, visible)]
             qd, kd, td, qsd, ksd, wd, vd = values
             pq = torch.empty((groups, 8192), dtype=torch.int8, device=device)
@@ -613,6 +638,8 @@ def main():
                 configurations = ((2, "full"), (2, "sort_only"), (2, "score_only"))
             if sort_barrier_probe:
                 configurations = ((2, "full"), (2, removed_barrier))
+            if args.paired_final_mrgsort_ub:
+                configurations = ((2, "full"), (2, "poison"), (2, "uninit"))
             for slots, label in configurations:
                 g = (
                     boundary_geometry(rows, width, slots)
@@ -686,13 +713,32 @@ def main():
                     )
                     kernel = getattr(module, kernel_names[int(label != "full")])
                     meta["BLOCKS"] = shape["steps"]
+                pair_trace = None
+                if args.paired_final_mrgsort_ub:
+                    kernel = getattr(module, "raw_final_mrgsort_" + label)
+                    meta["BLOCKS"] = shape["steps"]
+                    pair_words = shape["steps"] * 1024
+                    pair_trace = guarded(pair_words, torch.int32, pair_words)
+                    operands += (pair_trace,)
                 binaries = {}
                 for traced in (False, True):
                     result["phase"] = f"compile-{case_name}-{label}-trace{traced}"
                     save()
-                    compiled = kernel.warmup(
-                        *operands, TRACE=traced, grid=(groups,), **meta
-                    )
+                    compiler_call = None
+                    if args.paired_final_mrgsort_ub and traced == (label == "poison"):
+                        capture_label = f"mrgsort-{case_name}-{label}-trace{int(traced)}"
+                        compiled, compiler_call = compile_capture(
+                            compiler,
+                            report,
+                            capture_label,
+                            lambda: kernel.warmup(
+                                *operands, TRACE=traced, grid=(groups,), **meta
+                            ),
+                        )
+                    else:
+                        compiled = kernel.warmup(
+                            *operands, TRACE=traced, grid=(groups,), **meta
+                        )
                     mode = record_launch_mode(compiled)
                     if mode["mix_mode"] != "mix" or mode["bs_task_type"] // 10 not in (
                         3,
@@ -810,6 +856,13 @@ def main():
                         ] = sort_barrier_ir(
                             compiled, label, sort32_boundary=args.paired_sort32_barrier
                         )
+                    if compiler_call is not None:
+                        evidence = replay_output_init(
+                            compiler, report, capture_label, compiler_call
+                        )
+                        entry.setdefault("mrgsort_init", {})[label] = evidence
+                        save()
+                        gate_output_init(evidence, label)
                     if not traced:
                         hosts[label] = {compiled.metadata.kernel_name: 1}
 
@@ -830,11 +883,13 @@ def main():
                     ring=ring,
                     guards=guards,
                     audit=audit,
+                    pair_trace=pair_trace,
                 )
                 entry["arms"][label] = dict(geometry=g, binaries=binaries)
 
             def validate(phase):
                 checks = {}
+                reference_pairs = None
                 for label, arm in arms.items():
                     result["phase"] = f"launch-{case_name}-{label}-{phase}"
                     save()
@@ -851,6 +906,14 @@ def main():
                     torch.testing.assert_close(
                         arm["trace"].cpu(), expected, rtol=0, atol=0
                     )
+                    if args.paired_final_mrgsort_ub:
+                        bits = arm["pair_trace"].cpu()
+                        if bool((bits == -3).any()):
+                            raise AssertionError("Final mrgsort pair trace has unwritten words")
+                        if label == "full":
+                            reference_pairs = bits
+                        elif not torch.equal(bits, reference_pairs):
+                            raise AssertionError(f"Final mrgsort pair words differ for {label}")
                     for traced in (True, False):
                         if not traced:
                             arm["ring"].fill_(float("nan"))
@@ -980,6 +1043,8 @@ def main():
                             args.critical_path and label == "replay"
                         ),
                     )
+                    if args.paired_final_mrgsort_ub:
+                        checks[label]["pair_words_match_control"] = bits.numel()
                     print(
                         "RAW_MIXED_CHECK",
                         width,
@@ -1062,6 +1127,9 @@ def main():
                 )
             if sort_barrier_probe:
                 numerator, denominator = "full", removed_barrier
+                entry["saved_us"] = med[numerator] - med[denominator]
+            if args.paired_final_mrgsort_ub:
+                numerator, denominator = "full", "uninit"
                 entry["saved_us"] = med[numerator] - med[denominator]
             ratio = med[numerator] / med[denominator]
             entry.update(samples=samples, mean_us=med)
