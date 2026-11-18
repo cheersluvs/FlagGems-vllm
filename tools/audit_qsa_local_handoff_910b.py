@@ -187,7 +187,12 @@ def replay(report, source, record, arm, timeout):
     original = record["arms"][arm]["checks"][0]["compiler_calls"]
     if len(original) != 1 or original[0].get("returncode") != 0:
         raise ValueError("Expected one successful saved full-fixture compilation")
-    call = original[0]
+    entry = replay_compilation(report, source, original[0], arm, timeout)
+    entry["ordinary_score_us"] = record["arms"][arm]["median_us"]
+    return entry
+
+
+def replay_compilation(report, source, call, arm, timeout, *, env=None):
     saved_input = source / call["input_ir"]
     work = report / arm
     work.mkdir()
@@ -200,7 +205,8 @@ def replay(report, source, record, arm, timeout):
     if len(inputs) != 1:
         raise ValueError("Ambiguous compiler input")
     command[inputs[0]] = str(input_path)
-    command[command.index("-o") + 1] = str(work / "kernel")
+    output = command.index("-o") + 1
+    command[output] = str(work / Path(command[output]).name)
     command.append(DUMP_FLAG)
     entry = dict(
         status="running",
@@ -209,11 +215,10 @@ def replay(report, source, record, arm, timeout):
         diagnostic_command=command,
         changed_options=[DUMP_FLAG],
         device_execution=False,
-        ordinary_score_us=record["arms"][arm]["median_us"],
         binary_comparison={},
     )
     try:
-        result = subprocess.run(command, capture_output=True, timeout=timeout)
+        result = subprocess.run(command, env=env, capture_output=True, timeout=timeout)
     except subprocess.TimeoutExpired as exc:
         result = subprocess.CompletedProcess(
             command, 124, exc.stdout or b"", exc.stderr or b""

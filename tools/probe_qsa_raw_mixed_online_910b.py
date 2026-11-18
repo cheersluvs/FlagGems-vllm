@@ -47,9 +47,12 @@ def main():
     paired.add_argument("--paired-vector-profile", action="store_true")
     paired.add_argument("--paired-sort-barrier", action="store_true")
     paired.add_argument("--paired-sort32-barrier", action="store_true")
+    paired.add_argument("--paired-ub-audit", action="store_true")
     args = parser.parse_args()
     sort_barrier_probe = args.paired_sort_barrier or args.paired_sort32_barrier
-    paired_probe = args.paired_vector_profile or sort_barrier_probe
+    paired_probe = (
+        args.paired_vector_profile or sort_barrier_probe or args.paired_ub_audit
+    )
     removed_barrier = (
         "no_sort32_barrier" if args.paired_sort32_barrier else "no_merge_barrier"
     )
@@ -226,10 +229,12 @@ def main():
             from qsa_paired_history_910b import vector_profile_ir, vector_profile_source
 
             text += vector_profile_source()
-        if sort_barrier_probe:
+        if sort_barrier_probe or args.paired_ub_audit:
             from qsa_paired_history_910b import sort_barrier_ir, sort_barrier_source
 
-            text += sort_barrier_source(sort32_boundary=args.paired_sort32_barrier)
+            text += sort_barrier_source(
+                sort32_boundary=args.paired_sort32_barrier or args.paired_ub_audit
+            )
         path.write_text(text)
         path.with_suffix(".py.txt").write_text(path.read_text())
         spec = importlib.util.spec_from_file_location("_qsa_raw_mixed_online", path)
@@ -248,6 +253,24 @@ def main():
             result["phase"] = "block512_native_build"
             save()
             module.block512_chain_op = bind_block512(report, result, save)
+        if args.paired_ub_audit:
+            from qsa_paired_ub_audit_910b import run_audit
+
+            result.update(
+                phase="paired_ub_audit",
+                mode="paired_ub_audit",
+                scope="Compiler-only audit of local sort output and paired history buffers",
+            )
+            save()
+            audit = run_audit(torch, device, module, compiler, report)
+            passed = audit["status"] == "captured"
+            result.update(
+                status="passed" if passed else "failed",
+                phase="completed" if passed else "paired_ub_audit",
+                audit="paired-ub-audit.json",
+            )
+            save()
+            return int(not passed)
         if args.critical_path:
             from qsa_raw_critical_path_910b import TICK_STRIDE_WORDS, bind_tick
 

@@ -513,6 +513,9 @@ for qsa_argument in "$@"; do
         qsa_worker="$qsa_repo/tools/run_qsa_packing_probe_910b.py"
         qsa_kind=raw-sort-barrier-ten
     fi
+    if [[ "$qsa_argument" == --paired-ub-audit ]]; then
+        qsa_kind=raw-paired-ub-audit
+    fi
     if [[ "$qsa_argument" == --paired-sort32-barrier ]]; then
         qsa_kind=raw-paired-sort32-barrier
     fi
