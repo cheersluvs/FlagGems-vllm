@@ -29,9 +29,10 @@ old_prefix = al.extract_slice(destination,(0,),(1024,),(1,))
 packed = tl.zeros((4096,),tl.float32)
 packed = tle.dsa.insert_slice(packed,old_prefix,(0,),(1024,),(1,))
 packed = tle.dsa.insert_slice(packed,pairs,(1024,),(1024,),(1,))
-tle.dsa.ascend.raw(
+merged, consumed = tle.dsa.ascend.raw(
     "merge_exhaust_sort4",packed,2,0,512,1024,1536,512,512,0,0,
     out=[destination,tl.zeros((4,),tl.int32)])
+tle.dsa.to_buffer(merged,space=tle.dsa.ascend.UB,bind_buffer=update_state_slot)
 """
 
 

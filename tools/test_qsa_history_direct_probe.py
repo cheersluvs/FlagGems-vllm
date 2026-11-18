@@ -69,7 +69,11 @@ class DirectHistoryTests(unittest.TestCase):
         self.assertIn("subview(state_storage, [final_query * 2048], [1024], [1])", vec)
         self.assertIn("insert_slice(packed, old_prefix, (0,), (1024,), (1,))", vec)
         self.assertIn("out=[destination, tl.zeros((4,), tl.int32)]", vec)
-        self.assertEqual(vec.count("bind_buffer="), 1)
+        self.assertIn(
+            "to_buffer(merged, space=tle.dsa.ascend.UB, bind_buffer=update_state_slot)",
+            vec,
+        )
+        self.assertNotIn("extract_slice(merged", vec)
 
     def test_ir_distinguishes_initialization_and_history_update_copies(self):
         self.assertEqual(len(proof(fixture(False), False)["copies_into_history"]), 2)

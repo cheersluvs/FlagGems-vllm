@@ -34,3 +34,18 @@ Timing isolates the prepared mixed kernel and excludes packing.
 
 Enable with `--history-direct` alongside the existing raw mixed, boundaries,
 block512, and history merge flags. Upload uses the existing wrapper.
+
+## First card build and explicit result binding
+
+Report 0de21c22c10fc607e41e1635cbfdf1e3816a3831 compiled both prefix control
+variants. The first direct variant failed in TritonToLinalgIncubated
+with an unresolved materialization for tensor<512xi32>. The preserved TTIR
+contains the merge with the UB destination operand, but its results have no
+SSA consumers. This is a lowering failure before device execution. The report
+does not identify the exact conversion bug.
+
+The follow-up adds an SSA consumer by binding the full merge result back
+to the same destination. The IR gate still requires a direct destination
+and no update copy into history. It will reject an extra materialization
+even if compilation succeeds. Whether explicit binding resolves the
+conversion and elides that copy requires a card run.
