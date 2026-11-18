@@ -1,0 +1,65 @@
+{
+  "status": "passed",
+  "timing": "FlagGems-vllm harness get_latency, --mode kernel",
+  "case": "int8_tail112",
+  "scope": "Full input including every piece, QW/K/KS packing, and mixed execution",
+  "control": "short-history dispatch with per-block prefix updates",
+  "logical_width": 8256,
+  "rounds": [
+    {
+      "order": [
+        "cann_v1",
+        "control",
+        "candidate"
+      ],
+      "latency_ms": {
+        "cann_v1": 14.307664,
+        "control": 23.666856666666668,
+        "candidate": 22.40263333333333
+      },
+      "control_over_candidate": 1.0564319075584867,
+      "cann_over_control": 0.6045443297145361,
+      "cann_over_candidate": 0.638659919443994
+    },
+    {
+      "order": [
+        "candidate",
+        "control",
+        "cann_v1"
+      ],
+      "latency_ms": {
+        "candidate": 22.403372,
+        "control": 23.66403,
+        "cann_v1": 14.315968666666667
+      },
+      "control_over_candidate": 1.0562709042192397,
+      "cann_over_control": 0.6049674829970494,
+      "cann_over_candidate": 0.6390095502885309
+    }
+  ],
+  "route_transitions": {
+    "prefix->paired_prefix": 128
+  },
+  "paired_pieces_by_blocks": {
+    "9": 15,
+    "10": 16,
+    "11": 16,
+    "12": 16,
+    "13": 16,
+    "14": 16,
+    "15": 16,
+    "16": 16,
+    "17": 1
+  },
+  "paired_odd_tail_pieces": 64,
+  "handoff_keys": 512,
+  "slots": 2,
+  "mean_ms": {
+    "cann_v1": 14.311816333333333,
+    "control": 23.665443333333336,
+    "candidate": 22.403002666666666
+  },
+  "control_over_candidate": 1.0563514058888632,
+  "cann_over_control": 0.6047559063557928,
+  "cann_over_candidate": 0.6388347348662624
+}
