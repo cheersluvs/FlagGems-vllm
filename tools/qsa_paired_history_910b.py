@@ -1,0 +1,256 @@
+# Copyright 2026 FlagOS Contributors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Probe a three-way TopK update for pairs of 512-key blocks."""
+
+import ast
+import json
+from collections import Counter
+
+from probe_qsa_raw_cube_chain_910b import record_launch_mode
+from qsa_history_policy_910b import dispatcher, use_prefix
+from qsa_raw_history_merge_910b import ir_evidence as history_ir
+from qsa_short_history_910b import measure_arms
+
+CASES = ("int8_budget_exact", "int8_long100k")
+
+MERGE = """
+@triton.jit
+def _history_three_way(history, first, second):
+    packed = tl.zeros((4096,), tl.float32)
+    packed = tle.dsa.insert_slice(packed, history, (0,), (1024,), (1,))
+    packed = tle.dsa.insert_slice(packed, first, (1024,), (1024,), (1,))
+    packed = tle.dsa.insert_slice(packed, second, (2048,), (1024,), (1,))
+    # Exhaustion can occur after more than 1024 pairs have been merged.
+    merged, consumed = tle.dsa.ascend.raw(
+        "merge_exhaust_sort4", packed, 3, 0, 512, 1024, 1536, 512, 512, 512, 0,
+        out=[tl.zeros((4096,), tl.float32), tl.zeros((4,), tl.int32)],
+    )
+    return al.extract_slice(merged, (0,), (1024,), (1,)), consumed
+
+@triton.jit
+def raw_history_check_three_way(Input, Output, Consumed):
+    row = tl.program_id(0)
+    word = tl.arange(0, 1024)
+    base = Input + row * 3072 + word
+    history = tl.load(base)
+    first = tl.load(base + 1024)
+    second = tl.load(base + 2048)
+    prefix, consumed = _history_three_way(history, first, second)
+    tl.store(Output + row * 1024 + word, prefix)
+    tl.store(Consumed + row * 4 + tl.arange(0, 4), consumed)
+"""
+
+
+def source(history_source):
+    kernel = next(
+        node
+        for node in ast.parse(history_source).body
+        if isinstance(node, ast.FunctionDef)
+        and node.name == "raw_history_prepared_prefix"
+    )
+    kernel.name = "raw_history_prepared_paired"
+    vector = kernel.body[1].body
+    vector.insert(
+        1,
+        ast.parse(
+            "pending = tle.dsa.alloc([8 * 1024], dtype=tl.float32, "
+            "mem_addr_space=tle.dsa.ascend.UB)"
+        ).body[0],
+    )
+    tile = next(
+        node
+        for node in vector
+        if isinstance(node, ast.For) and node.target.id == "vector_block"
+    )
+    update = next(
+        node
+        for node in tile.body
+        if isinstance(node, ast.For) and node.target.id == "update_query"
+    )
+    update_index = tile.body.index(update)
+    tile.body[update_index:update_index] = ast.parse(
+        """
+complete_pair = vector_block % 2 == 1
+save_pending = (vector_block % 2 == 0) & (vector_block + 1 < BLOCKS)
+"""
+    ).body
+    start = next(
+        i
+        for i, node in enumerate(update.body)
+        if isinstance(node, ast.Assign) and node.targets[0].id == "update_state_slot"
+    )
+    # Keep the trailing barrier shared by both paths. The first block can
+    # return its ring slot as soon as its sorted pairs are saved.
+    update.body[start:-1] = ast.parse(
+        """
+pending_slot = tle.dsa.subview(pending, [update_query * 1024], [1024], [1])
+if save_pending:
+    tle.dsa.to_buffer(pairs, space=tle.dsa.ascend.UB, bind_buffer=pending_slot)
+else:
+    state_slot = tle.dsa.subview(state_storage, [update_query * 1024], [1024], [1])
+    previous = tle.dsa.to_tensor(state_slot)
+    if complete_pair:
+        first = tle.dsa.to_tensor(pending_slot)
+        next_state, consumed = _history_three_way(previous, first, pairs)
+    else:
+        next_state = _history_prefix(previous, pairs, 512, 512)
+    tle.dsa.to_buffer(next_state, space=tle.dsa.ascend.UB, bind_buffer=state_slot)
+"""
+    ).body
+    return MERGE + "\n" + ast.unparse(ast.fix_missing_locations(kernel)) + "\n"
+
+
+def ir_evidence(kernel):
+    if record_launch_mode(kernel, require_cube=False)["mix_mode"] == "aiv":
+        return history_ir(kernel, complete=False, expect_no_gather=True)
+    text = kernel.asm.get("bcmlir", "")
+    if isinstance(text, bytes):
+        text = text.decode()
+    lines = [line for line in text.splitlines() if "hivm.hir.custom" in line]
+    calls = {
+        name: sum(f'"{name}"' in line for line in lines)
+        for name in ("sort32", "mrgsort", "merge_exhaust_sort4", "unpack_sort")
+    }
+    if calls != dict(sort32=1, mrgsort=2, merge_exhaust_sort4=2, unpack_sort=1):
+        raise RuntimeError("Unexpected paired history structure: " + repr(calls))
+    if "triton_gather" in text:
+        raise RuntimeError("Unexpected gather in paired history")
+    return dict(
+        calls=calls,
+        lines=lines,
+        extra_pending_ub_bytes_per_vector=8 * 1024 * 4,
+        ub_allocations=[
+            line.strip()
+            for line in text.splitlines()
+            if "alloc" in line and "#hivm.address_space<ub>" in line
+        ],
+    )
+
+
+def paired_dispatcher(module, policy):
+    original = dispatcher(module, policy)
+
+    def choose(blocks):
+        if blocks >= 4 and use_prefix(blocks, policy):
+            return (
+                module.raw_history_prepared_paired,
+                module.raw_history_topk_prefix,
+                ir_evidence,
+                "paired_prefix",
+            )
+        return original(blocks)
+
+    return choose
+
+
+def check_three_way(module, torch, device, report, save_asm, case_name):
+    base = torch.arange(512, 0, -1, dtype=torch.float32)
+    low = base - 10000
+    # Row 0 forces a long output before exhaustion. The other rows exercise
+    # one winning stream, interleaved values, ties, and masked tail keys.
+    high = base + 10000
+    high[-1] = -20000
+    masked = low.clone()
+    masked[73:] = -float("inf")
+    zeros = torch.zeros_like(base)
+    rows = torch.stack(
+        (
+            torch.stack((base, high, high)),
+            torch.stack((low, base, base + 1000)),
+            torch.stack((base * 3, base * 3 + 1, base * 3 + 2)),
+            torch.stack((zeros, zeros, zeros)),
+            torch.stack((low, masked, torch.full_like(base, -float("inf")))),
+        )
+    ).reshape(5, 1536)
+    packed = torch.empty((5, 3072), dtype=torch.float32)
+    packed[:, 0::2] = rows
+    packed[:, 1::2] = torch.arange(1536, dtype=torch.int32).view(torch.float32)
+    inputs = packed.to(device)
+    out_storage = torch.full(
+        (7, 1024), float("nan"), dtype=torch.float32, device=device
+    )
+    out = out_storage[1:-1]
+    consumed = torch.full((5, 4), -1, dtype=torch.int32, device=device)
+    kernel = module.raw_history_check_three_way
+    path = report / (case_name + "-three-way-merge.json")
+    result = dict(status="compiling")
+    path.write_text(json.dumps(result, indent=2))
+    compiled = kernel.warmup(inputs, out, consumed, grid=(5,), num_warps=4)
+    mode = record_launch_mode(compiled, require_cube=False)
+    if mode["mix_mode"] != "aiv" or mode["bs_task_type"] // 10 != 1:
+        raise RuntimeError("Three-way merge validation requires AIV")
+    result.update(
+        status="running",
+        launch=mode,
+        ir=history_ir(
+            compiled, complete=False, local_sort=False, expect_no_gather=True
+        ),
+        asm=save_asm(compiled, report, case_name + "-three-way-merge"),
+    )
+    path.write_text(json.dumps(result, indent=2))
+    kernel[(5,)](inputs, out, consumed, num_warps=4)
+    torch.npu.synchronize()
+
+    pairs = out.cpu()
+    values = pairs[:, 0::2]
+    indices = pairs[:, 1::2].contiguous().view(torch.int32).long()
+    torch.testing.assert_close(values, rows.topk(512, dim=1).values, rtol=0, atol=0)
+    assert bool(((indices >= 0) & (indices < 1536)).all())
+    ordered = indices.sort(dim=1).values
+    assert bool((ordered[:, 1:] != ordered[:, :-1]).all())
+    torch.testing.assert_close(rows.gather(1, indices), values, rtol=0, atol=0)
+    assert bool(torch.isnan(out_storage[[0, -1]].cpu()).all())
+    counts = consumed.cpu()[:, :3]
+    assert bool(((counts >= 0) & (counts <= 512)).all())
+    assert bool((counts.max(dim=1).values == 512).all())
+    assert int(counts[0].sum()) > 1024
+    result.update(status="passed", consumed=counts.tolist(), checked_rows=5)
+    path.write_text(json.dumps(result, indent=2))
+    print("PAIRED_HISTORY_MERGE_CHECK", json.dumps(result), flush=True)
+    return result
+
+
+def measure(case_name, benchmark, native, control, candidate, path):
+    blocks = Counter(route["blocks"] for route in candidate.routes)
+    if (
+        not blocks
+        or not any(b % 2 == 1 for b in blocks)
+        or not any(b % 2 == 0 for b in blocks)
+        or control.routes != candidate.routes
+        or len(control.dispatch_routes) != len(candidate.routes)
+        or len(candidate.dispatch_routes) != len(candidate.routes)
+    ):
+        raise ValueError(f"Unexpected paired-history schedule: {blocks}")
+    for old, new in zip(control.dispatch_routes, candidate.dispatch_routes):
+        if old["mode"] != "prefix" or new != dict(old, mode="paired_prefix"):
+            raise ValueError(f"Unexpected paired-history route: {old} -> {new}")
+    routing = dict(
+        pieces_by_blocks=dict(blocks),
+        odd_tail_pieces=sum(n for b, n in blocks.items() if b % 2),
+        control_updates_per_query_by_blocks={b: b for b in sorted(blocks)},
+        paired_updates_per_query_by_blocks={b: (b + 1) // 2 for b in sorted(blocks)},
+        handoff_keys=512,
+        slots=2,
+    )
+    return measure_arms(
+        case_name,
+        benchmark,
+        native,
+        control,
+        candidate,
+        path,
+        routing,
+        "PAIRED_HISTORY",
+    )

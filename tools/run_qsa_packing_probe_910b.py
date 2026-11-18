@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Run packing diagnostics or a short-history comparison."""
+"""Run packing diagnostics or a history update comparison."""
 
 import argparse
 import json
@@ -31,6 +31,7 @@ def main():
     parser = argparse.ArgumentParser()
     probe = parser.add_mutually_exclusive_group(required=True)
     probe.add_argument("--packing-probe", action="store_true")
+    probe.add_argument("--paired-history", action="store_true")
     probe.add_argument(
         "--short-history", "--short-history-compact", action="store_true"
     )
@@ -54,6 +55,17 @@ def main():
         mode, result_key = "short-history", "short_history"
         scope = "Complete fixtures with two rounds of stock kernel timing"
         log_key = "SHORT_HISTORY"
+    elif args.paired_history:
+        from qsa_paired_history_910b import CASES
+
+        args.cases = args.cases or list(CASES)
+        if args.all_cases or any(name not in CASES for name in args.cases):
+            parser.error(
+                "--paired-history supports int8_budget_exact and int8_long100k"
+            )
+        mode, result_key = "paired-history", "paired_history"
+        scope = "Two long inputs with stock kernel timing and fixed 512-key handoff"
+        log_key = "PAIRED_HISTORY"
     else:
         if args.all_cases:
             parser.error("--all-cases requires --short-history")
@@ -97,6 +109,7 @@ def main():
         QSA_RAW_HISTORY_HARNESS="1",
         QSA_PACKING_PROBE="1" if args.packing_probe else "0",
         QSA_SHORT_HISTORY="1" if args.short_history else "0",
+        QSA_PAIRED_HISTORY="1" if args.paired_history else "0",
         QSA_HISTORY_POLICY=str((args.report / "history-policy.json").resolve()),
     )
     for name in dict.fromkeys(args.cases):
@@ -141,8 +154,15 @@ def main():
             measurement = detail[result_key]
             if measurement.get("status") != "passed":
                 raise ValueError("Measurement did not finish")
+            if args.paired_history:
+                check = json.loads(
+                    (args.report / (name + "-three-way-merge.json")).read_text()
+                )
+                if check.get("status") != "passed":
+                    raise ValueError("Three-way merge check did not pass")
+                row["three_way_checked_rows"] = check["checked_rows"]
             row.update(status="passed")
-            row["short_history" if args.short_history else "packing"] = measurement
+            row["packing" if args.packing_probe else result_key] = measurement
         except (KeyError, ValueError, OSError) as exc:
             row["error"] = repr(exc)
         result["cases"].append(row)

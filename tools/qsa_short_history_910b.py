@@ -101,6 +101,22 @@ def measure(case_name, benchmark, native, control, candidate, path):
         ):
             raise ValueError(f"Unexpected route change: {old} -> {new}")
         transitions[f'{old["mode"]}->{new["mode"]}'] += 1
+    routing = dict(
+        pieces_by_blocks=dict(block_counts),
+        rows_by_blocks={
+            blocks: sum(r["count"] for r in candidate.routes if r["blocks"] == blocks)
+            for blocks in sorted(block_counts)
+        },
+        route_transitions=dict(transitions),
+    )
+    return measure_arms(
+        case_name, benchmark, native, control, candidate, path, routing, "SHORT_HISTORY"
+    )
+
+
+def measure_arms(
+    case_name, benchmark, native, control, candidate, path, routing, label
+):
     calls = {"cann_v1": native, "control": control, "candidate": candidate}
     rounds = []
     result = dict(
@@ -110,13 +126,8 @@ def measure(case_name, benchmark, native, control, candidate, path):
         scope="Full input including every piece, QW/K/KS packing, and mixed execution",
         control="original history policy",
         logical_width=candidate.width,
-        pieces_by_blocks=dict(block_counts),
-        rows_by_blocks={
-            blocks: sum(r["count"] for r in candidate.routes if r["blocks"] == blocks)
-            for blocks in sorted(block_counts)
-        },
-        route_transitions=dict(transitions),
         rounds=rounds,
+        **routing,
     )
 
     def save():
@@ -132,7 +143,7 @@ def measure(case_name, benchmark, native, control, candidate, path):
                 raise RuntimeError(f"Invalid {name} latency: {latency}")
             timings[name] = latency
             save()
-            print("SHORT_HISTORY_TIMING", len(rounds), name, latency, "ms", flush=True)
+            print(label + "_TIMING", len(rounds), name, latency, "ms", flush=True)
         round_result.update(
             control_over_candidate=timings["control"] / timings["candidate"],
             cann_over_control=timings["cann_v1"] / timings["control"],
@@ -143,8 +154,8 @@ def measure(case_name, benchmark, native, control, candidate, path):
         status="passed",
         mean_ms={name: mean(r["latency_ms"][name] for r in rounds) for name in calls},
     )
-    for label in ("control_over_candidate", "cann_over_control", "cann_over_candidate"):
-        result[label] = mean(r[label] for r in rounds)
+    for ratio in ("control_over_candidate", "cann_over_control", "cann_over_candidate"):
+        result[ratio] = mean(r[ratio] for r in rounds)
     save()
-    print("SHORT_HISTORY_RESULT", json.dumps(result), flush=True)
+    print(label + "_RESULT", json.dumps(result), flush=True)
     return result
