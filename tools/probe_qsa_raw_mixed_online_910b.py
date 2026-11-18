@@ -51,11 +51,14 @@ def main():
     paired.add_argument("--paired-final-mrgsort-ub", action="store_true")
     paired.add_argument("--paired-final-mrgsort-poison-check", action="store_true")
     paired.add_argument("--paired-final-mrgsort-reuse", action="store_true")
+    paired.add_argument("--paired-final-mrgsort-handoff-barrier", action="store_true")
     args = parser.parse_args()
+    handoff_barrier_probe = args.paired_final_mrgsort_handoff_barrier
     final_mrgsort_probe = (
         args.paired_final_mrgsort_ub
         or args.paired_final_mrgsort_poison_check
         or args.paired_final_mrgsort_reuse
+        or handoff_barrier_probe
     )
     sort_barrier_probe = args.paired_sort_barrier or args.paired_sort32_barrier
     paired_probe = (
@@ -249,12 +252,16 @@ def main():
         if final_mrgsort_probe:
             from qsa_final_mrgsort_ub_910b import (
                 compile_capture,
+                gate_handoff_barrier,
                 gate_output_init,
                 replay_output_init,
                 source as final_mrgsort_source,
             )
 
-            text += final_mrgsort_source(reuse_local32=args.paired_final_mrgsort_reuse)
+            text += final_mrgsort_source(
+                reuse_local32=args.paired_final_mrgsort_reuse,
+                drop_handoff_barrier=handoff_barrier_probe,
+            )
         path.write_text(text)
         path.with_suffix(".py.txt").write_text(path.read_text())
         spec = importlib.util.spec_from_file_location("_qsa_raw_mixed_online", path)
@@ -477,6 +484,13 @@ def main():
             if args.paired_final_mrgsort_reuse:
                 result["mode"] = "paired_final_mrgsort_reuse"
                 result["scope"] = "Final local mrgsort with a zero template or out=local32"
+        if handoff_barrier_probe:
+            fixtures = ((112, 29696),)
+            result["mode"] = "paired_final_mrgsort_handoff_barrier"
+            result["scope"] = (
+                "Prepared long100k chunk with out=local32; "
+                "remove one barrier after the final local mrgsort"
+            )
         for rows, width in fixtures:
             case_name = f"r{rows}-w{width}" if args.boundaries else str(width)
             shape = boundary_geometry(rows, width, 1)
@@ -658,7 +672,9 @@ def main():
                 configurations = ((2, "full"), (2, removed_barrier))
             if final_mrgsort_probe:
                 configurations = ((2, "full"), (2, "poison"))
-                if args.paired_final_mrgsort_reuse:
+                if handoff_barrier_probe:
+                    configurations = ((2, "reuse_local32"), (2, "no_handoff_barrier"))
+                elif args.paired_final_mrgsort_reuse:
                     configurations = ((2, "full"), (2, "reuse_local32"))
                 elif not args.paired_final_mrgsort_poison_check:
                     configurations += ((2, "uninit"),)
@@ -888,6 +904,25 @@ def main():
                         entry.setdefault("mrgsort_init", {})[label] = evidence
                         save()
                         gate_output_init(evidence, label)
+                        if handoff_barrier_probe:
+                            handoff = evidence["handoff"]
+                            print(
+                                "FINAL_MRGSORT_HANDOFF_IR",
+                                label,
+                                json.dumps(handoff),
+                                flush=True,
+                            )
+                            if not gate_handoff_barrier(evidence, label):
+                                if label == "reuse_local32":
+                                    raise RuntimeError("Control did not reproduce the handoff PIPE_ALL")
+                                entry.update(status="rejected", reason="Handoff PIPE_ALL retained")
+                                result.update(
+                                    status="completed",
+                                    phase="completed",
+                                    outcome="handoff_barrier_retained_after_sync_solver",
+                                )
+                                save()
+                                return 0
                         print(
                             "FINAL_MRGSORT_INIT",
                             case_name,
@@ -1177,7 +1212,10 @@ def main():
             if sort_barrier_probe:
                 numerator, denominator = "full", removed_barrier
                 entry["saved_us"] = med[numerator] - med[denominator]
-            if final_mrgsort_probe:
+            if handoff_barrier_probe:
+                numerator, denominator = "reuse_local32", "no_handoff_barrier"
+                entry["saved_us"] = med[numerator] - med[denominator]
+            elif final_mrgsort_probe:
                 numerator = "full"
                 denominator = "reuse_local32" if args.paired_final_mrgsort_reuse else "uninit"
                 entry["saved_us"] = med[numerator] - med[denominator]

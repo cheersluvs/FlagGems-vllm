@@ -64,14 +64,19 @@ def prepared_reuse_ir(kernel):
     return dict(**evidence, final_mrgsort_reuses_local32=True)
 
 
-def source(*, reuse_local32=False):
+def source(*, reuse_local32=False, drop_handoff_barrier=False):
     common = sort_barrier_source(sort32_boundary=True)
     full = ast.parse(common).body[-1]
     assert full.name == "raw_history_prepared_paired_no_sort_barriers"
     first_constexpr = next(i for i, arg in enumerate(full.args.args) if arg.annotation)
     full.args.args.insert(first_constexpr, ast.arg(arg="PairTrace"))
     variants = []
-    labels = ("full", "reuse_local32") if reuse_local32 else ("full", "poison", "uninit")
+    if drop_handoff_barrier:
+        labels = ("reuse_local32", "no_handoff_barrier")
+    elif reuse_local32:
+        labels = ("full", "reuse_local32")
+    else:
+        labels = ("full", "poison", "uninit")
     for label in labels:
         kernel = copy.deepcopy(full)
         kernel.name = "raw_final_mrgsort_" + label
@@ -89,7 +94,7 @@ def source(*, reuse_local32=False):
         call = query.body[index].value
         assert ast.literal_eval(call.args[0]) == "mrgsort"
         assert ast.unparse(query.body[index + 1]) == "tl.debug_barrier()"
-        if label == "reuse_local32":
+        if label in ("reuse_local32", "no_handoff_barrier"):
             _use_local32(call)
         elif label != "full":
             out = next(keyword for keyword in call.keywords if keyword.arg == "out")
@@ -105,7 +110,11 @@ def source(*, reuse_local32=False):
                 )
                 expression = "tle.dsa.to_tensor(sort_out)"
             out.value = ast.parse(expression, mode="eval").body
-        query.body[index + 2 : index + 2] = ast.parse(
+        trace_index = index + 2
+        if label == "no_handoff_barrier":
+            del query.body[index + 1]
+            trace_index -= 1
+        query.body[trace_index:trace_index] = ast.parse(
             """
 if TRACE:
     pair_word = tl.arange(0, 1024)
@@ -180,8 +189,27 @@ def check_output_init(text):
         match = re.search(r"vbrc ins\((%[\w.]+) : f32", line)
         if match and match[1] in constant_defs:
             fill_values.append(constant_defs[match[1]])
+    handoff = {}
+    for i, line in enumerate(merge_lines[last + 1 : last + 65], last + 1):
+        if '"merge_exhaust_sort4"' in line:
+            break
+        operand = re.search(r"hivm\.hir\.copy ins\((%[\w.]+) :", line)
+        if operand and shares_buffer(operand[1], out):
+            sync = [
+                item.strip() for item in merge_lines[last + 1 : i]
+                if "hivm.hir.pipe_barrier" in item
+                or "hivm.hir.set_flag" in item or "hivm.hir.wait_flag" in item
+            ]
+            handoff = dict(
+                first_output_copy=line.strip(),
+                pipe_all=sum("PIPE_ALL" in item for item in sync),
+                pipe_v=sum("pipe_barrier[<PIPE_V>]" in item for item in sync),
+                sync=sync,
+            )
+            break
     return dict(
         destination=out,
+        handoff=handoff,
         sort32_destination=original[1],
         final_input=final_input[1],
         reuses_sort32_buffer=shares_buffer(original[1], out),
@@ -223,7 +251,7 @@ def gate_output_init(evidence, label):
     copies, fills = evidence["copies"], evidence["fills"]
     if evidence["other_writes"]:
         raise RuntimeError(f"Unexpected writes to final mrgsort output in {label}")
-    if label in ("uninit", "reuse_local32"):
+    if label in ("uninit", "reuse_local32", "no_handoff_barrier"):
         if copies or fills:
             raise RuntimeError("Final mrgsort candidate still initializes its output")
         if evidence["aliases_final_input"]:
@@ -242,3 +270,10 @@ def gate_output_init(evidence, label):
             poison_ir_values.append(float(value))
     if POISON_VALUE not in poison_ir_values:
         raise RuntimeError(f"Cannot confirm poison initialization: {evidence['fill_values']}")
+
+
+
+def gate_handoff_barrier(evidence, label):
+    if not evidence["reuses_sort32_buffer"] or not evidence["handoff"]:
+        raise RuntimeError(f"Missing local32 handoff evidence for {label}")
+    return evidence["handoff"]["pipe_all"] == int(label == "reuse_local32")
