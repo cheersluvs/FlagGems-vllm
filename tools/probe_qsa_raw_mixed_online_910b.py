@@ -41,7 +41,17 @@ def main():
     parser.add_argument("--history-boundary", action="store_true")
     parser.add_argument("--query-batch", type=int, choices=(2, 4))
     parser.add_argument("--history-direct", action="store_true")
+    parser.add_argument("--single-block", action="store_true")
     args = parser.parse_args()
+    if args.single_block and (
+        not args.history_full_merge
+        or args.history_boundary
+        or args.query_batch
+        or args.history_direct
+    ):
+        parser.error(
+            "--single-block requires --history-full-merge without other history variants"
+        )
     if args.history_direct and (
         not args.history_full_merge or args.history_boundary or args.query_batch
     ):
@@ -176,6 +186,10 @@ def main():
             from qsa_history_direct_probe_910b import source as direct_source
 
             text += direct_source()
+        if args.single_block:
+            from qsa_single_block_probe_910b import source as single_source
+
+            text += single_source()
         path.write_text(text)
         path.with_suffix(".py.txt").write_text(path.read_text())
         spec = importlib.util.spec_from_file_location("_qsa_raw_mixed_online", path)
@@ -200,7 +214,7 @@ def main():
             result["phase"] = "replay_tick_build"
             save()
             module.replay_tick_op = bind_tick(report, result, save)
-        if args.history_full_merge:
+        if args.history_full_merge and not args.single_block:
             from qsa_raw_history_merge_910b import transition_checks
 
             result["phase"] = "history_transitions"
@@ -311,6 +325,16 @@ def main():
             result["mode"] = "history_direct_destination"
             result["scope"] = "Prepared prefix mixed kernel vs direct UB destination"
             result["limits"] = dict(packing_included=False, cann_acceptance=False)
+        if args.single_block:
+            fixtures = ((16, 512), (17, 512), (128, 512))
+            result["mode"] = "single_block_topk"
+            result["scope"] = (
+                "Prepared mixed kernel, snapshot versus direct unpack of local sort"
+            )
+            result["limitations"] = [
+                "WIDTH=512 only, padded visibility and row tails included",
+                "Prepared timings exclude packing and full-input CANN comparison",
+            ]
         for rows, width in fixtures:
             case_name = f"r{rows}-w{width}" if args.boundaries else str(width)
             shape = boundary_geometry(rows, width, 1)
@@ -478,6 +502,8 @@ def main():
                 configurations = ((2, "prefix"), (2, "batch" + str(args.query_batch)))
             if args.history_direct:
                 configurations = ((2, "prefix"), (2, "direct"))
+            if args.single_block:
+                configurations = ((2, "snapshot"), (2, "single"))
             for slots, label in configurations:
                 g = (
                     boundary_geometry(rows, width, slots)
@@ -595,6 +621,21 @@ def main():
                             )
                             save()
                             evidence = direct_ir(compiled, direct=label == "direct")
+                        elif args.single_block and label == "single":
+                            from qsa_single_block_probe_910b import (
+                                ir_evidence as single_ir,
+                            )
+
+                            entry["single_compilation_" + str(traced)] = dict(
+                                launch=mode,
+                                asm=save_asm(
+                                    compiled,
+                                    report,
+                                    f"single-{case_name}-trace{int(traced)}",
+                                ),
+                            )
+                            save()
+                            evidence = single_ir(compiled)
                         else:
                             evidence = history_ir(
                                 compiled,
@@ -834,13 +875,15 @@ def main():
                 numerator, denominator = "prefix", "batch" + str(args.query_batch)
             if args.history_direct:
                 numerator, denominator = "prefix", "direct"
+            if args.single_block:
+                numerator, denominator = "snapshot", "single"
             ratio = med[numerator] / med[denominator]
             entry.update(samples=samples, mean_us=med)
             entry[
                 "call64_over_block512" if args.cube_block512 else "serial_over_buffered"
             ] = ratio
             if args.history_full_merge and not (
-                args.query_batch or args.history_direct
+                args.query_batch or args.history_direct or args.single_block
             ):
                 entry["snapshot_over_prefix"] = med["snapshot"] / med["prefix"]
                 entry["history_ratios"] = dict(
@@ -857,6 +900,9 @@ def main():
                 entry.pop("call64_over_block512", None)
             if args.history_direct:
                 entry["prefix_over_direct"] = ratio
+                entry.pop("call64_over_block512", None)
+            if args.single_block:
+                entry["snapshot_over_single"] = ratio
                 entry.pop("call64_over_block512", None)
             if args.tle_sort512:
                 entry["generic_over_fixed"] = ratio
