@@ -27,6 +27,43 @@ from qsa_paired_history_910b import sort_barrier_source
 POISON_VALUE = -1234567.0
 
 
+def _use_local32(call):
+    assert ast.literal_eval(call.args[0]) == "mrgsort"
+    assert ast.unparse(call.args[1]) == "local128"
+    out = next(keyword for keyword in call.keywords if keyword.arg == "out")
+    assert ast.unparse(out.value) == "tl.zeros((1024,), tl.float32)"
+    out.value = ast.Name(id="local32", ctx=ast.Load())
+
+
+def prepared_reuse_source(source_text):
+    kernel = next(
+        node for node in ast.parse(source_text).body
+        if isinstance(node, ast.FunctionDef)
+        and node.name == "raw_history_prepared_paired_no_sort_barriers"
+    )
+    kernel.name = "raw_history_prepared_paired_reuse_local32"
+    assignment = next(
+        node for node in ast.walk(kernel)
+        if isinstance(node, ast.Assign) and ast.unparse(node.targets[0]) == "pairs"
+    )
+    _use_local32(assignment.value)
+    return "\n" + ast.unparse(ast.fix_missing_locations(kernel)) + "\n"
+
+
+def prepared_reuse_ir(kernel):
+    from probe_qsa_raw_cube_chain_910b import record_launch_mode
+    from qsa_paired_history_910b import sort_barrier_ir
+
+    evidence = sort_barrier_ir(kernel, "no_sort32_barrier", sort32_boundary=True)
+    if record_launch_mode(kernel, require_cube=False)["mix_mode"] == "aiv":
+        return evidence
+    sort32 = evidence["sort32_interval"][0].split(" = hivm.hir.custom", 1)[0]
+    last_merge = evidence["merge_interval"][-1]
+    if f"outs({sort32} : tensor<1024xf32>)" not in last_merge:
+        raise RuntimeError("Final mrgsort destination differs from the sort32 output")
+    return dict(**evidence, final_mrgsort_reuses_local32=True)
+
+
 def source(*, reuse_local32=False):
     common = sort_barrier_source(sort32_boundary=True)
     full = ast.parse(common).body[-1]
@@ -52,13 +89,12 @@ def source(*, reuse_local32=False):
         call = query.body[index].value
         assert ast.literal_eval(call.args[0]) == "mrgsort"
         assert ast.unparse(query.body[index + 1]) == "tl.debug_barrier()"
-        if label != "full":
+        if label == "reuse_local32":
+            _use_local32(call)
+        elif label != "full":
             out = next(keyword for keyword in call.keywords if keyword.arg == "out")
             if label == "poison":
                 expression = f"tl.full((1024,), {POISON_VALUE}, tl.float32)"
-            elif label == "reuse_local32":
-                assert ast.unparse(call.args[1]) == "local128"
-                expression = "local32"
             else:
                 vector.insert(
                     vector.index(block),

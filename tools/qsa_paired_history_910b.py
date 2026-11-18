@@ -466,6 +466,7 @@ def paired_dispatcher(
     early_release=False,
     no_merge_barrier=False,
     no_sort32_barrier=False,
+    reuse_local32=False,
 ):
     original = fallback if fallback is not None else dispatcher(module, policy)
     kernel = (
@@ -474,7 +475,9 @@ def paired_dispatcher(
         else module.raw_history_prepared_paired
     )
     mode = "paired_handoff1024" if handoff1024 else "paired_prefix"
-    assert sum((handoff1024, early_release, no_merge_barrier, no_sort32_barrier)) <= 1
+    assert sum(
+        (handoff1024, early_release, no_merge_barrier, no_sort32_barrier, reuse_local32)
+    ) <= 1
     evidence = ir_evidence
     if early_release:
         kernel = module.raw_history_prepared_paired_early_release
@@ -488,6 +491,12 @@ def paired_dispatcher(
         kernel = module.raw_history_prepared_paired_no_sort_barriers
         mode = "paired_no_sort_barriers"
         evidence = partial(sort_barrier_ir, label="no_sort32_barrier", sort32_boundary=True)
+    if reuse_local32:
+        from qsa_final_mrgsort_ub_910b import prepared_reuse_ir
+
+        kernel = module.raw_history_prepared_paired_reuse_local32
+        mode = "paired_reuse_local32"
+        evidence = prepared_reuse_ir
 
     def choose(blocks):
         if blocks >= 4 and use_prefix(blocks, policy):
@@ -513,6 +522,7 @@ def measure_combined(
     early_release=False,
     no_merge_barrier=False,
     no_sort32_barrier=False,
+    reuse_local32=False,
 ):
     if (
         control.ring_blocks_per_slot != 1
@@ -524,7 +534,12 @@ def measure_combined(
         raise ValueError(f"Unexpected combined history schedule for {case_name}")
     transitions = Counter()
     paired_blocks = Counter()
-    if no_sort32_barrier:
+    if reuse_local32:
+        old_mode = "paired_no_sort_barriers"
+        candidate_mode = "paired_reuse_local32"
+        label = "FINAL_MRGSORT_REUSE_LONG"
+        control_name = "paired history without both local sort barriers, zero-filled mrgsort output"
+    elif no_sort32_barrier:
         old_mode = "paired_no_merge_barrier"
         candidate_mode = "paired_no_sort_barriers"
         label = "SORT32_BARRIER_TEN"
@@ -558,10 +573,10 @@ def measure_combined(
         handoff_keys=512,
         slots=2,
     )
+    if (early_release or reuse_local32) and not paired_blocks:
+        raise ValueError(f"No paired pieces exercised for {case_name}")
     if early_release:
         routing.update(extra_payload_ub_bytes_per_vector=4096 * 4)
-        if not paired_blocks:
-            raise ValueError(f"No paired pieces exercised for {case_name}")
     return measure_arms(
         case_name,
         benchmark,

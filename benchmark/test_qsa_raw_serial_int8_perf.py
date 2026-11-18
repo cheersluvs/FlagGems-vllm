@@ -100,11 +100,13 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
     early_release = os.environ.get("QSA_EARLY_RELEASE") == "1"
     no_merge_barrier = os.environ.get("QSA_SORT_BARRIER_TEN") == "1"
     no_sort32_barrier = os.environ.get("QSA_SORT32_BARRIER_TEN") == "1"
+    reuse_local32 = os.environ.get("QSA_FINAL_MRGSORT_REUSE_LONG") == "1"
     combined_history = (
         os.environ.get("QSA_COMBINED_HISTORY") == "1"
         or early_release
         or no_merge_barrier
         or no_sort32_barrier
+        or reuse_local32
     )
     history_comparison = short_history or paired_history or combined_history
     assert not history_mode or fixed_mode
@@ -139,14 +141,18 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
         from qsa_paired_history_910b import early_release_source
 
         source_text += early_release_source(source_text)
-    if no_merge_barrier or no_sort32_barrier:
+    if no_merge_barrier or no_sort32_barrier or reuse_local32:
         from qsa_paired_history_910b import no_merge_barrier_source
 
         source_text += no_merge_barrier_source(source_text)
-    if no_sort32_barrier:
+    if no_sort32_barrier or reuse_local32:
         from qsa_paired_history_910b import no_sort32_barrier_source
 
         source_text += no_sort32_barrier_source(source_text)
+    if reuse_local32:
+        from qsa_final_mrgsort_ub_910b import prepared_reuse_source
+
+        source_text += prepared_reuse_source(source_text)
     path.write_text(source_text)
     path.with_suffix(".py.txt").write_text(path.read_text())
     spec = importlib.util.spec_from_file_location("_raw_serial_kernels", path)
@@ -245,14 +251,16 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
                             early_release=early_release,
                             no_merge_barrier=no_merge_barrier,
                             no_sort32_barrier=no_sort32_barrier,
+                            reuse_local32=reuse_local32,
                             fallback=options["dispatch"],
                         )
-                        if early_release or no_merge_barrier or no_sort32_barrier:
+                        if early_release or no_merge_barrier or no_sort32_barrier or reuse_local32:
                             control_options["dispatch"] = paired_dispatcher(
                                 module,
                                 policy,
                                 fallback=control_options["dispatch"],
                                 no_merge_barrier=no_sort32_barrier,
+                                no_sort32_barrier=reuse_local32,
                             )
                         if paired_handoff:
                             control_options["dispatch"] = paired_dispatcher(
@@ -389,6 +397,19 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
                         history="short_and_paired_prefix",
                         topk="single_direct_first_seed_or_paired_prefix",
                     )
+                if reuse_local32:
+                    detail["mixed_identity"].update(
+                        kernel="raw_history_prepared_paired_reuse_local32",
+                        local_sort="sort32_mrgsort_fixed512_no_internal_sort_barriers",
+                        final_mrgsort_out="local32",
+                    )
+                    detail["generic_identity"].update(
+                        kernel="raw_history_prepared_paired_no_sort_barriers",
+                        local_sort="sort32_mrgsort_fixed512_no_internal_sort_barriers",
+                        history="short_and_paired_prefix",
+                        topk="single_direct_first_seed_or_paired_prefix",
+                        final_mrgsort_out="zeros",
+                    )
         v = context["values"]
         native_call = partial(
             torch_npu.npu_quant_lightning_indexer,
@@ -463,6 +484,9 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
                 if no_sort32_barrier:
                     measure = partial(measure, no_sort32_barrier=True)
                     measure_key = "sort32_barrier_ten"
+                if reuse_local32:
+                    measure = partial(measure, reuse_local32=True)
+                    measure_key = "final_mrgsort_reuse_long"
             elif paired_history:
                 from qsa_paired_history_910b import measure
 

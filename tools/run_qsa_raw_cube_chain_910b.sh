@@ -505,6 +505,10 @@ for qsa_argument in "$@"; do
         qsa_worker="$qsa_repo/tools/run_qsa_packing_probe_910b.py"
         qsa_kind=raw-paired-handoff
     fi
+    if [[ "$qsa_argument" == --final-mrgsort-reuse-long ]]; then
+        qsa_worker="$qsa_repo/tools/run_qsa_packing_probe_910b.py"
+        qsa_kind=raw-final-mrgsort-reuse-long
+    fi
     if [[ "$qsa_argument" == --sort32-barrier-ten ]]; then
         qsa_worker="$qsa_repo/tools/run_qsa_packing_probe_910b.py"
         qsa_kind=raw-sort32-barrier-ten
