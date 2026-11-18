@@ -1,0 +1,104 @@
+{
+  "status": "passed",
+  "timing": "FlagGems-vllm harness get_latency, --mode kernel",
+  "case": "int8_long100k",
+  "scope": "Full input including every piece, QW/K/KS packing, and mixed execution",
+  "control": "paired merge with 512-key handoff",
+  "logical_width": 29696,
+  "rounds": [
+    {
+      "order": [
+        "cann_v1",
+        "control",
+        "candidate"
+      ],
+      "latency_ms": {
+        "cann_v1": 50.240819333333334,
+        "control": 86.52305133333333,
+        "candidate": 86.57165466666667
+      },
+      "control_over_candidate": 0.9994385768237827,
+      "cann_over_control": 0.5806639798194203,
+      "cann_over_candidate": 0.5803379816035552
+    },
+    {
+      "order": [
+        "candidate",
+        "control",
+        "cann_v1"
+      ],
+      "latency_ms": {
+        "candidate": 86.56849,
+        "control": 86.52087266666668,
+        "cann_v1": 50.238215333333336
+      },
+      "control_over_candidate": 0.9994499461255092,
+      "cann_over_control": 0.5806485046317417,
+      "cann_over_candidate": 0.5803291166720517
+    }
+  ],
+  "pieces_by_blocks": {
+    "51": 18,
+    "52": 18,
+    "53": 18,
+    "54": 19,
+    "55": 18,
+    "56": 18,
+    "57": 19,
+    "58": 19
+  },
+  "odd_tail_pieces": 73,
+  "control_updates_per_query_by_blocks": {
+    "51": 26,
+    "52": 26,
+    "53": 27,
+    "54": 27,
+    "55": 28,
+    "56": 28,
+    "57": 29,
+    "58": 29
+  },
+  "paired_updates_per_query_by_blocks": {
+    "51": 26,
+    "52": 26,
+    "53": 27,
+    "54": 27,
+    "55": 28,
+    "56": 28,
+    "57": 29,
+    "58": 29
+  },
+  "handoff_keys": 1024,
+  "slots": 2,
+  "control_handoff_keys": 512,
+  "control_handoffs_by_blocks": {
+    "51": 51,
+    "52": 52,
+    "53": 53,
+    "54": 54,
+    "55": 55,
+    "56": 56,
+    "57": 57,
+    "58": 58
+  },
+  "candidate_handoffs_by_blocks": {
+    "51": 26,
+    "52": 26,
+    "53": 27,
+    "54": 27,
+    "55": 28,
+    "56": 28,
+    "57": 29,
+    "58": 29
+  },
+  "control_ring_bytes_per_query16_group": 65536,
+  "candidate_ring_bytes_per_query16_group": 131072,
+  "mean_ms": {
+    "cann_v1": 50.23951733333334,
+    "control": 86.521962,
+    "candidate": 86.57007233333334
+  },
+  "control_over_candidate": 0.9994442614746459,
+  "cann_over_control": 0.580656242225581,
+  "cann_over_candidate": 0.5803335491378034
+}
