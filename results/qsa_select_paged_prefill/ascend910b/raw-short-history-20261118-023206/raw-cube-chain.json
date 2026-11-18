@@ -1,0 +1,174 @@
+{
+  "status": "passed",
+  "mode": "short-history",
+  "production_changed": false,
+  "scope": "Complete fixtures with two rounds of stock kernel timing",
+  "history_policy": {
+    "status": "passed",
+    "threshold": 4,
+    "max_blocks": 58,
+    "margin": 1.02,
+    "rule": "all tested larger cases and both rounds pass margin",
+    "boundary_evidence": [
+      {
+        "rows": 16,
+        "blocks": 1,
+        "round_ratios": [
+          0.8951164455211146,
+          0.9207754541291405
+        ]
+      },
+      {
+        "rows": 128,
+        "blocks": 1,
+        "round_ratios": [
+          0.9055576762664177,
+          0.9157896262793193
+        ]
+      },
+      {
+        "rows": 16,
+        "blocks": 2,
+        "round_ratios": [
+          0.9596496533755178,
+          0.9701060528875097
+        ]
+      },
+      {
+        "rows": 128,
+        "blocks": 2,
+        "round_ratios": [
+          0.9782229455222393,
+          0.9637262691062599
+        ]
+      },
+      {
+        "rows": 16,
+        "blocks": 4,
+        "round_ratios": [
+          1.0371541779780888,
+          1.043124420253076
+        ]
+      },
+      {
+        "rows": 128,
+        "blocks": 4,
+        "round_ratios": [
+          1.0371319042134397,
+          1.039764012827663
+        ]
+      },
+      {
+        "rows": 16,
+        "blocks": 8,
+        "round_ratios": [
+          1.111594469410507,
+          1.1154083142819302
+        ]
+      },
+      {
+        "rows": 128,
+        "blocks": 8,
+        "round_ratios": [
+          1.1164280224316092,
+          1.1113050145332204
+        ]
+      },
+      {
+        "rows": 17,
+        "blocks": 17,
+        "round_ratios": [
+          1.1654542177129135,
+          1.167087043971466
+        ]
+      },
+      {
+        "rows": 112,
+        "blocks": 58,
+        "round_ratios": [
+          1.2217188307573867,
+          1.2252050287658776
+        ]
+      }
+    ],
+    "source_code_commit": "10c0a20908cbe40983b51fe8ec5f7fa001bb1910"
+  },
+  "cases": [
+    {
+      "case": "int8_first_chunk",
+      "exit_code": 0,
+      "status": "passed",
+      "short_history": {
+        "status": "passed",
+        "timing": "FlagGems-vllm harness get_latency, --mode kernel",
+        "case": "int8_first_chunk",
+        "scope": "Full input including every piece, QW/K/KS packing, and mixed execution",
+        "control": "original history policy",
+        "logical_width": 4096,
+        "pieces_by_blocks": {
+          "1": 16,
+          "2": 16,
+          "3": 16,
+          "4": 16,
+          "5": 16,
+          "6": 16,
+          "7": 16,
+          "8": 16
+        },
+        "rows_by_blocks": {
+          "1": 2048,
+          "2": 2048,
+          "3": 2048,
+          "4": 2048,
+          "5": 2048,
+          "6": 2048,
+          "7": 2048,
+          "8": 2048
+        },
+        "route_transitions": {
+          "snapshot->single_direct": 16,
+          "snapshot->first_seed": 32,
+          "prefix->prefix": 80
+        },
+        "rounds": [
+          {
+            "order": [
+              "cann_v1",
+              "control",
+              "candidate"
+            ],
+            "latency_ms": {
+              "cann_v1": 8.058758666666668,
+              "control": 12.261837333333334,
+              "candidate": 11.139976666666666
+            },
+            "control_over_candidate": 1.100705836307856,
+            "cann_over_candidate": 0.7234089359253597
+          },
+          {
+            "order": [
+              "candidate",
+              "control",
+              "cann_v1"
+            ],
+            "latency_ms": {
+              "candidate": 11.142334,
+              "control": 12.261396666666666,
+              "cann_v1": 8.053791333333333
+            },
+            "control_over_candidate": 1.1004334160748248,
+            "cann_over_candidate": 0.722810080305736
+          }
+        ],
+        "mean_ms": {
+          "cann_v1": 8.056275,
+          "control": 12.261617000000001,
+          "candidate": 11.141155333333334
+        },
+        "control_over_candidate": 1.1005696261913402,
+        "cann_over_candidate": 0.7231095081155479
+      }
+    }
+  ],
+  "process_exit_code": 0
+}

@@ -1,0 +1,70 @@
+{
+  "status": "passed",
+  "timing": "FlagGems-vllm harness get_latency, --mode kernel",
+  "case": "int8_first_chunk",
+  "scope": "Full input including every piece, QW/K/KS packing, and mixed execution",
+  "control": "original history policy",
+  "logical_width": 4096,
+  "pieces_by_blocks": {
+    "1": 16,
+    "2": 16,
+    "3": 16,
+    "4": 16,
+    "5": 16,
+    "6": 16,
+    "7": 16,
+    "8": 16
+  },
+  "rows_by_blocks": {
+    "1": 2048,
+    "2": 2048,
+    "3": 2048,
+    "4": 2048,
+    "5": 2048,
+    "6": 2048,
+    "7": 2048,
+    "8": 2048
+  },
+  "route_transitions": {
+    "snapshot->single_direct": 16,
+    "snapshot->first_seed": 32,
+    "prefix->prefix": 80
+  },
+  "rounds": [
+    {
+      "order": [
+        "cann_v1",
+        "control",
+        "candidate"
+      ],
+      "latency_ms": {
+        "cann_v1": 8.058758666666668,
+        "control": 12.261837333333334,
+        "candidate": 11.139976666666666
+      },
+      "control_over_candidate": 1.100705836307856,
+      "cann_over_candidate": 0.7234089359253597
+    },
+    {
+      "order": [
+        "candidate",
+        "control",
+        "cann_v1"
+      ],
+      "latency_ms": {
+        "candidate": 11.142334,
+        "control": 12.261396666666666,
+        "cann_v1": 8.053791333333333
+      },
+      "control_over_candidate": 1.1004334160748248,
+      "cann_over_candidate": 0.722810080305736
+    }
+  ],
+  "mean_ms": {
+    "cann_v1": 8.056275,
+    "control": 12.261617000000001,
+    "candidate": 11.141155333333334
+  },
+  "control_over_candidate": 1.1005696261913402,
+  "cann_over_candidate": 0.7231095081155479
+}
