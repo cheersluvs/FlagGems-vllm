@@ -52,13 +52,16 @@ def main():
     paired.add_argument("--paired-final-mrgsort-poison-check", action="store_true")
     paired.add_argument("--paired-final-mrgsort-reuse", action="store_true")
     paired.add_argument("--paired-final-mrgsort-handoff-barrier", action="store_true")
+    paired.add_argument("--paired-history-direct-pack", action="store_true")
     args = parser.parse_args()
+    history_pack_probe = args.paired_history_direct_pack
     handoff_barrier_probe = args.paired_final_mrgsort_handoff_barrier
     final_mrgsort_probe = (
         args.paired_final_mrgsort_ub
         or args.paired_final_mrgsort_poison_check
         or args.paired_final_mrgsort_reuse
         or handoff_barrier_probe
+        or history_pack_probe
     )
     sort_barrier_probe = args.paired_sort_barrier or args.paired_sort32_barrier
     paired_probe = (
@@ -261,6 +264,7 @@ def main():
             text += final_mrgsort_source(
                 reuse_local32=args.paired_final_mrgsort_reuse,
                 drop_handoff_barrier=handoff_barrier_probe,
+                direct_history_pack=history_pack_probe,
             )
         path.write_text(text)
         path.with_suffix(".py.txt").write_text(path.read_text())
@@ -491,6 +495,12 @@ def main():
                 "Prepared long100k chunk with out=local32; "
                 "remove one barrier after the final local mrgsort"
             )
+        if history_pack_probe:
+            fixtures = ((112, 29696),)
+            result.update(
+                mode="paired_history_direct_pack",
+                scope="Prepared long100k chunk; direct UB packing for the three-way history merge",
+            )
         for rows, width in fixtures:
             case_name = f"r{rows}-w{width}" if args.boundaries else str(width)
             shape = boundary_geometry(rows, width, 1)
@@ -672,7 +682,9 @@ def main():
                 configurations = ((2, "full"), (2, removed_barrier))
             if final_mrgsort_probe:
                 configurations = ((2, "full"), (2, "poison"))
-                if handoff_barrier_probe:
+                if history_pack_probe:
+                    configurations = ((2, "reuse_local32"), (2, "direct_history_pack"))
+                elif handoff_barrier_probe:
                     configurations = ((2, "reuse_local32"), (2, "no_handoff_barrier"))
                 elif args.paired_final_mrgsort_reuse:
                     configurations = ((2, "full"), (2, "reuse_local32"))
@@ -899,11 +911,37 @@ def main():
                         )
                     if compiler_call is not None:
                         evidence = replay_output_init(
-                            compiler, report, capture_label, compiler_call
+                            compiler,
+                            report,
+                            capture_label,
+                            compiler_call,
+                            inspect_history_input=history_pack_probe,
                         )
                         entry.setdefault("mrgsort_init", {})[label] = evidence
                         save()
                         gate_output_init(evidence, label)
+                        if history_pack_probe:
+                            packed = evidence["history_input"]
+                            whole = packed["full_width_writes"]
+                            summary = dict(
+                                full_width_writes=whole,
+                                subview_writes=len(packed["subview_writes"]),
+                            )
+                            print("PAIRED_HISTORY_PACK_IR", label, json.dumps(summary), flush=True)
+                            if label == "reuse_local32" and len(whole) != 1:
+                                raise RuntimeError("Control did not reproduce the full input template write")
+                            if label == "direct_history_pack" and whole:
+                                entry.update(
+                                    status="rejected",
+                                    reason="Full-width merge input write retained",
+                                )
+                                result.update(
+                                    status="completed",
+                                    phase="completed",
+                                    outcome="history_input_template_retained",
+                                )
+                                save()
+                                return 0
                         if handoff_barrier_probe:
                             handoff = evidence["handoff"]
                             print(
@@ -1213,7 +1251,10 @@ def main():
             if sort_barrier_probe:
                 numerator, denominator = "full", removed_barrier
                 entry["saved_us"] = med[numerator] - med[denominator]
-            if handoff_barrier_probe:
+            if history_pack_probe:
+                numerator, denominator = "reuse_local32", "direct_history_pack"
+                entry["saved_us"] = med[numerator] - med[denominator]
+            elif handoff_barrier_probe:
                 numerator, denominator = "reuse_local32", "no_handoff_barrier"
                 entry["saved_us"] = med[numerator] - med[denominator]
             elif final_mrgsort_probe:

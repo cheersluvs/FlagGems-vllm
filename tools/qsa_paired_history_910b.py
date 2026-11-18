@@ -55,6 +55,31 @@ def raw_history_check_three_way(Input, Output, Consumed):
 """
 
 
+def direct_history_pack_source():
+    helper = ast.parse(MERGE).body[0]
+    helper.name = "_history_three_way_direct_pack"
+    assert len(helper.body) == 6
+    assert all(
+        isinstance(node, ast.Assign) and ast.unparse(node.targets[0]) == "packed"
+        for node in helper.body[:4]
+    )
+    helper.body[:4] = ast.parse(
+        """
+workspace = tle.dsa.alloc([4096], dtype=tl.float32, mem_addr_space=tle.dsa.ascend.UB)
+history_dst = tle.dsa.subview(workspace, [0], [1024], [1])
+first_dst = tle.dsa.subview(workspace, [1024], [1024], [1])
+second_dst = tle.dsa.subview(workspace, [2048], [1024], [1])
+padding_dst = tle.dsa.subview(workspace, [3072], [1024], [1])
+tle.dsa.to_buffer(history, space=tle.dsa.ascend.UB, bind_buffer=history_dst)
+tle.dsa.to_buffer(first, space=tle.dsa.ascend.UB, bind_buffer=first_dst)
+tle.dsa.to_buffer(second, space=tle.dsa.ascend.UB, bind_buffer=second_dst)
+tle.dsa.to_buffer(tl.zeros((1024,), tl.float32), space=tle.dsa.ascend.UB, bind_buffer=padding_dst)
+packed = tle.dsa.to_tensor(workspace)
+"""
+    ).body
+    return "\n" + ast.unparse(ast.fix_missing_locations(helper)) + "\n"
+
+
 def source(history_source):
     kernel = next(
         node

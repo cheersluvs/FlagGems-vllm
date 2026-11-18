@@ -517,6 +517,9 @@ for qsa_argument in "$@"; do
         qsa_worker="$qsa_repo/tools/run_qsa_packing_probe_910b.py"
         qsa_kind=raw-sort-barrier-ten
     fi
+    if [[ "$qsa_argument" == --paired-history-direct-pack ]]; then
+        qsa_kind=raw-paired-history-direct-pack
+    fi
     if [[ "$qsa_argument" == --paired-final-mrgsort-handoff-barrier ]]; then
         qsa_kind=raw-final-mrgsort-handoff-barrier
     fi

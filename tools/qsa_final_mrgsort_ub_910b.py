@@ -22,7 +22,7 @@ from unittest.mock import patch
 
 from audit_qsa_local_handoff_910b import replay_compilation
 from diagnose_qsa_structural_mixed_compile_910b import CaptureCompiler
-from qsa_paired_history_910b import sort_barrier_source
+from qsa_paired_history_910b import direct_history_pack_source, sort_barrier_source
 
 POISON_VALUE = -1234567.0
 
@@ -64,14 +64,17 @@ def prepared_reuse_ir(kernel):
     return dict(**evidence, final_mrgsort_reuses_local32=True)
 
 
-def source(*, reuse_local32=False, drop_handoff_barrier=False):
+def source(*, reuse_local32=False, drop_handoff_barrier=False, direct_history_pack=False):
     common = sort_barrier_source(sort32_boundary=True)
     full = ast.parse(common).body[-1]
     assert full.name == "raw_history_prepared_paired_no_sort_barriers"
     first_constexpr = next(i for i, arg in enumerate(full.args.args) if arg.annotation)
     full.args.args.insert(first_constexpr, ast.arg(arg="PairTrace"))
     variants = []
-    if drop_handoff_barrier:
+    if direct_history_pack:
+        common += direct_history_pack_source()
+        labels = ("reuse_local32", "direct_history_pack")
+    elif drop_handoff_barrier:
         labels = ("reuse_local32", "no_handoff_barrier")
     elif reuse_local32:
         labels = ("full", "reuse_local32")
@@ -94,7 +97,7 @@ def source(*, reuse_local32=False, drop_handoff_barrier=False):
         call = query.body[index].value
         assert ast.literal_eval(call.args[0]) == "mrgsort"
         assert ast.unparse(query.body[index + 1]) == "tl.debug_barrier()"
-        if label in ("reuse_local32", "no_handoff_barrier"):
+        if label in ("reuse_local32", "no_handoff_barrier", "direct_history_pack"):
             _use_local32(call)
         elif label != "full":
             out = next(keyword for keyword in call.keywords if keyword.arg == "out")
@@ -110,6 +113,12 @@ def source(*, reuse_local32=False, drop_handoff_barrier=False):
                 )
                 expression = "tle.dsa.to_tensor(sort_out)"
             out.value = ast.parse(expression, mode="eval").body
+        if label == "direct_history_pack":
+            history_merge = next(
+                node for node in ast.walk(query)
+                if isinstance(node, ast.Call) and ast.unparse(node.func) == "_history_three_way"
+            )
+            history_merge.func.id = "_history_three_way_direct_pack"
         trace_index = index + 2
         if label == "no_handoff_barrier":
             del query.body[index + 1]
@@ -127,7 +136,7 @@ if TRACE:
     return common + "\n" + "\n".join(variants) + "\n"
 
 
-def check_output_init(text):
+def check_output_init(text, *, inspect_history_input=False):
     active = False
     merge_lines = []
     for line in text.splitlines():
@@ -207,7 +216,7 @@ def check_output_init(text):
                 sync=sync,
             )
             break
-    return dict(
+    evidence = dict(
         destination=out,
         handoff=handoff,
         sort32_destination=original[1],
@@ -222,6 +231,49 @@ def check_output_init(text):
         fill_values=fill_values,
         interval=[line.strip() for line in interval],
     )
+    if inspect_history_input:
+        evidence["history_input"] = _history_input_ir(merge_lines, last)
+    return evidence
+
+
+def _history_input_ir(lines, last_sort):
+    merge = next(
+        i for i in range(last_sort + 1, len(lines))
+        if "hivm.hir.custom" in lines[i] and '"merge_exhaust_sort4"' in lines[i]
+    )
+    match = re.search(r'\bins\((%[\w.]+), (%[\w.]+),', lines[merge])
+    if match is None or not re.search(
+        rf"{re.escape(match[2])} = arith.constant 3 : i32\b",
+        "\n".join(lines[:merge]),
+    ):
+        raise ValueError("Cannot identify the three-way merge input in post-solver IR")
+    packed = match[1]
+    interval = lines[last_sort + 1 : merge]
+    addresses = {
+        m[1]: m[2] for line in lines[:merge]
+        if (m := re.search(r"(%[\w.]+) = hivm.hir.pointer_cast\((%[\w.]+)\)", line))
+    }
+    aliases = {packed}
+    if packed in addresses:
+        aliases.update(name for name, address in addresses.items() if address == addresses[packed])
+    targets = "|".join(re.escape(alias) for alias in sorted(aliases))
+    full_write = re.compile(
+        rf"\bouts\((?:{targets})\s*:\s*memref<4096xf32"
+        rf"|\bmemref.copy\s+%[\w.]+,\s*(?:{targets})\s*:"
+    )
+    whole_writes = [line.strip() for line in interval if full_write.search(line)]
+    subview = re.compile(rf"(%[\w.]+) = memref.subview (?:{targets})\[")
+    subviews = [m[1] for line in interval if (m := subview.search(line))]
+    return dict(
+        input_buffer=packed,
+        full_width_writes=whole_writes,
+        subview_writes=[
+            line.strip() for line in interval
+            if any(f"outs({name} :" in line for name in subviews)
+        ],
+        merge_call=lines[merge].strip(),
+        interval=[line.strip() for line in interval],
+    )
 
 
 def compile_capture(compiler, report, label, warmup):
@@ -233,7 +285,7 @@ def compile_capture(compiler, report, label, warmup):
     return compiled, capture.calls[0]
 
 
-def replay_output_init(compiler, report, report_label, call):
+def replay_output_init(compiler, report, report_label, call, *, inspect_history_input=False):
     _, env = compiler._get_npucompiler_path()
     replay = replay_compilation(report, report, call, report_label, 180, env=env)
     if replay["status"] != "captured":
@@ -243,7 +295,9 @@ def replay_output_init(compiler, report, report_label, call):
         for name in ("stdout", "stderr")
         if replay[name]["summary"]["after_solver_sections"]
     ]
-    evidence = check_output_init("\n".join(streams))
+    evidence = check_output_init(
+        "\n".join(streams), inspect_history_input=inspect_history_input
+    )
     return dict(replay=replay, **evidence)
 
 
@@ -251,7 +305,7 @@ def gate_output_init(evidence, label):
     copies, fills = evidence["copies"], evidence["fills"]
     if evidence["other_writes"]:
         raise RuntimeError(f"Unexpected writes to final mrgsort output in {label}")
-    if label in ("uninit", "reuse_local32", "no_handoff_barrier"):
+    if label in ("uninit", "reuse_local32", "no_handoff_barrier", "direct_history_pack"):
         if copies or fills:
             raise RuntimeError("Final mrgsort candidate still initializes its output")
         if evidence["aliases_final_input"]:
