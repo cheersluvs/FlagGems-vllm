@@ -961,6 +961,7 @@ def main():
 
             def validate(phase):
                 checks = {}
+                reference_label = configurations[0][1]
                 reference_pairs = None
                 for label, arm in arms.items():
                     result["phase"] = f"launch-{case_name}-{label}-{phase}"
@@ -982,7 +983,7 @@ def main():
                         bits = arm["pair_trace"].cpu()
                         if bool((bits == -3).any()):
                             raise AssertionError("Final mrgsort pair trace has unwritten words")
-                        if label == "full":
+                        if label == reference_label:
                             reference_pairs = bits
                         elif not torch.equal(bits, reference_pairs):
                             raise AssertionError(f"Final mrgsort pair words differ for {label}")
