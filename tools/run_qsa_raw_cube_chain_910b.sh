@@ -50,7 +50,11 @@ qsa_tle_harness=0
 qsa_history_full=0
 qsa_history_harness=0
 qsa_query_batch=0
+qsa_history_direct=0
 for qsa_argument in "$@"; do
+    if [[ "$qsa_argument" == --history-direct ]]; then
+        qsa_history_direct=1
+    fi
     if [[ "$qsa_argument" == --query-batch ]]; then
         qsa_query_batch=1
     fi
@@ -262,6 +266,13 @@ if [[ "$qsa_query_batch" == 1 ]]; then
     fi
     qsa_kind=raw-query-batch
 fi
+if [[ "$qsa_history_direct" == 1 ]]; then
+    if [[ "$qsa_history_full" != 1 || "$qsa_query_batch" == 1 || "$qsa_history_harness" == 1 ]]; then
+        echo '--history-direct requires --history-full-merge without other variants'
+        exit 2
+    fi
+    qsa_kind=raw-history-direct
+fi
 # Re-activate after shell startup files have run; lock the environment at execution.
 if [[ -n "${QSA_ENV_ROOT:-}" ]]; then
     qsa_env_root=$(realpath -- "$QSA_ENV_ROOT") || exit 1
@@ -426,6 +437,11 @@ fi
 if [[ "$qsa_status" == 0 && "$qsa_query_batch" == 1 ]]; then
     "$qsa_python" -u "$qsa_repo/tools/test_qsa_query_batch_probe.py" -v \
         2>&1 | tee "$qsa_report/query-batch-cpu-tests.txt"
+    qsa_status=${PIPESTATUS[0]}
+fi
+if [[ "$qsa_status" == 0 && "$qsa_history_direct" == 1 ]]; then
+    "$qsa_python" -u "$qsa_repo/tools/test_qsa_history_direct_probe.py" -v \
+        2>&1 | tee "$qsa_report/history-direct-cpu-tests.txt"
     qsa_status=${PIPESTATUS[0]}
 fi
 if [[ "$qsa_status" == 0 && "$qsa_history_harness" == 1 ]]; then
