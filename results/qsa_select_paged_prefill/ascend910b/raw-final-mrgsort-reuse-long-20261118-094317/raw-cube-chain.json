@@ -1,0 +1,169 @@
+{
+  "status": "passed",
+  "mode": "final-mrgsort-reuse-long",
+  "production_changed": false,
+  "scope": "Full int8_long100k input with paired TopK and final mrgsort out=local32",
+  "history_policy": {
+    "status": "passed",
+    "threshold": 4,
+    "max_blocks": 58,
+    "margin": 1.02,
+    "rule": "all tested larger cases and both rounds pass margin",
+    "boundary_evidence": [
+      {
+        "rows": 16,
+        "blocks": 1,
+        "round_ratios": [
+          0.8951164455211146,
+          0.9207754541291405
+        ]
+      },
+      {
+        "rows": 128,
+        "blocks": 1,
+        "round_ratios": [
+          0.9055576762664177,
+          0.9157896262793193
+        ]
+      },
+      {
+        "rows": 16,
+        "blocks": 2,
+        "round_ratios": [
+          0.9596496533755178,
+          0.9701060528875097
+        ]
+      },
+      {
+        "rows": 128,
+        "blocks": 2,
+        "round_ratios": [
+          0.9782229455222393,
+          0.9637262691062599
+        ]
+      },
+      {
+        "rows": 16,
+        "blocks": 4,
+        "round_ratios": [
+          1.0371541779780888,
+          1.043124420253076
+        ]
+      },
+      {
+        "rows": 128,
+        "blocks": 4,
+        "round_ratios": [
+          1.0371319042134397,
+          1.039764012827663
+        ]
+      },
+      {
+        "rows": 16,
+        "blocks": 8,
+        "round_ratios": [
+          1.111594469410507,
+          1.1154083142819302
+        ]
+      },
+      {
+        "rows": 128,
+        "blocks": 8,
+        "round_ratios": [
+          1.1164280224316092,
+          1.1113050145332204
+        ]
+      },
+      {
+        "rows": 17,
+        "blocks": 17,
+        "round_ratios": [
+          1.1654542177129135,
+          1.167087043971466
+        ]
+      },
+      {
+        "rows": 112,
+        "blocks": 58,
+        "round_ratios": [
+          1.2217188307573867,
+          1.2252050287658776
+        ]
+      }
+    ],
+    "source_code_commit": "10c0a20908cbe40983b51fe8ec5f7fa001bb1910"
+  },
+  "cases": [
+    {
+      "case": "int8_long100k",
+      "exit_code": 0,
+      "status": "passed",
+      "three_way_checked_rows": 5,
+      "final_mrgsort_reuse_long": {
+        "status": "passed",
+        "timing": "FlagGems-vllm harness get_latency, --mode kernel",
+        "case": "int8_long100k",
+        "scope": "Full input including every piece, QW/K/KS packing, and mixed execution",
+        "control": "paired history without both local sort barriers, zero-filled mrgsort output",
+        "logical_width": 29696,
+        "rounds": [
+          {
+            "order": [
+              "cann_v1",
+              "control",
+              "candidate"
+            ],
+            "latency_ms": {
+              "cann_v1": 50.22903133333334,
+              "control": 82.047874,
+              "candidate": 81.267004
+            },
+            "control_over_candidate": 1.0096086967842446,
+            "cann_over_control": 0.6121917471418376,
+            "cann_over_candidate": 0.6180741120139404
+          },
+          {
+            "order": [
+              "candidate",
+              "control",
+              "cann_v1"
+            ],
+            "latency_ms": {
+              "candidate": 81.26891466666667,
+              "control": 82.05003533333333,
+              "cann_v1": 50.22994533333333
+            },
+            "control_over_candidate": 1.0096115552898732,
+            "cann_over_control": 0.6121867605452098,
+            "cann_over_candidate": 0.6180708274419184
+          }
+        ],
+        "route_transitions": {
+          "paired_no_sort_barriers->paired_reuse_local32": 147
+        },
+        "paired_pieces_by_blocks": {
+          "51": 18,
+          "52": 18,
+          "53": 18,
+          "54": 19,
+          "55": 18,
+          "56": 18,
+          "57": 19,
+          "58": 19
+        },
+        "paired_odd_tail_pieces": 73,
+        "handoff_keys": 512,
+        "slots": 2,
+        "mean_ms": {
+          "cann_v1": 50.229488333333336,
+          "control": 82.04895466666666,
+          "candidate": 81.26795933333334
+        },
+        "control_over_candidate": 1.009610126037059,
+        "cann_over_control": 0.6121892538435236,
+        "cann_over_candidate": 0.6180724697279294
+      }
+    }
+  ],
+  "process_exit_code": 0
+}
