@@ -1,0 +1,789 @@
+{
+  "status": "passed",
+  "mode": "sort-barrier-ten",
+  "production_changed": false,
+  "scope": "Complete inputs with paired TopK and one explicit local-sort barrier removed",
+  "history_policy": {
+    "status": "passed",
+    "threshold": 4,
+    "max_blocks": 58,
+    "margin": 1.02,
+    "rule": "all tested larger cases and both rounds pass margin",
+    "boundary_evidence": [
+      {
+        "rows": 16,
+        "blocks": 1,
+        "round_ratios": [
+          0.8951164455211146,
+          0.9207754541291405
+        ]
+      },
+      {
+        "rows": 128,
+        "blocks": 1,
+        "round_ratios": [
+          0.9055576762664177,
+          0.9157896262793193
+        ]
+      },
+      {
+        "rows": 16,
+        "blocks": 2,
+        "round_ratios": [
+          0.9596496533755178,
+          0.9701060528875097
+        ]
+      },
+      {
+        "rows": 128,
+        "blocks": 2,
+        "round_ratios": [
+          0.9782229455222393,
+          0.9637262691062599
+        ]
+      },
+      {
+        "rows": 16,
+        "blocks": 4,
+        "round_ratios": [
+          1.0371541779780888,
+          1.043124420253076
+        ]
+      },
+      {
+        "rows": 128,
+        "blocks": 4,
+        "round_ratios": [
+          1.0371319042134397,
+          1.039764012827663
+        ]
+      },
+      {
+        "rows": 16,
+        "blocks": 8,
+        "round_ratios": [
+          1.111594469410507,
+          1.1154083142819302
+        ]
+      },
+      {
+        "rows": 128,
+        "blocks": 8,
+        "round_ratios": [
+          1.1164280224316092,
+          1.1113050145332204
+        ]
+      },
+      {
+        "rows": 17,
+        "blocks": 17,
+        "round_ratios": [
+          1.1654542177129135,
+          1.167087043971466
+        ]
+      },
+      {
+        "rows": 112,
+        "blocks": 58,
+        "round_ratios": [
+          1.2217188307573867,
+          1.2252050287658776
+        ]
+      }
+    ],
+    "source_code_commit": "10c0a20908cbe40983b51fe8ec5f7fa001bb1910"
+  },
+  "cases": [
+    {
+      "case": "int8_first_chunk",
+      "exit_code": 0,
+      "status": "passed",
+      "three_way_checked_rows": 5,
+      "sort_barrier_ten": {
+        "status": "passed",
+        "timing": "FlagGems-vllm harness get_latency, --mode kernel",
+        "case": "int8_first_chunk",
+        "scope": "Full input including every piece, QW/K/KS packing, and mixed execution",
+        "control": "two-block history merge with the barrier between mrgsort calls",
+        "logical_width": 4096,
+        "rounds": [
+          {
+            "order": [
+              "cann_v1",
+              "control",
+              "candidate"
+            ],
+            "latency_ms": {
+              "cann_v1": 8.034898666666667,
+              "control": 10.796352,
+              "candidate": 10.680884666666666
+            },
+            "control_over_candidate": 1.0108106525757825,
+            "cann_over_control": 0.7442234809189869,
+            "cann_over_candidate": 0.7522690224099415
+          },
+          {
+            "order": [
+              "candidate",
+              "control",
+              "cann_v1"
+            ],
+            "latency_ms": {
+              "candidate": 10.679228666666667,
+              "control": 10.794683333333333,
+              "cann_v1": 8.049862666666668
+            },
+            "control_over_candidate": 1.0108111428522022,
+            "cann_over_control": 0.7457247626532199,
+            "cann_over_candidate": 0.7537868995906883
+          }
+        ],
+        "route_transitions": {
+          "single_direct->single_direct": 16,
+          "first_seed->first_seed": 32,
+          "paired_prefix->paired_no_merge_barrier": 80
+        },
+        "paired_pieces_by_blocks": {
+          "4": 16,
+          "5": 16,
+          "6": 16,
+          "7": 16,
+          "8": 16
+        },
+        "paired_odd_tail_pieces": 32,
+        "handoff_keys": 512,
+        "slots": 2,
+        "mean_ms": {
+          "cann_v1": 8.042380666666666,
+          "control": 10.795517666666667,
+          "candidate": 10.680056666666665
+        },
+        "control_over_candidate": 1.0108108977139922,
+        "cann_over_control": 0.7449741217861034,
+        "cann_over_candidate": 0.753027961000315
+      }
+    },
+    {
+      "case": "int8_budget_exact",
+      "exit_code": 0,
+      "status": "passed",
+      "three_way_checked_rows": 5,
+      "sort_barrier_ten": {
+        "status": "passed",
+        "timing": "FlagGems-vllm harness get_latency, --mode kernel",
+        "case": "int8_budget_exact",
+        "scope": "Full input including every piece, QW/K/KS packing, and mixed execution",
+        "control": "two-block history merge with the barrier between mrgsort calls",
+        "logical_width": 8192,
+        "rounds": [
+          {
+            "order": [
+              "cann_v1",
+              "control",
+              "candidate"
+            ],
+            "latency_ms": {
+              "cann_v1": 14.272163333333333,
+              "control": 22.298894,
+              "candidate": 21.91224
+            },
+            "control_over_candidate": 1.0176455716074668,
+            "cann_over_control": 0.6400390680063923,
+            "cann_over_candidate": 0.6513329232124755
+          },
+          {
+            "order": [
+              "candidate",
+              "control",
+              "cann_v1"
+            ],
+            "latency_ms": {
+              "candidate": 21.911394666666666,
+              "control": 22.290333333333333,
+              "cann_v1": 14.269732666666666
+            },
+            "control_over_candidate": 1.0172941372482847,
+            "cann_over_control": 0.6401758310777467,
+            "cann_over_candidate": 0.65124711976344
+          }
+        ],
+        "route_transitions": {
+          "paired_prefix->paired_no_merge_barrier": 128
+        },
+        "paired_pieces_by_blocks": {
+          "9": 16,
+          "10": 16,
+          "11": 16,
+          "12": 16,
+          "13": 16,
+          "14": 16,
+          "15": 16,
+          "16": 16
+        },
+        "paired_odd_tail_pieces": 64,
+        "handoff_keys": 512,
+        "slots": 2,
+        "mean_ms": {
+          "cann_v1": 14.270948,
+          "control": 22.294613666666667,
+          "candidate": 21.91181733333333
+        },
+        "control_over_candidate": 1.0174698544278757,
+        "cann_over_control": 0.6401074495420696,
+        "cann_over_candidate": 0.6512900214879578
+      }
+    },
+    {
+      "case": "int8_dominant_long",
+      "exit_code": 0,
+      "status": "passed",
+      "three_way_checked_rows": 5,
+      "sort_barrier_ten": {
+        "status": "passed",
+        "timing": "FlagGems-vllm harness get_latency, --mode kernel",
+        "case": "int8_dominant_long",
+        "scope": "Full input including every piece, QW/K/KS packing, and mixed execution",
+        "control": "two-block history merge with the barrier between mrgsort calls",
+        "logical_width": 8512,
+        "rounds": [
+          {
+            "order": [
+              "cann_v1",
+              "control",
+              "candidate"
+            ],
+            "latency_ms": {
+              "cann_v1": 14.734892666666665,
+              "control": 23.020528,
+              "candidate": 22.665752666666666
+            },
+            "control_over_candidate": 1.0156524841045795,
+            "cann_over_control": 0.6400762253005955,
+            "cann_over_candidate": 0.6500950082428323
+          },
+          {
+            "order": [
+              "candidate",
+              "control",
+              "cann_v1"
+            ],
+            "latency_ms": {
+              "candidate": 22.67029266666667,
+              "control": 23.017276666666667,
+              "cann_v1": 14.744349333333334
+            },
+            "control_over_candidate": 1.0153056691901552,
+            "cann_over_control": 0.640577490849989,
+            "cann_over_candidate": 0.6503819580155986
+          }
+        ],
+        "route_transitions": {
+          "paired_prefix->paired_no_merge_barrier": 128
+        },
+        "paired_pieces_by_blocks": {
+          "9": 7,
+          "10": 16,
+          "11": 16,
+          "12": 16,
+          "13": 16,
+          "14": 16,
+          "15": 16,
+          "16": 16,
+          "17": 9
+        },
+        "paired_odd_tail_pieces": 64,
+        "handoff_keys": 512,
+        "slots": 2,
+        "mean_ms": {
+          "cann_v1": 14.739621,
+          "control": 23.018902333333333,
+          "candidate": 22.668022666666666
+        },
+        "control_over_candidate": 1.0154790766473674,
+        "cann_over_control": 0.6403268580752923,
+        "cann_over_candidate": 0.6502384831292154
+      }
+    },
+    {
+      "case": "int8_tail112",
+      "exit_code": 0,
+      "status": "passed",
+      "three_way_checked_rows": 5,
+      "sort_barrier_ten": {
+        "status": "passed",
+        "timing": "FlagGems-vllm harness get_latency, --mode kernel",
+        "case": "int8_tail112",
+        "scope": "Full input including every piece, QW/K/KS packing, and mixed execution",
+        "control": "two-block history merge with the barrier between mrgsort calls",
+        "logical_width": 8256,
+        "rounds": [
+          {
+            "order": [
+              "cann_v1",
+              "control",
+              "candidate"
+            ],
+            "latency_ms": {
+              "cann_v1": 14.30025,
+              "control": 22.345199333333333,
+              "candidate": 22.024857333333333
+            },
+            "control_over_candidate": 1.0145445664029424,
+            "cann_over_control": 0.6399696770065362,
+            "cann_over_candidate": 0.6492777584696273
+          },
+          {
+            "order": [
+              "candidate",
+              "control",
+              "cann_v1"
+            ],
+            "latency_ms": {
+              "candidate": 22.025906666666668,
+              "control": 22.345502,
+              "cann_v1": 14.296962666666666
+            },
+            "control_over_candidate": 1.0145099740124204,
+            "cann_over_control": 0.6398138948351514,
+            "cann_over_candidate": 0.649097577821995
+          }
+        ],
+        "route_transitions": {
+          "paired_prefix->paired_no_merge_barrier": 128
+        },
+        "paired_pieces_by_blocks": {
+          "9": 15,
+          "10": 16,
+          "11": 16,
+          "12": 16,
+          "13": 16,
+          "14": 16,
+          "15": 16,
+          "16": 16,
+          "17": 1
+        },
+        "paired_odd_tail_pieces": 64,
+        "handoff_keys": 512,
+        "slots": 2,
+        "mean_ms": {
+          "cann_v1": 14.298606333333332,
+          "control": 22.34535066666667,
+          "candidate": 22.025382
+        },
+        "control_over_candidate": 1.0145272702076813,
+        "cann_over_control": 0.6398917859208437,
+        "cann_over_candidate": 0.6491876681458111
+      }
+    },
+    {
+      "case": "int8_tail113",
+      "exit_code": 0,
+      "status": "passed",
+      "three_way_checked_rows": 5,
+      "sort_barrier_ten": {
+        "status": "passed",
+        "timing": "FlagGems-vllm harness get_latency, --mode kernel",
+        "case": "int8_tail113",
+        "scope": "Full input including every piece, QW/K/KS packing, and mixed execution",
+        "control": "two-block history merge with the barrier between mrgsort calls",
+        "logical_width": 8256,
+        "rounds": [
+          {
+            "order": [
+              "cann_v1",
+              "control",
+              "candidate"
+            ],
+            "latency_ms": {
+              "cann_v1": 14.302704666666665,
+              "control": 22.373814666666668,
+              "candidate": 22.044884
+            },
+            "control_over_candidate": 1.0149209524834273,
+            "cann_over_control": 0.6392608895601232,
+            "cann_over_candidate": 0.6487992709177633
+          },
+          {
+            "order": [
+              "candidate",
+              "control",
+              "cann_v1"
+            ],
+            "latency_ms": {
+              "candidate": 22.043115333333333,
+              "control": 22.37290666666667,
+              "cann_v1": 14.301924666666666
+            },
+            "control_over_candidate": 1.014961194384109,
+            "cann_over_control": 0.6392519702401952,
+            "cann_over_candidate": 0.6488159432273835
+          }
+        ],
+        "route_transitions": {
+          "paired_prefix->paired_no_merge_barrier": 128
+        },
+        "paired_pieces_by_blocks": {
+          "9": 15,
+          "10": 16,
+          "11": 16,
+          "12": 16,
+          "13": 16,
+          "14": 16,
+          "15": 16,
+          "16": 16,
+          "17": 1
+        },
+        "paired_odd_tail_pieces": 64,
+        "handoff_keys": 512,
+        "slots": 2,
+        "mean_ms": {
+          "cann_v1": 14.302314666666666,
+          "control": 22.37336066666667,
+          "candidate": 22.043999666666664
+        },
+        "control_over_candidate": 1.0149410734337683,
+        "cann_over_control": 0.6392564299001592,
+        "cann_over_candidate": 0.6488076070725735
+      }
+    },
+    {
+      "case": "int8_two_balanced",
+      "exit_code": 0,
+      "status": "passed",
+      "three_way_checked_rows": 5,
+      "sort_barrier_ten": {
+        "status": "passed",
+        "timing": "FlagGems-vllm harness get_latency, --mode kernel",
+        "case": "int8_two_balanced",
+        "scope": "Full input including every piece, QW/K/KS packing, and mixed execution",
+        "control": "two-block history merge with the barrier between mrgsort calls",
+        "logical_width": 8256,
+        "rounds": [
+          {
+            "order": [
+              "cann_v1",
+              "control",
+              "candidate"
+            ],
+            "latency_ms": {
+              "cann_v1": 15.98407,
+              "control": 26.133257333333333,
+              "candidate": 24.67936733333333
+            },
+            "control_over_candidate": 1.0589111536111502,
+            "cann_over_control": 0.6116371103732291,
+            "cann_over_candidate": 0.6476693581367065
+          },
+          {
+            "order": [
+              "candidate",
+              "control",
+              "cann_v1"
+            ],
+            "latency_ms": {
+              "candidate": 24.678462666666668,
+              "control": 25.05783,
+              "cann_v1": 15.635119333333334
+            },
+            "control_over_candidate": 1.015372405423201,
+            "cann_over_control": 0.6239614257632579,
+            "cann_over_candidate": 0.6335532137685291
+          }
+        ],
+        "route_transitions": {
+          "paired_prefix->paired_no_merge_barrier": 129
+        },
+        "paired_pieces_by_blocks": {
+          "12": 15,
+          "13": 16,
+          "14": 29,
+          "15": 32,
+          "16": 32,
+          "17": 5
+        },
+        "paired_odd_tail_pieces": 53,
+        "handoff_keys": 512,
+        "slots": 2,
+        "mean_ms": {
+          "cann_v1": 15.809594666666666,
+          "control": 25.595543666666664,
+          "candidate": 24.678915
+        },
+        "control_over_candidate": 1.0371417795171756,
+        "cann_over_control": 0.6177992680682435,
+        "cann_over_candidate": 0.6406112859526178
+      }
+    },
+    {
+      "case": "int8_two_skewed",
+      "exit_code": 0,
+      "status": "passed",
+      "three_way_checked_rows": 5,
+      "sort_barrier_ten": {
+        "status": "passed",
+        "timing": "FlagGems-vllm harness get_latency, --mode kernel",
+        "case": "int8_two_skewed",
+        "scope": "Full input including every piece, QW/K/KS packing, and mixed execution",
+        "control": "two-block history merge with the barrier between mrgsort calls",
+        "logical_width": 8256,
+        "rounds": [
+          {
+            "order": [
+              "cann_v1",
+              "control",
+              "candidate"
+            ],
+            "latency_ms": {
+              "cann_v1": 14.335460666666666,
+              "control": 22.597594,
+              "candidate": 22.251484
+            },
+            "control_over_candidate": 1.0155544681873803,
+            "cann_over_control": 0.6343799550813536,
+            "cann_over_candidate": 0.6442473979113782
+          },
+          {
+            "order": [
+              "candidate",
+              "control",
+              "cann_v1"
+            ],
+            "latency_ms": {
+              "candidate": 22.249932666666666,
+              "control": 22.59756733333333,
+              "cann_v1": 14.334019333333334
+            },
+            "control_over_candidate": 1.0156240772443985,
+            "cann_over_control": 0.6343169210160705,
+            "cann_over_candidate": 0.6442275375874547
+          }
+        ],
+        "route_transitions": {
+          "paired_prefix->paired_no_merge_barrier": 129
+        },
+        "paired_pieces_by_blocks": {
+          "9": 15,
+          "10": 16,
+          "11": 16,
+          "12": 16,
+          "13": 16,
+          "14": 16,
+          "15": 16,
+          "16": 16,
+          "17": 2
+        },
+        "paired_odd_tail_pieces": 65,
+        "handoff_keys": 512,
+        "slots": 2,
+        "mean_ms": {
+          "cann_v1": 14.33474,
+          "control": 22.597580666666666,
+          "candidate": 22.250708333333336
+        },
+        "control_over_candidate": 1.0155892727158893,
+        "cann_over_control": 0.6343484380487121,
+        "cann_over_candidate": 0.6442374677494165
+      }
+    },
+    {
+      "case": "int8_short_tail",
+      "exit_code": 0,
+      "status": "passed",
+      "three_way_checked_rows": 5,
+      "sort_barrier_ten": {
+        "status": "passed",
+        "timing": "FlagGems-vllm harness get_latency, --mode kernel",
+        "case": "int8_short_tail",
+        "scope": "Full input including every piece, QW/K/KS packing, and mixed execution",
+        "control": "two-block history merge with the barrier between mrgsort calls",
+        "logical_width": 8512,
+        "rounds": [
+          {
+            "order": [
+              "cann_v1",
+              "control",
+              "candidate"
+            ],
+            "latency_ms": {
+              "cann_v1": 2.5352986666666664,
+              "control": 4.074476,
+              "candidate": 4.003997333333333
+            },
+            "control_over_candidate": 1.017602076325059,
+            "cann_over_control": 0.6222391950932259,
+            "cann_over_candidate": 0.6331918968977002
+          },
+          {
+            "order": [
+              "candidate",
+              "control",
+              "cann_v1"
+            ],
+            "latency_ms": {
+              "candidate": 4.003703333333333,
+              "control": 4.074504666666667,
+              "cann_v1": 2.5354393333333336
+            },
+            "control_over_candidate": 1.0176839609328365,
+            "cann_over_control": 0.6222693408785722,
+            "cann_over_candidate": 0.6332735275923709
+          }
+        ],
+        "route_transitions": {
+          "paired_prefix->paired_no_merge_barrier": 19
+        },
+        "paired_pieces_by_blocks": {
+          "16": 9,
+          "17": 10
+        },
+        "paired_odd_tail_pieces": 10,
+        "handoff_keys": 512,
+        "slots": 2,
+        "mean_ms": {
+          "cann_v1": 2.535369,
+          "control": 4.074490333333333,
+          "candidate": 4.003850333333333
+        },
+        "control_over_candidate": 1.0176430186289478,
+        "cann_over_control": 0.6222542679858991,
+        "cann_over_candidate": 0.6332327122450355
+      }
+    },
+    {
+      "case": "int8_compact",
+      "exit_code": 0,
+      "status": "passed",
+      "three_way_checked_rows": 5,
+      "sort_barrier_ten": {
+        "status": "passed",
+        "timing": "FlagGems-vllm harness get_latency, --mode kernel",
+        "case": "int8_compact",
+        "scope": "Full input including every piece, QW/K/KS packing, and mixed execution",
+        "control": "two-block history merge with the barrier between mrgsort calls",
+        "logical_width": 1088,
+        "rounds": [
+          {
+            "order": [
+              "cann_v1",
+              "control",
+              "candidate"
+            ],
+            "latency_ms": {
+              "cann_v1": 3.1501946666666667,
+              "control": 5.597501333333333,
+              "candidate": 5.600491333333333
+            },
+            "control_over_candidate": 0.9994661182703374,
+            "cann_over_control": 0.5627858716008048,
+            "cann_over_candidate": 0.5624854105062449
+          },
+          {
+            "order": [
+              "candidate",
+              "control",
+              "cann_v1"
+            ],
+            "latency_ms": {
+              "candidate": 5.599621333333333,
+              "control": 5.597768,
+              "cann_v1": 3.153372
+            },
+            "control_over_candidate": 0.9996690252388495,
+            "cann_over_control": 0.5633266687722678,
+            "cann_over_candidate": 0.5631402218626212
+          }
+        ],
+        "route_transitions": {
+          "single_direct->single_direct": 8,
+          "first_seed->first_seed": 106
+        },
+        "paired_pieces_by_blocks": {},
+        "paired_odd_tail_pieces": 0,
+        "handoff_keys": 512,
+        "slots": 2,
+        "mean_ms": {
+          "cann_v1": 3.1517833333333334,
+          "control": 5.597634666666666,
+          "candidate": 5.600056333333333
+        },
+        "control_over_candidate": 0.9995675717545934,
+        "cann_over_control": 0.5630562701865363,
+        "cann_over_candidate": 0.562812816184433
+      }
+    },
+    {
+      "case": "int8_long100k",
+      "exit_code": 0,
+      "status": "passed",
+      "three_way_checked_rows": 5,
+      "sort_barrier_ten": {
+        "status": "passed",
+        "timing": "FlagGems-vllm harness get_latency, --mode kernel",
+        "case": "int8_long100k",
+        "scope": "Full input including every piece, QW/K/KS packing, and mixed execution",
+        "control": "two-block history merge with the barrier between mrgsort calls",
+        "logical_width": 29696,
+        "rounds": [
+          {
+            "order": [
+              "cann_v1",
+              "control",
+              "candidate"
+            ],
+            "latency_ms": {
+              "cann_v1": 50.239838666666664,
+              "control": 86.54563466666667,
+              "candidate": 84.48152866666668
+            },
+            "control_over_candidate": 1.0244326308079037,
+            "cann_over_control": 0.5805011293772012,
+            "cann_over_candidate": 0.5946842991548456
+          },
+          {
+            "order": [
+              "candidate",
+              "control",
+              "cann_v1"
+            ],
+            "latency_ms": {
+              "candidate": 84.481738,
+              "control": 86.54372,
+              "cann_v1": 50.238076
+            },
+            "control_over_candidate": 1.0244074287392144,
+            "cann_over_control": 0.5804936048508199,
+            "cann_over_candidate": 0.5946619611447861
+          }
+        ],
+        "route_transitions": {
+          "paired_prefix->paired_no_merge_barrier": 147
+        },
+        "paired_pieces_by_blocks": {
+          "51": 18,
+          "52": 18,
+          "53": 18,
+          "54": 19,
+          "55": 18,
+          "56": 18,
+          "57": 19,
+          "58": 19
+        },
+        "paired_odd_tail_pieces": 73,
+        "handoff_keys": 512,
+        "slots": 2,
+        "mean_ms": {
+          "cann_v1": 50.23895733333333,
+          "control": 86.54467733333334,
+          "candidate": 84.48163333333335
+        },
+        "control_over_candidate": 1.024420029773559,
+        "cann_over_control": 0.5804973671140106,
+        "cann_over_candidate": 0.5946731301498158
+      }
+    }
+  ],
+  "arithmetic_mean_cann_over_candidate": 0.6428119153117191,
+  "arithmetic_mean_cann_over_control": 0.632251225662787,
+  "arithmetic_mean_control_over_candidate": 1.016758984482085,
+  "process_exit_code": 0
+}
