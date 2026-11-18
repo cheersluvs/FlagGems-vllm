@@ -1,0 +1,1318 @@
+import triton
+import triton.language as tl
+
+@triton.jit
+def raw_finish_merge256(Raw, KS, Table, Visible, Out, ROWS:tl.constexpr,
+                            WIDTH:tl.constexpr,RAW_TILES,CORES:tl.constexpr):
+    for unit in range(tl.program_id(0),ROWS*triton.cdiv(WIDTH,256),CORES):
+        row = unit//triton.cdiv(WIDTH,256)
+        block = unit%triton.cdiv(WIDTH,256)
+        tiles = block*4+tl.arange(0,4)
+        c = tl.arange(0,64)
+        visible = tl.load(Visible+row)
+        segment_live = (tiles*64<WIDTH)&(tiles*64<visible)
+        page = tl.where(segment_live,tiles//3,0)
+        physical = tl.load(Table+page,mask=segment_live,other=0)
+        safe_tile = tl.where(segment_live,tiles,0)
+        live = (tiles[:,None]*64+c[None,:]<WIDTH)&(tiles[:,None]*64+c[None,:]<visible)
+        ks = tl.load(KS+physical[:,None].to(tl.int64)*192+safe_tile[:,None]%3*64+c[None,:],
+                     mask=live,other=0).to(tl.float32)
+        value = tl.load(Raw+((row//16)*RAW_TILES+safe_tile[:,None])*1024+row%16*64+c[None,:],
+                        mask=live,other=0)*ks
+        result = tl.reshape(tl.where(live,value,-float("inf")),(256,))
+        out_col = block*256+tl.arange(0,256)
+        tl.store(Out+row*WIDTH+out_col,result,mask=out_col<WIDTH)
+
+@triton.jit
+def raw_finish_merge512(Raw, KS, Table, Visible, Out, ROWS:tl.constexpr,
+                            WIDTH:tl.constexpr,RAW_TILES,CORES:tl.constexpr):
+    for unit in range(tl.program_id(0),ROWS*triton.cdiv(WIDTH,512),CORES):
+        row = unit//triton.cdiv(WIDTH,512)
+        block = unit%triton.cdiv(WIDTH,512)
+        tiles = block*8+tl.arange(0,8)
+        c = tl.arange(0,64)
+        visible = tl.load(Visible+row)
+        segment_live = (tiles*64<WIDTH)&(tiles*64<visible)
+        page = tl.where(segment_live,tiles//3,0)
+        physical = tl.load(Table+page,mask=segment_live,other=0)
+        safe_tile = tl.where(segment_live,tiles,0)
+        live = (tiles[:,None]*64+c[None,:]<WIDTH)&(tiles[:,None]*64+c[None,:]<visible)
+        ks = tl.load(KS+physical[:,None].to(tl.int64)*192+safe_tile[:,None]%3*64+c[None,:],
+                     mask=live,other=0).to(tl.float32)
+        value = tl.load(Raw+((row//16)*RAW_TILES+safe_tile[:,None])*1024+row%16*64+c[None,:],
+                        mask=live,other=0)*ks
+        result = tl.reshape(tl.where(live,value,-float("inf")),(512,))
+        out_col = block*512+tl.arange(0,512)
+        tl.store(Out+row*WIDTH+out_col,result,mask=out_col<WIDTH)
+
+@triton.jit
+def raw_finish_merge1024(Raw, KS, Table, Visible, Out, ROWS:tl.constexpr,
+                            WIDTH:tl.constexpr,RAW_TILES,CORES:tl.constexpr):
+    for unit in range(tl.program_id(0),ROWS*triton.cdiv(WIDTH,1024),CORES):
+        row = unit//triton.cdiv(WIDTH,1024)
+        block = unit%triton.cdiv(WIDTH,1024)
+        tiles = block*16+tl.arange(0,16)
+        c = tl.arange(0,64)
+        visible = tl.load(Visible+row)
+        segment_live = (tiles*64<WIDTH)&(tiles*64<visible)
+        page = tl.where(segment_live,tiles//3,0)
+        physical = tl.load(Table+page,mask=segment_live,other=0)
+        safe_tile = tl.where(segment_live,tiles,0)
+        live = (tiles[:,None]*64+c[None,:]<WIDTH)&(tiles[:,None]*64+c[None,:]<visible)
+        ks = tl.load(KS+physical[:,None].to(tl.int64)*192+safe_tile[:,None]%3*64+c[None,:],
+                     mask=live,other=0).to(tl.float32)
+        value = tl.load(Raw+((row//16)*RAW_TILES+safe_tile[:,None])*1024+row%16*64+c[None,:],
+                        mask=live,other=0)*ks
+        result = tl.reshape(tl.where(live,value,-float("inf")),(1024,))
+        out_col = block*1024+tl.arange(0,1024)
+        tl.store(Out+row*WIDTH+out_col,result,mask=out_col<WIDTH)
+
+@triton.jit
+def raw_full_tail(Raw, KS, Table, Out, row, block, visible,
+                  WIDTH:tl.constexpr,RAW_TILES):
+    tiles = block*16+tl.arange(0,16)
+    c = tl.arange(0,64)
+    segment_live = (tiles*64<WIDTH)&(tiles*64<visible)
+    page = tl.where(segment_live,tiles//3,0)
+    physical = tl.load(Table+page,mask=segment_live,other=0)
+    safe_tile = tl.where(segment_live,tiles,0)
+    live = (tiles[:,None]*64+c[None,:]<WIDTH)&(tiles[:,None]*64+c[None,:]<visible)
+    ks = tl.load(KS+physical[:,None].to(tl.int64)*192+safe_tile[:,None]%3*64+c[None,:],
+                 mask=live,other=0).to(tl.float32)
+    value = tl.load(Raw+((row//16)*RAW_TILES+safe_tile[:,None])*1024+row%16*64+c[None,:],
+                    mask=live,other=0)*ks
+    result = tl.reshape(tl.where(live,value,-float("inf")),(1024,))
+    out_col = block*1024+tl.arange(0,1024)
+    tl.store(Out+row*WIDTH+out_col,result,mask=out_col<WIDTH)
+
+@triton.jit
+def raw_full_body(Raw, KS, Table, Out, row, block, WIDTH:tl.constexpr,RAW_TILES):
+    tiles = block*16+tl.arange(0,16)
+    c = tl.arange(0,64)
+    physical = tl.load(Table+tiles//3)
+    ks = tl.load(KS+physical[:,None].to(tl.int64)*192+tiles[:,None]%3*64+c[None,:]).to(tl.float32)
+    value = tl.load(Raw+((row//16)*RAW_TILES+tiles[:,None])*1024+row%16*64+c[None,:])*ks
+    result = tl.reshape(value,(1024,))
+    col = block*1024+tl.arange(0,1024)
+    tl.store(Out+row*WIDTH+col,result)
+
+@triton.jit
+def raw_finish_full1024(Raw, KS, Table, Visible, Out, ROWS:tl.constexpr,
+                        WIDTH:tl.constexpr,RAW_TILES,CORES:tl.constexpr):
+    for unit in range(tl.program_id(0),ROWS*triton.cdiv(WIDTH,1024),CORES):
+        row = unit//triton.cdiv(WIDTH,1024)
+        block = unit%triton.cdiv(WIDTH,1024)
+        visible = tl.load(Visible+row)
+        if ((block+1)*1024<=WIDTH)&((block+1)*1024<=visible):
+            raw_full_body(Raw,KS,Table,Out,row,block,WIDTH,RAW_TILES)
+        else:
+            raw_full_tail(Raw,KS,Table,Out,row,block,visible,WIDTH,RAW_TILES)
+
+import triton
+import triton.language as tl
+
+@triton.jit
+def raw_k_2d_part(K, Table, PK, part, MAX_VISIBLE):
+    tile = part//8
+    row_start = part%2*32
+    dim_start = (part%8//2)*32
+    r = tl.arange(0,32)
+    c = tl.arange(0,32)
+    physical = tl.load(Table+tile//3)
+    token = physical.to(tl.int64)*192+tile%3*64+row_start
+    global_row = tile*64+row_start+r
+    value = tl.load(K+(token+r[:,None])*128+dim_start+c[None,:],
+                    mask=global_row[:,None]<MAX_VISIBLE,other=0)
+    tl.store(PK+part*1024+r[:,None]*32+c[None,:],value)
+
+@triton.jit
+def raw_k_2d_grid(K, Table, PK, MAX_VISIBLE):
+    raw_k_2d_part(K,Table,PK,tl.program_id(0),MAX_VISIBLE)
+
+@triton.jit
+def raw_k_2d_capped(K, Table, PK, MAX_VISIBLE,TILES,CORES:tl.constexpr):
+    for part in range(tl.program_id(0),TILES*8,CORES):
+        raw_k_2d_part(K,Table,PK,part,MAX_VISIBLE)
+
+@triton.jit
+def raw_pack_k_ks(K, KS, Table, PK, LogicalKS, MAX_VISIBLE,TILES,CORES:tl.constexpr):
+    for part in range(tl.program_id(0),TILES*8,CORES):
+        raw_k_2d_part(K,Table,PK,part,MAX_VISIBLE)
+        if part%8 == 0:
+            tile = part//8
+            c = tl.arange(0,64)
+            physical = tl.load(Table+tile//3)
+            scale = tl.load(KS+physical.to(tl.int64)*192+tile%3*64+c,
+                            mask=tile*64+c<MAX_VISIBLE,other=0)
+            tl.store(LogicalKS+tile*64+c,scale)
+
+@triton.jit
+def raw_logical_body(Raw, LogicalKS, Out, row, block, WIDTH:tl.constexpr,RAW_TILES):
+    tiles = block*16+tl.arange(0,16)
+    c = tl.arange(0,64)
+    col = block*1024+tl.arange(0,1024)
+    ks = tl.reshape(tl.load(LogicalKS+col).to(tl.float32),(16,64))
+    value = tl.load(Raw+((row//16)*RAW_TILES+tiles[:,None])*1024+row%16*64+c[None,:])*ks
+    tl.store(Out+row*WIDTH+col,tl.reshape(value,(1024,)))
+
+@triton.jit
+def raw_finish_logical1024(Raw, KS, Table, Visible, Out, LogicalKS, ROWS:tl.constexpr,
+                           WIDTH:tl.constexpr,RAW_TILES,CORES:tl.constexpr):
+    for unit in range(tl.program_id(0),ROWS*triton.cdiv(WIDTH,1024),CORES):
+        row = unit//triton.cdiv(WIDTH,1024)
+        block = unit%triton.cdiv(WIDTH,1024)
+        visible = tl.load(Visible+row)
+        if ((block+1)*1024<=WIDTH)&((block+1)*1024<=visible):
+            raw_logical_body(Raw,LogicalKS,Out,row,block,WIDTH,RAW_TILES)
+        else:
+            raw_full_tail(Raw,KS,Table,Out,row,block,visible,WIDTH,RAW_TILES)
+
+import triton
+import triton.language as tl
+
+@triton.jit
+def raw_k_2d_part(K, Table, PK, part, MAX_VISIBLE):
+    tile = part//8
+    row_start = part%2*32
+    dim_start = (part%8//2)*32
+    r = tl.arange(0,32)
+    c = tl.arange(0,32)
+    physical = tl.load(Table+tile//3)
+    token = physical.to(tl.int64)*192+tile%3*64+row_start
+    global_row = tile*64+row_start+r
+    value = tl.load(K+(token+r[:,None])*128+dim_start+c[None,:],
+                    mask=global_row[:,None]<MAX_VISIBLE,other=0)
+    tl.store(PK+part*1024+r[:,None]*32+c[None,:],value)
+
+@triton.jit
+def raw_k_2d_grid(K, Table, PK, MAX_VISIBLE):
+    raw_k_2d_part(K,Table,PK,tl.program_id(0),MAX_VISIBLE)
+
+@triton.jit
+def raw_k_2d_capped(K, Table, PK, MAX_VISIBLE,TILES,CORES:tl.constexpr):
+    for part in range(tl.program_id(0),TILES*8,CORES):
+        raw_k_2d_part(K,Table,PK,part,MAX_VISIBLE)
+
+import triton.language.extra.cann.extension as al
+import triton.experimental.tle.language.raw as raw
+import triton
+import triton.language as tl
+
+@triton.jit
+def raw_query16_group(Q, QS, W, PQ, PW, group, ROWS:tl.constexpr, QUERIES:tl.constexpr):
+    heads = tl.arange(0,16)
+    HEADS:tl.constexpr = QUERIES*4
+    dims = tl.arange(0,32)
+    for head_block in tl.static_range(QUERIES//4):
+        flat = group*HEADS+heads+head_block*16
+        for block in tl.static_range(4):
+            query = tl.load(Q+flat[:,None]*128+block*32+dims[None,:],
+                            mask=flat[:,None]<ROWS*4,other=0)
+            tl.store(PQ+group*(HEADS*128)+block*(HEADS*32)+(heads[:,None]+head_block*16)*32+dims[None,:],query)
+        qs = tl.load(QS+flat,mask=flat<ROWS*4,other=0).to(tl.float32)
+        weights = tl.load(W+flat,mask=flat<ROWS*4,other=0).to(tl.float32)
+        coefficient = (qs*weights*1024.0).to(tl.float16)
+        out_rows = tl.arange(0,16)
+        live = (out_rows[None,:]<QUERIES)&((heads[:,None]+head_block*16)//4==out_rows[None,:])
+        # Native LoadData2D transposes W.T from L1 into the second Cube's L0A.
+        matrix = tl.where(live,coefficient[:,None],tl.full((),0.0,tl.float16))
+        tl.store(PW+group*(HEADS*16)+(heads[:,None]+head_block*16)*16+out_rows[None,:],matrix)
+
+
+@triton.jit
+def raw_query16_qw(Q, QS, W, PQ, PW, ROWS:tl.constexpr, QUERIES:tl.constexpr):
+    raw_query16_group(Q,QS,W,PQ,PW,tl.program_id(0),ROWS,QUERIES)
+
+@triton.jit
+def raw_query16_cube(PQ, PK, PW, Raw, GROUPS:tl.constexpr,TILES,
+                        CORES:tl.constexpr,QUERIES:tl.constexpr):
+    with al.scope(core_mode="cube"):
+        q_base = tl.cast(PQ,tl.uint64)
+        key_base = tl.cast(PK,tl.uint64)
+        weight_base = tl.cast(PW,tl.uint64)
+        output_base = tl.cast(Raw,tl.uint64)
+        for unit in range(tl.program_id(0),GROUPS*TILES,CORES):
+            group = unit//TILES
+            tile = unit%TILES
+            q = q_base+group.to(tl.uint64)*(QUERIES*4*128)
+            key = key_base+tile.to(tl.uint64)*8192
+            weight = weight_base+group.to(tl.uint64)*(QUERIES*4*16*2)
+            output = output_base+unit.to(tl.uint64)*4096
+            bits = tl.full((),0x3a800000,tl.int64)
+            raw.call(chain_op,[q,key,weight,bits,output],output_indices=[])
+
+import triton
+import triton.language as tl
+
+@triton.jit
+def raw_query16_finish_part(Raw, KS, Table, Visible, Out, row, tile,
+                          WIDTH:tl.constexpr, RAW_TILES,QUERIES:tl.constexpr):
+    c = tl.arange(0,64)
+    first = tile*64
+    col = first+c
+    visible = tl.load(Visible+row)
+    physical = tl.load(Table+tile//3,mask=(first<WIDTH)&(first<visible),other=0)
+    key_base = physical.to(tl.int64)*192+tile%3*64
+    raw_base = ((row//QUERIES)*RAW_TILES+tile)*1024+row%QUERIES*64
+    live = (col<WIDTH)&(col<visible)
+    ks = tl.load(KS+key_base+c,mask=live,other=0).to(tl.float32)
+    value = tl.load(Raw+raw_base+c,mask=live,other=0)*ks
+    tl.store(Out+row*WIDTH+col,tl.where(live,value,-float("inf")),mask=col<WIDTH)
+
+@triton.jit
+def raw_query16_finish_grid(Raw, KS, Table, Visible, Out,
+                          WIDTH:tl.constexpr, RAW_TILES,QUERIES:tl.constexpr):
+    raw_query16_finish_part(Raw,KS,Table,Visible,Out,tl.program_id(0),tl.program_id(1),
+                          WIDTH,RAW_TILES,QUERIES)
+
+@triton.jit
+def raw_query16_finish_capped(Raw, KS, Table, Visible, Out, ROWS:tl.constexpr,
+                            WIDTH:tl.constexpr, RAW_TILES,QUERIES:tl.constexpr,CORES:tl.constexpr):
+    for unit in range(tl.program_id(0),ROWS*triton.cdiv(WIDTH,64),CORES):
+        row = unit//triton.cdiv(WIDTH,64)
+        tile = unit%triton.cdiv(WIDTH,64)
+        raw_query16_finish_part(Raw,KS,Table,Visible,Out,row,tile,WIDTH,RAW_TILES,QUERIES)
+
+import triton.experimental.tle as tle
+from triton.experimental.tle.language.dsa.ascend.custom_ops import SORT_IMPL_BASE
+pipe = al.PIPE
+@triton.jit
+def _update_online_topk_ub_snapshot(state, tile, TOP: tl.constexpr, CHUNK: tl.constexpr):
+    saved_state = tle.dsa.alloc(
+        [2 * TOP], dtype=tl.float32, mem_addr_space=tle.dsa.ascend.UB,
+    )
+    tle.dsa.to_buffer(state, space=tle.dsa.ascend.UB, bind_buffer=saved_state)
+    tl.debug_barrier()
+    packed = tl.zeros((8 * TOP,), tl.float32)
+    packed = tle.dsa.insert_slice(packed, state, (0,), (2 * TOP,), (1,))
+    packed = tle.dsa.insert_slice(packed, tile, (2 * TOP,), (2 * CHUNK,), (1,))
+    merged, consumed = tle.dsa.ascend.raw(
+        "merge_exhaust_sort4", packed, 2,
+        0, TOP, 2 * TOP, 3 * TOP, TOP, CHUNK, 0, 0,
+        out=[tl.zeros((4 * TOP,), tl.float32), tl.zeros((4,), tl.int32)],
+    )
+    prefix = al.extract_slice(merged, (0,), (2 * TOP,), (1,))
+    # If the tile is exhausted before TOP entries, only the old state can remain.
+    old_count = al.get_element(consumed, (0,))
+    tile_count = al.get_element(consumed, (1,))
+    word = tl.arange(0, 2 * TOP)
+    tail_word = tl.maximum(word - 2 * tile_count, 0)
+    tl.debug_barrier()
+    tail = tl.gather(tle.dsa.to_tensor(saved_state), tail_word, axis=0)
+    return tl.where(word < 2 * (old_count + tile_count), prefix, tail)
+
+@triton.jit
+def raw_mixed_online(PQ,PK,PW,LogicalKS,Visible,Ring,Indices,Values,Trace,
+                     WIDTH:tl.constexpr,SLOTS:tl.constexpr,TRACE:tl.constexpr):
+    with al.scope(core_mode="cube"):
+        qbase = tl.cast(PQ,tl.uint64)
+        kbase = tl.cast(PK,tl.uint64)
+        wbase = tl.cast(PW,tl.uint64)
+        rbase = tl.cast(Ring,tl.uint64)
+        for cube_block in range(WIDTH//512):
+            cube_slot = cube_block%SLOTS
+            al.sync_block_wait("vector","cube",cube_slot,pipe.PIPE_MTE3,pipe.PIPE_FIX)
+            for cube_inner in range(8):
+                key = kbase+(cube_block*8+cube_inner).to(tl.uint64)*8192
+                dest = rbase+(cube_slot*8+cube_inner).to(tl.uint64)*4096
+                bits = tl.full((),0x3a800000,tl.int64)
+                raw.call(mixed_chain_op,[qbase,key,wbase,bits,dest],output_indices=[])
+            al.sync_block_set("cube","vector",cube_slot,pipe.PIPE_FIX,pipe.PIPE_MTE2)
+        for drain_slot in tl.static_range(SLOTS):
+            al.sync_block_wait("vector","cube",drain_slot,pipe.PIPE_MTE3,pipe.PIPE_FIX)
+
+    with al.scope(core_mode="vector"):
+        state_storage = tle.dsa.alloc([8*1024],dtype=tl.float32,mem_addr_space=tle.dsa.ascend.UB)
+        word = tl.arange(0,1024)
+        initial = tl.where(word%2==0,-float("inf"),tl.full((),-1,tl.int32).to(tl.float32,bitcast=True))
+        for init_query in range(8):
+            init_state_slot = tle.dsa.subview(state_storage,[init_query*1024],[1024],[1])
+            tle.dsa.to_buffer(initial,space=tle.dsa.ascend.UB,bind_buffer=init_state_slot)
+        tl.debug_barrier()
+        for initial_credit in tl.static_range(SLOTS):
+            al.sync_block_set("vector","cube",initial_credit,pipe.PIPE_MTE3,pipe.PIPE_FIX)
+        for vector_block in range(WIDTH//512):
+            vector_slot = vector_block%SLOTS
+            al.sync_block_wait("cube","vector",vector_slot,pipe.PIPE_FIX,pipe.PIPE_MTE2)
+            for update_query in range(8):
+                update_row = al.sub_vec_id()*8+update_query
+                tile = tl.arange(0,8)
+                col = tl.arange(0,64)
+                lane = tl.arange(0,512)
+                received = tl.load(Ring+(vector_slot*8+tile[:,None])*1024+update_row*64+col[None,:])
+                ks = tl.load(LogicalKS+vector_block*512+lane).to(tl.float32)
+                visible = tl.load(Visible+update_row)
+                score = tl.where(vector_block*512+lane<visible,tl.reshape(received,(512,))*ks,-float("inf"))
+                if TRACE:
+                    tl.store(Trace+update_row*WIDTH+vector_block*512+lane,score)
+                pairs = tle.dsa.ascend.raw("sort_1d_pack",score,tl.zeros((2048,),tl.float32),
+                    True,512,vector_block*512,SORT_IMPL_BASE,out=tl.zeros((1024,),tl.float32))
+                update_state_slot = tle.dsa.subview(state_storage,[update_query*1024],[1024],[1])
+                update_state = tle.dsa.to_tensor(update_state_slot)
+                update_state = _update_online_topk_ub_snapshot(update_state,pairs,512,512)
+                tle.dsa.to_buffer(update_state,space=tle.dsa.ascend.UB,bind_buffer=update_state_slot)
+                tl.debug_barrier()
+            tl.debug_barrier()
+            al.sync_block_set("vector","cube",vector_slot,pipe.PIPE_MTE3,pipe.PIPE_FIX)
+        for final_query in range(8):
+            final_row = al.sub_vec_id()*8+final_query
+            final_state_slot = tle.dsa.subview(state_storage,[final_query*1024],[1024],[1])
+            final_state = tle.dsa.to_tensor(final_state_slot)
+            values,indices = tle.dsa.ascend.raw("unpack_sort",final_state,512,
+                out=[tl.zeros((512,),tl.float32),tl.zeros((512,),tl.int32)])
+            rank = tl.arange(0,512)
+            valid = rank<tl.load(Visible+final_row)
+            tl.store(Indices+final_row*512+rank,tl.where(valid,indices,-1))
+            tl.store(Values+final_row*512+rank,tl.where(valid,values,-float("inf")))
+
+@triton.jit
+def raw_k_2d_part_padded(K, Table, PK, part, MAX_VISIBLE:tl.constexpr):
+    tile = part//8
+    row_start = part%2*32
+    dim_start = (part%8//2)*32
+    r = tl.arange(0,32)
+    c = tl.arange(0,32)
+    physical = tl.load(Table+tl.where(tile*64<MAX_VISIBLE,tile//3,0),mask=tile*64<MAX_VISIBLE,other=0)
+    token = physical.to(tl.int64)*192+tile%3*64+row_start
+    global_row = tile*64+row_start+r
+    value = tl.load(K+(token+r[:,None])*128+dim_start+c[None,:],
+                    mask=global_row[:,None]<MAX_VISIBLE,other=0)
+    tl.store(PK+part*1024+r[:,None]*32+c[None,:],value)
+@triton.jit
+def raw_pack_k_ks_padded(K, KS, Table, PK, LogicalKS, MAX_VISIBLE:tl.constexpr,TILES:tl.constexpr,CORES:tl.constexpr):
+    for part in range(tl.program_id(0),TILES*8,CORES):
+        raw_k_2d_part_padded(K,Table,PK,part,MAX_VISIBLE)
+        if part%8 == 0:
+            tile = part//8
+            c = tl.arange(0,64)
+            physical = tl.load(Table+tl.where(tile*64<MAX_VISIBLE,tile//3,0),mask=tile*64<MAX_VISIBLE,other=0)
+            scale = tl.load(KS+physical.to(tl.int64)*192+tile%3*64+c,
+                            mask=tile*64+c<MAX_VISIBLE,other=0)
+            tl.store(LogicalKS+tile*64+c,scale)
+@triton.jit
+def raw_mixed_boundaries(PQ,PK,PW,LogicalKS,Visible,Ring,Indices,Values,Trace,
+                     WIDTH:tl.constexpr,SLOTS:tl.constexpr,TRACE:tl.constexpr,ROWS:tl.constexpr):
+    with al.scope(core_mode="cube"):
+        qbase = tl.cast(PQ,tl.uint64)
+        kbase = tl.cast(PK,tl.uint64)
+        wbase = tl.cast(PW,tl.uint64)
+        rbase = tl.cast(Ring,tl.uint64)
+        group_q = qbase+tl.program_id(0).to(tl.uint64)*8192
+        group_w = wbase+tl.program_id(0).to(tl.uint64)*2048
+        for cube_block in range(triton.cdiv(WIDTH,512)):
+            cube_slot = cube_block%SLOTS
+            al.sync_block_wait("vector","cube",cube_slot,pipe.PIPE_MTE3,pipe.PIPE_FIX)
+            for cube_inner in range(8):
+                key = kbase+(cube_block*8+cube_inner).to(tl.uint64)*8192
+                dest = rbase+((tl.program_id(0)*SLOTS+cube_slot)*8+cube_inner).to(tl.uint64)*4096
+                bits = tl.full((),0x3a800000,tl.int64)
+                raw.call(mixed_chain_op,[group_q,key,group_w,bits,dest],output_indices=[])
+            al.sync_block_set("cube","vector",cube_slot,pipe.PIPE_FIX,pipe.PIPE_MTE2)
+        for drain_slot in tl.static_range(SLOTS):
+            al.sync_block_wait("vector","cube",drain_slot,pipe.PIPE_MTE3,pipe.PIPE_FIX)
+
+    with al.scope(core_mode="vector"):
+        state_storage = tle.dsa.alloc([8*1024],dtype=tl.float32,mem_addr_space=tle.dsa.ascend.UB)
+        word = tl.arange(0,1024)
+        initial = tl.where(word%2==0,-float("inf"),tl.full((),-1,tl.int32).to(tl.float32,bitcast=True))
+        for init_query in range(8):
+            init_state_slot = tle.dsa.subview(state_storage,[init_query*1024],[1024],[1])
+            tle.dsa.to_buffer(initial,space=tle.dsa.ascend.UB,bind_buffer=init_state_slot)
+        tl.debug_barrier()
+        for initial_credit in tl.static_range(SLOTS):
+            al.sync_block_set("vector","cube",initial_credit,pipe.PIPE_MTE3,pipe.PIPE_FIX)
+        for vector_block in range(triton.cdiv(WIDTH,512)):
+            vector_slot = vector_block%SLOTS
+            al.sync_block_wait("cube","vector",vector_slot,pipe.PIPE_FIX,pipe.PIPE_MTE2)
+            for update_query in range(8):
+                update_local_row = al.sub_vec_id()*8+update_query
+                update_row = tl.program_id(0)*16+update_local_row
+                tile = tl.arange(0,8)
+                col = tl.arange(0,64)
+                lane = tl.arange(0,512)
+                received = tl.load(Ring+((tl.program_id(0)*SLOTS+vector_slot)*8+tile[:,None])*1024+update_local_row*64+col[None,:])
+                ks = tl.load(LogicalKS+vector_block*512+lane).to(tl.float32)
+                visible = tl.load(Visible+tl.where(update_row<ROWS,update_row,0),mask=update_row<ROWS,other=0)
+                score = tl.where((update_row<ROWS)&(vector_block*512+lane<WIDTH)&(vector_block*512+lane<visible),tl.reshape(received,(512,))*ks,-float("inf"))
+                if TRACE:
+                    tl.store(Trace+update_row*WIDTH+vector_block*512+lane,score,mask=(update_row<ROWS)&(vector_block*512+lane<WIDTH))
+                pairs = tle.dsa.ascend.raw("sort_1d_pack",score,tl.zeros((2048,),tl.float32),
+                    True,512,vector_block*512,SORT_IMPL_BASE,out=tl.zeros((1024,),tl.float32))
+                update_state_slot = tle.dsa.subview(state_storage,[update_query*1024],[1024],[1])
+                update_state = tle.dsa.to_tensor(update_state_slot)
+                update_state = _update_online_topk_ub_snapshot(update_state,pairs,512,512)
+                tle.dsa.to_buffer(update_state,space=tle.dsa.ascend.UB,bind_buffer=update_state_slot)
+                tl.debug_barrier()
+            tl.debug_barrier()
+            al.sync_block_set("vector","cube",vector_slot,pipe.PIPE_MTE3,pipe.PIPE_FIX)
+        for final_query in range(8):
+            final_row = tl.program_id(0)*16+al.sub_vec_id()*8+final_query
+            final_state_slot = tle.dsa.subview(state_storage,[final_query*1024],[1024],[1])
+            final_state = tle.dsa.to_tensor(final_state_slot)
+            values,indices = tle.dsa.ascend.raw("unpack_sort",final_state,512,
+                out=[tl.zeros((512,),tl.float32),tl.zeros((512,),tl.int32)])
+            rank = tl.arange(0,512)
+            valid = rank<tl.load(Visible+tl.where(final_row<ROWS,final_row,0),mask=final_row<ROWS,other=0)
+            tl.store(Indices+final_row*512+rank,tl.where(valid,indices,-1),mask=final_row<ROWS)
+            tl.store(Values+final_row*512+rank,tl.where(valid,values,-float("inf")),mask=final_row<ROWS)
+
+@triton.jit
+def raw_mixed_block512(PQ, PK, PW, LogicalKS, Visible, Ring, Indices, Values, Trace, WIDTH: tl.constexpr, SLOTS: tl.constexpr, TRACE: tl.constexpr, ROWS: tl.constexpr):
+    with al.scope(core_mode='cube'):
+        qbase = tl.cast(PQ, tl.uint64)
+        kbase = tl.cast(PK, tl.uint64)
+        wbase = tl.cast(PW, tl.uint64)
+        rbase = tl.cast(Ring, tl.uint64)
+        group_q = qbase + tl.program_id(0).to(tl.uint64) * 8192
+        group_w = wbase + tl.program_id(0).to(tl.uint64) * 2048
+        for cube_block in range(triton.cdiv(WIDTH, 512)):
+            cube_slot = cube_block % SLOTS
+            al.sync_block_wait('vector', 'cube', cube_slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+            key = kbase + (cube_block * 8 + 0).to(tl.uint64) * 8192
+            dest = rbase + ((tl.program_id(0) * SLOTS + cube_slot) * 8 + 0).to(tl.uint64) * 4096
+            bits = tl.full((), 981467136, tl.int64)
+            raw.call(block512_chain_op, [group_q, key, group_w, bits, dest], output_indices=[])
+            al.sync_block_set('cube', 'vector', cube_slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
+        for drain_slot in tl.static_range(SLOTS):
+            al.sync_block_wait('vector', 'cube', drain_slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+    with al.scope(core_mode='vector'):
+        state_storage = tle.dsa.alloc([8 * 1024], dtype=tl.float32, mem_addr_space=tle.dsa.ascend.UB)
+        word = tl.arange(0, 1024)
+        initial = tl.where(word % 2 == 0, -float('inf'), tl.full((), -1, tl.int32).to(tl.float32, bitcast=True))
+        for init_query in range(8):
+            init_state_slot = tle.dsa.subview(state_storage, [init_query * 1024], [1024], [1])
+            tle.dsa.to_buffer(initial, space=tle.dsa.ascend.UB, bind_buffer=init_state_slot)
+        tl.debug_barrier()
+        for initial_credit in tl.static_range(SLOTS):
+            al.sync_block_set('vector', 'cube', initial_credit, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+        for vector_block in range(triton.cdiv(WIDTH, 512)):
+            vector_slot = vector_block % SLOTS
+            al.sync_block_wait('cube', 'vector', vector_slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
+            for update_query in range(8):
+                update_local_row = al.sub_vec_id() * 8 + update_query
+                update_row = tl.program_id(0) * 16 + update_local_row
+                tile = tl.arange(0, 8)
+                col = tl.arange(0, 64)
+                lane = tl.arange(0, 512)
+                received = tl.load(Ring + ((tl.program_id(0) * SLOTS + vector_slot) * 8 + tile[:, None]) * 1024 + update_local_row * 64 + col[None, :])
+                ks = tl.load(LogicalKS + vector_block * 512 + lane).to(tl.float32)
+                visible = tl.load(Visible + tl.where(update_row < ROWS, update_row, 0), mask=update_row < ROWS, other=0)
+                score = tl.where((update_row < ROWS) & (vector_block * 512 + lane < WIDTH) & (vector_block * 512 + lane < visible), tl.reshape(received, (512,)) * ks, -float('inf'))
+                if TRACE:
+                    tl.store(Trace + update_row * WIDTH + vector_block * 512 + lane, score, mask=(update_row < ROWS) & (vector_block * 512 + lane < WIDTH))
+                pairs = tle.dsa.ascend.raw('sort_1d_pack', score, tl.zeros((2048,), tl.float32), True, 512, vector_block * 512, SORT_IMPL_BASE, out=tl.zeros((1024,), tl.float32))
+                update_state_slot = tle.dsa.subview(state_storage, [update_query * 1024], [1024], [1])
+                update_state = tle.dsa.to_tensor(update_state_slot)
+                update_state = _update_online_topk_ub_snapshot(update_state, pairs, 512, 512)
+                tle.dsa.to_buffer(update_state, space=tle.dsa.ascend.UB, bind_buffer=update_state_slot)
+                tl.debug_barrier()
+            tl.debug_barrier()
+            al.sync_block_set('vector', 'cube', vector_slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+        for final_query in range(8):
+            final_row = tl.program_id(0) * 16 + al.sub_vec_id() * 8 + final_query
+            final_state_slot = tle.dsa.subview(state_storage, [final_query * 1024], [1024], [1])
+            final_state = tle.dsa.to_tensor(final_state_slot)
+            values, indices = tle.dsa.ascend.raw('unpack_sort', final_state, 512, out=[tl.zeros((512,), tl.float32), tl.zeros((512,), tl.int32)])
+            rank = tl.arange(0, 512)
+            valid = rank < tl.load(Visible + tl.where(final_row < ROWS, final_row, 0), mask=final_row < ROWS, other=0)
+            tl.store(Indices + final_row * 512 + rank, tl.where(valid, indices, -1), mask=final_row < ROWS)
+            tl.store(Values + final_row * 512 + rank, tl.where(valid, values, -float('inf')), mask=final_row < ROWS)
+
+@triton.jit
+def raw_k_2d_part_padded(K, Table, PK, part, MAX_VISIBLE):
+    tile = part//8
+    row_start = part%2*32
+    dim_start = (part%8//2)*32
+    r = tl.arange(0,32)
+    c = tl.arange(0,32)
+    physical = tl.load(Table+tl.where(tile*64<MAX_VISIBLE,tile//3,0),mask=tile*64<MAX_VISIBLE,other=0)
+    token = physical.to(tl.int64)*192+tile%3*64+row_start
+    global_row = tile*64+row_start+r
+    value = tl.load(K+(token+r[:,None])*128+dim_start+c[None,:],
+                    mask=global_row[:,None]<MAX_VISIBLE,other=0)
+    tl.store(PK+part*1024+r[:,None]*32+c[None,:],value)
+@triton.jit
+def raw_pack_k_ks_padded(K, KS, Table, PK, LogicalKS, MAX_VISIBLE,TILES,CORES:tl.constexpr):
+    for part in range(tl.program_id(0),TILES*8,CORES):
+        raw_k_2d_part_padded(K,Table,PK,part,MAX_VISIBLE)
+        if part%8 == 0:
+            tile = part//8
+            c = tl.arange(0,64)
+            physical = tl.load(Table+tl.where(tile*64<MAX_VISIBLE,tile//3,0),mask=tile*64<MAX_VISIBLE,other=0)
+            scale = tl.load(KS+physical.to(tl.int64)*192+tile%3*64+c,
+                            mask=tile*64+c<MAX_VISIBLE,other=0)
+            tl.store(LogicalKS+tile*64+c,scale)
+@triton.jit
+def raw_mixed_prepared(PQ,PK,PW,LogicalKS,Visible,Ring,Indices,Values,Trace,
+                     WIDTH:tl.constexpr,SLOTS:tl.constexpr,TRACE:tl.constexpr,ROWS:tl.constexpr,BLOCKS):
+    with al.scope(core_mode="cube"):
+        qbase = tl.cast(PQ,tl.uint64)
+        kbase = tl.cast(PK,tl.uint64)
+        wbase = tl.cast(PW,tl.uint64)
+        rbase = tl.cast(Ring,tl.uint64)
+        group_q = qbase+tl.program_id(0).to(tl.uint64)*8192
+        group_w = wbase+tl.program_id(0).to(tl.uint64)*2048
+        for cube_block in range(BLOCKS):
+            cube_slot = cube_block%SLOTS
+            al.sync_block_wait("vector","cube",cube_slot,pipe.PIPE_MTE3,pipe.PIPE_FIX)
+            for cube_inner in range(8):
+                key = kbase+(cube_block*8+cube_inner).to(tl.uint64)*8192
+                dest = rbase+((tl.program_id(0)*SLOTS+cube_slot)*8+cube_inner).to(tl.uint64)*4096
+                bits = tl.full((),0x3a800000,tl.int64)
+                raw.call(mixed_chain_op,[group_q,key,group_w,bits,dest],output_indices=[])
+            al.sync_block_set("cube","vector",cube_slot,pipe.PIPE_FIX,pipe.PIPE_MTE2)
+        for drain_slot in tl.static_range(SLOTS):
+            al.sync_block_wait("vector","cube",drain_slot,pipe.PIPE_MTE3,pipe.PIPE_FIX)
+
+    with al.scope(core_mode="vector"):
+        state_storage = tle.dsa.alloc([8*1024],dtype=tl.float32,mem_addr_space=tle.dsa.ascend.UB)
+        word = tl.arange(0,1024)
+        initial = tl.where(word%2==0,-float("inf"),tl.full((),-1,tl.int32).to(tl.float32,bitcast=True))
+        for init_query in range(8):
+            init_state_slot = tle.dsa.subview(state_storage,[init_query*1024],[1024],[1])
+            tle.dsa.to_buffer(initial,space=tle.dsa.ascend.UB,bind_buffer=init_state_slot)
+        tl.debug_barrier()
+        for initial_credit in tl.static_range(SLOTS):
+            al.sync_block_set("vector","cube",initial_credit,pipe.PIPE_MTE3,pipe.PIPE_FIX)
+        for vector_block in range(BLOCKS):
+            vector_slot = vector_block%SLOTS
+            al.sync_block_wait("cube","vector",vector_slot,pipe.PIPE_FIX,pipe.PIPE_MTE2)
+            for update_query in range(8):
+                update_local_row = al.sub_vec_id()*8+update_query
+                update_row = tl.program_id(0)*16+update_local_row
+                tile = tl.arange(0,8)
+                col = tl.arange(0,64)
+                lane = tl.arange(0,512)
+                received = tl.load(Ring+((tl.program_id(0)*SLOTS+vector_slot)*8+tile[:,None])*1024+update_local_row*64+col[None,:])
+                ks = tl.load(LogicalKS+vector_block*512+lane).to(tl.float32)
+                visible = tl.load(Visible+tl.where(update_row<ROWS,update_row,0),mask=update_row<ROWS,other=0)
+                score = tl.where((update_row<ROWS)&(vector_block*512+lane<WIDTH)&(vector_block*512+lane<visible),tl.reshape(received,(512,))*ks,-float("inf"))
+                if TRACE:
+                    tl.store(Trace+update_row*WIDTH+vector_block*512+lane,score,mask=(update_row<ROWS)&(vector_block*512+lane<WIDTH))
+                pairs = tle.dsa.ascend.raw("sort_1d_pack",score,tl.zeros((2048,),tl.float32),
+                    True,512,vector_block*512,SORT_IMPL_BASE,out=tl.zeros((1024,),tl.float32))
+                update_state_slot = tle.dsa.subview(state_storage,[update_query*1024],[1024],[1])
+                update_state = tle.dsa.to_tensor(update_state_slot)
+                update_state = _update_online_topk_ub_snapshot(update_state,pairs,512,512)
+                tle.dsa.to_buffer(update_state,space=tle.dsa.ascend.UB,bind_buffer=update_state_slot)
+                tl.debug_barrier()
+            tl.debug_barrier()
+            al.sync_block_set("vector","cube",vector_slot,pipe.PIPE_MTE3,pipe.PIPE_FIX)
+        for final_query in range(8):
+            final_row = tl.program_id(0)*16+al.sub_vec_id()*8+final_query
+            final_state_slot = tle.dsa.subview(state_storage,[final_query*1024],[1024],[1])
+            final_state = tle.dsa.to_tensor(final_state_slot)
+            values,indices = tle.dsa.ascend.raw("unpack_sort",final_state,512,
+                out=[tl.zeros((512,),tl.float32),tl.zeros((512,),tl.int32)])
+            rank = tl.arange(0,512)
+            valid = rank<tl.load(Visible+tl.where(final_row<ROWS,final_row,0),mask=final_row<ROWS,other=0)
+            tl.store(Indices+final_row*512+rank,tl.where(valid,indices,-1),mask=final_row<ROWS)
+            tl.store(Values+final_row*512+rank,tl.where(valid,values,-float("inf")),mask=final_row<ROWS)
+
+@triton.jit
+def raw_online_topk_from_scores(Staged, Visible, Indices, Values, ROWS: tl.constexpr, WIDTH: tl.constexpr, BLOCKS):
+    state_storage = tle.dsa.alloc([8 * 1024], dtype=tl.float32, mem_addr_space=tle.dsa.ascend.UB)
+    word = tl.arange(0, 1024)
+    initial = tl.where(word % 2 == 0, -float('inf'), tl.full((), -1, tl.int32).to(tl.float32, bitcast=True))
+    for init_query in range(8):
+        init_state_slot = tle.dsa.subview(state_storage, [init_query * 1024], [1024], [1])
+        tle.dsa.to_buffer(initial, space=tle.dsa.ascend.UB, bind_buffer=init_state_slot)
+    tl.debug_barrier()
+    for vector_block in range(BLOCKS):
+        for update_query in range(8):
+            update_local_row = update_query
+            update_row = tl.program_id(0) * 8 + update_query
+            lane = tl.arange(0, 512)
+            score = tl.load(Staged + update_row * WIDTH + vector_block * 512 + lane, mask=(update_row < ROWS) & (vector_block * 512 + lane < WIDTH), other=-float('inf'))
+            pairs = tle.dsa.ascend.raw('sort_1d_pack', score, tl.zeros((2048,), tl.float32), True, 512, vector_block * 512, SORT_IMPL_BASE, out=tl.zeros((1024,), tl.float32))
+            update_state_slot = tle.dsa.subview(state_storage, [update_query * 1024], [1024], [1])
+            update_state = tle.dsa.to_tensor(update_state_slot)
+            update_state = _update_online_topk_ub_snapshot(update_state, pairs, 512, 512)
+            tle.dsa.to_buffer(update_state, space=tle.dsa.ascend.UB, bind_buffer=update_state_slot)
+            tl.debug_barrier()
+        tl.debug_barrier()
+    for final_query in range(8):
+        final_row = tl.program_id(0) * 8 + final_query
+        final_state_slot = tle.dsa.subview(state_storage, [final_query * 1024], [1024], [1])
+        final_state = tle.dsa.to_tensor(final_state_slot)
+        values, indices = tle.dsa.ascend.raw('unpack_sort', final_state, 512, out=[tl.zeros((512,), tl.float32), tl.zeros((512,), tl.int32)])
+        rank = tl.arange(0, 512)
+        valid = rank < tl.load(Visible + tl.where(final_row < ROWS, final_row, 0), mask=final_row < ROWS, other=0)
+        tl.store(Indices + final_row * 512 + rank, tl.where(valid, indices, -1), mask=final_row < ROWS)
+        tl.store(Values + final_row * 512 + rank, tl.where(valid, values, -float('inf')), mask=final_row < ROWS)
+
+@triton.jit
+def raw_tle_generic_prepared(PQ, PK, PW, LogicalKS, Visible, Ring, Indices, Values, Trace, WIDTH: tl.constexpr, SLOTS: tl.constexpr, TRACE: tl.constexpr, ROWS: tl.constexpr, BLOCKS):
+    with al.scope(core_mode='cube'):
+        qbase = tl.cast(PQ, tl.uint64)
+        kbase = tl.cast(PK, tl.uint64)
+        wbase = tl.cast(PW, tl.uint64)
+        rbase = tl.cast(Ring, tl.uint64)
+        group_q = qbase + tl.program_id(0).to(tl.uint64) * 8192
+        group_w = wbase + tl.program_id(0).to(tl.uint64) * 2048
+        for cube_block in range(BLOCKS):
+            cube_slot = cube_block % SLOTS
+            al.sync_block_wait('vector', 'cube', cube_slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+            key = kbase + (cube_block * 8 + 0).to(tl.uint64) * 8192
+            dest = rbase + ((tl.program_id(0) * SLOTS + cube_slot) * 8 + 0).to(tl.uint64) * 4096
+            bits = tl.full((), 981467136, tl.int64)
+            raw.call(block512_chain_op, [group_q, key, group_w, bits, dest], output_indices=[])
+            al.sync_block_set('cube', 'vector', cube_slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
+        for drain_slot in tl.static_range(SLOTS):
+            al.sync_block_wait('vector', 'cube', drain_slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+    with al.scope(core_mode='vector'):
+        state_storage = tle.dsa.alloc([8 * 1024], dtype=tl.float32, mem_addr_space=tle.dsa.ascend.UB)
+        word = tl.arange(0, 1024)
+        initial = tl.where(word % 2 == 0, -float('inf'), tl.full((), -1, tl.int32).to(tl.float32, bitcast=True))
+        for init_query in range(8):
+            init_state_slot = tle.dsa.subview(state_storage, [init_query * 1024], [1024], [1])
+            tle.dsa.to_buffer(initial, space=tle.dsa.ascend.UB, bind_buffer=init_state_slot)
+        tl.debug_barrier()
+        for initial_credit in tl.static_range(SLOTS):
+            al.sync_block_set('vector', 'cube', initial_credit, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+        for vector_block in range(BLOCKS):
+            vector_slot = vector_block % SLOTS
+            al.sync_block_wait('cube', 'vector', vector_slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
+            for update_query in range(8):
+                update_local_row = al.sub_vec_id() * 8 + update_query
+                update_row = tl.program_id(0) * 16 + update_local_row
+                tile = tl.arange(0, 8)
+                col = tl.arange(0, 64)
+                lane = tl.arange(0, 512)
+                received = tl.load(Ring + ((tl.program_id(0) * SLOTS + vector_slot) * 8 + tile[:, None]) * 1024 + update_local_row * 64 + col[None, :])
+                ks = tl.load(LogicalKS + vector_block * 512 + lane).to(tl.float32)
+                visible = tl.load(Visible + tl.where(update_row < ROWS, update_row, 0), mask=update_row < ROWS, other=0)
+                score = tl.where((update_row < ROWS) & (vector_block * 512 + lane < WIDTH) & (vector_block * 512 + lane < visible), tl.reshape(received, (512,)) * ks, -float('inf'))
+                if TRACE:
+                    tl.store(Trace + update_row * WIDTH + vector_block * 512 + lane, score, mask=(update_row < ROWS) & (vector_block * 512 + lane < WIDTH))
+                pairs = tle.dsa.ascend.raw('sort_1d_pack', score, tl.zeros((2048,), tl.float32), True, 512, vector_block * 512, SORT_IMPL_BASE, out=tl.zeros((1024,), tl.float32))
+                update_state_slot = tle.dsa.subview(state_storage, [update_query * 1024], [1024], [1])
+                update_state = tle.dsa.to_tensor(update_state_slot)
+                update_state = _update_online_topk_ub_snapshot(update_state, pairs, 512, 512)
+                tle.dsa.to_buffer(update_state, space=tle.dsa.ascend.UB, bind_buffer=update_state_slot)
+                tl.debug_barrier()
+            tl.debug_barrier()
+            al.sync_block_set('vector', 'cube', vector_slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+        for final_query in range(8):
+            final_row = tl.program_id(0) * 16 + al.sub_vec_id() * 8 + final_query
+            final_state_slot = tle.dsa.subview(state_storage, [final_query * 1024], [1024], [1])
+            final_state = tle.dsa.to_tensor(final_state_slot)
+            values, indices = tle.dsa.ascend.raw('unpack_sort', final_state, 512, out=[tl.zeros((512,), tl.float32), tl.zeros((512,), tl.int32)])
+            rank = tl.arange(0, 512)
+            valid = rank < tl.load(Visible + tl.where(final_row < ROWS, final_row, 0), mask=final_row < ROWS, other=0)
+            tl.store(Indices + final_row * 512 + rank, tl.where(valid, indices, -1), mask=final_row < ROWS)
+            tl.store(Values + final_row * 512 + rank, tl.where(valid, values, -float('inf')), mask=final_row < ROWS)
+@triton.jit
+def raw_tle_fixed_prepared(PQ, PK, PW, LogicalKS, Visible, Ring, Indices, Values, Trace, WIDTH: tl.constexpr, SLOTS: tl.constexpr, TRACE: tl.constexpr, ROWS: tl.constexpr, BLOCKS):
+    with al.scope(core_mode='cube'):
+        qbase = tl.cast(PQ, tl.uint64)
+        kbase = tl.cast(PK, tl.uint64)
+        wbase = tl.cast(PW, tl.uint64)
+        rbase = tl.cast(Ring, tl.uint64)
+        group_q = qbase + tl.program_id(0).to(tl.uint64) * 8192
+        group_w = wbase + tl.program_id(0).to(tl.uint64) * 2048
+        for cube_block in range(BLOCKS):
+            cube_slot = cube_block % SLOTS
+            al.sync_block_wait('vector', 'cube', cube_slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+            key = kbase + (cube_block * 8 + 0).to(tl.uint64) * 8192
+            dest = rbase + ((tl.program_id(0) * SLOTS + cube_slot) * 8 + 0).to(tl.uint64) * 4096
+            bits = tl.full((), 981467136, tl.int64)
+            raw.call(block512_chain_op, [group_q, key, group_w, bits, dest], output_indices=[])
+            al.sync_block_set('cube', 'vector', cube_slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
+        for drain_slot in tl.static_range(SLOTS):
+            al.sync_block_wait('vector', 'cube', drain_slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+    with al.scope(core_mode='vector'):
+        state_storage = tle.dsa.alloc([8 * 1024], dtype=tl.float32, mem_addr_space=tle.dsa.ascend.UB)
+        word = tl.arange(0, 1024)
+        initial = tl.where(word % 2 == 0, -float('inf'), tl.full((), -1, tl.int32).to(tl.float32, bitcast=True))
+        for init_query in range(8):
+            init_state_slot = tle.dsa.subview(state_storage, [init_query * 1024], [1024], [1])
+            tle.dsa.to_buffer(initial, space=tle.dsa.ascend.UB, bind_buffer=init_state_slot)
+        tl.debug_barrier()
+        for initial_credit in tl.static_range(SLOTS):
+            al.sync_block_set('vector', 'cube', initial_credit, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+        for vector_block in range(BLOCKS):
+            vector_slot = vector_block % SLOTS
+            al.sync_block_wait('cube', 'vector', vector_slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
+            for update_query in range(8):
+                update_local_row = al.sub_vec_id() * 8 + update_query
+                update_row = tl.program_id(0) * 16 + update_local_row
+                tile = tl.arange(0, 8)
+                col = tl.arange(0, 64)
+                lane = tl.arange(0, 512)
+                received = tl.load(Ring + ((tl.program_id(0) * SLOTS + vector_slot) * 8 + tile[:, None]) * 1024 + update_local_row * 64 + col[None, :])
+                ks = tl.load(LogicalKS + vector_block * 512 + lane).to(tl.float32)
+                visible = tl.load(Visible + tl.where(update_row < ROWS, update_row, 0), mask=update_row < ROWS, other=0)
+                score = tl.where((update_row < ROWS) & (vector_block * 512 + lane < WIDTH) & (vector_block * 512 + lane < visible), tl.reshape(received, (512,)) * ks, -float('inf'))
+                if TRACE:
+                    tl.store(Trace + update_row * WIDTH + vector_block * 512 + lane, score, mask=(update_row < ROWS) & (vector_block * 512 + lane < WIDTH))
+                local_indices = (vector_block * 512 + lane).to(tl.uint32)
+                local32 = tle.dsa.ascend.raw('sort32', score, local_indices, 16, out=tl.zeros((1024,), tl.float32))
+                tl.debug_barrier()
+                local128 = tle.dsa.ascend.raw('mrgsort', local32, 0, 32, 64, 96, 32, 32, 32, 32, False, 15, 4, out=tl.zeros((1024,), tl.float32))
+                tl.debug_barrier()
+                pairs = tle.dsa.ascend.raw('mrgsort', local128, 0, 128, 256, 384, 128, 128, 128, 128, False, 15, 1, out=tl.zeros((1024,), tl.float32))
+                tl.debug_barrier()
+                update_state_slot = tle.dsa.subview(state_storage, [update_query * 1024], [1024], [1])
+                update_state = tle.dsa.to_tensor(update_state_slot)
+                update_state = _update_online_topk_ub_snapshot(update_state, pairs, 512, 512)
+                tle.dsa.to_buffer(update_state, space=tle.dsa.ascend.UB, bind_buffer=update_state_slot)
+                tl.debug_barrier()
+            tl.debug_barrier()
+            al.sync_block_set('vector', 'cube', vector_slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+        for final_query in range(8):
+            final_row = tl.program_id(0) * 16 + al.sub_vec_id() * 8 + final_query
+            final_state_slot = tle.dsa.subview(state_storage, [final_query * 1024], [1024], [1])
+            final_state = tle.dsa.to_tensor(final_state_slot)
+            values, indices = tle.dsa.ascend.raw('unpack_sort', final_state, 512, out=[tl.zeros((512,), tl.float32), tl.zeros((512,), tl.int32)])
+            rank = tl.arange(0, 512)
+            valid = rank < tl.load(Visible + tl.where(final_row < ROWS, final_row, 0), mask=final_row < ROWS, other=0)
+            tl.store(Indices + final_row * 512 + rank, tl.where(valid, indices, -1), mask=final_row < ROWS)
+            tl.store(Values + final_row * 512 + rank, tl.where(valid, values, -float('inf')), mask=final_row < ROWS)
+@triton.jit
+def raw_tle_generic_topk(Staged, Visible, Indices, Values, ROWS: tl.constexpr, WIDTH: tl.constexpr, BLOCKS):
+    state_storage = tle.dsa.alloc([8 * 1024], dtype=tl.float32, mem_addr_space=tle.dsa.ascend.UB)
+    word = tl.arange(0, 1024)
+    initial = tl.where(word % 2 == 0, -float('inf'), tl.full((), -1, tl.int32).to(tl.float32, bitcast=True))
+    for init_query in range(8):
+        init_state_slot = tle.dsa.subview(state_storage, [init_query * 1024], [1024], [1])
+        tle.dsa.to_buffer(initial, space=tle.dsa.ascend.UB, bind_buffer=init_state_slot)
+    tl.debug_barrier()
+    for vector_block in range(BLOCKS):
+        for update_query in range(8):
+            update_local_row = update_query
+            update_row = tl.program_id(0) * 8 + update_query
+            lane = tl.arange(0, 512)
+            score = tl.load(Staged + update_row * WIDTH + vector_block * 512 + lane, mask=(update_row < ROWS) & (vector_block * 512 + lane < WIDTH), other=-float('inf'))
+            pairs = tle.dsa.ascend.raw('sort_1d_pack', score, tl.zeros((2048,), tl.float32), True, 512, vector_block * 512, SORT_IMPL_BASE, out=tl.zeros((1024,), tl.float32))
+            update_state_slot = tle.dsa.subview(state_storage, [update_query * 1024], [1024], [1])
+            update_state = tle.dsa.to_tensor(update_state_slot)
+            update_state = _update_online_topk_ub_snapshot(update_state, pairs, 512, 512)
+            tle.dsa.to_buffer(update_state, space=tle.dsa.ascend.UB, bind_buffer=update_state_slot)
+            tl.debug_barrier()
+        tl.debug_barrier()
+    for final_query in range(8):
+        final_row = tl.program_id(0) * 8 + final_query
+        final_state_slot = tle.dsa.subview(state_storage, [final_query * 1024], [1024], [1])
+        final_state = tle.dsa.to_tensor(final_state_slot)
+        values, indices = tle.dsa.ascend.raw('unpack_sort', final_state, 512, out=[tl.zeros((512,), tl.float32), tl.zeros((512,), tl.int32)])
+        rank = tl.arange(0, 512)
+        valid = rank < tl.load(Visible + tl.where(final_row < ROWS, final_row, 0), mask=final_row < ROWS, other=0)
+        tl.store(Indices + final_row * 512 + rank, tl.where(valid, indices, -1), mask=final_row < ROWS)
+        tl.store(Values + final_row * 512 + rank, tl.where(valid, values, -float('inf')), mask=final_row < ROWS)
+@triton.jit
+def raw_tle_fixed_topk(Staged, Visible, Indices, Values, ROWS: tl.constexpr, WIDTH: tl.constexpr, BLOCKS):
+    state_storage = tle.dsa.alloc([8 * 1024], dtype=tl.float32, mem_addr_space=tle.dsa.ascend.UB)
+    word = tl.arange(0, 1024)
+    initial = tl.where(word % 2 == 0, -float('inf'), tl.full((), -1, tl.int32).to(tl.float32, bitcast=True))
+    for init_query in range(8):
+        init_state_slot = tle.dsa.subview(state_storage, [init_query * 1024], [1024], [1])
+        tle.dsa.to_buffer(initial, space=tle.dsa.ascend.UB, bind_buffer=init_state_slot)
+    tl.debug_barrier()
+    for vector_block in range(BLOCKS):
+        for update_query in range(8):
+            update_local_row = update_query
+            update_row = tl.program_id(0) * 8 + update_query
+            lane = tl.arange(0, 512)
+            score = tl.load(Staged + update_row * WIDTH + vector_block * 512 + lane, mask=(update_row < ROWS) & (vector_block * 512 + lane < WIDTH), other=-float('inf'))
+            local_indices = (vector_block * 512 + lane).to(tl.uint32)
+            local32 = tle.dsa.ascend.raw('sort32', score, local_indices, 16, out=tl.zeros((1024,), tl.float32))
+            tl.debug_barrier()
+            local128 = tle.dsa.ascend.raw('mrgsort', local32, 0, 32, 64, 96, 32, 32, 32, 32, False, 15, 4, out=tl.zeros((1024,), tl.float32))
+            tl.debug_barrier()
+            pairs = tle.dsa.ascend.raw('mrgsort', local128, 0, 128, 256, 384, 128, 128, 128, 128, False, 15, 1, out=tl.zeros((1024,), tl.float32))
+            tl.debug_barrier()
+            update_state_slot = tle.dsa.subview(state_storage, [update_query * 1024], [1024], [1])
+            update_state = tle.dsa.to_tensor(update_state_slot)
+            update_state = _update_online_topk_ub_snapshot(update_state, pairs, 512, 512)
+            tle.dsa.to_buffer(update_state, space=tle.dsa.ascend.UB, bind_buffer=update_state_slot)
+            tl.debug_barrier()
+        tl.debug_barrier()
+    for final_query in range(8):
+        final_row = tl.program_id(0) * 8 + final_query
+        final_state_slot = tle.dsa.subview(state_storage, [final_query * 1024], [1024], [1])
+        final_state = tle.dsa.to_tensor(final_state_slot)
+        values, indices = tle.dsa.ascend.raw('unpack_sort', final_state, 512, out=[tl.zeros((512,), tl.float32), tl.zeros((512,), tl.int32)])
+        rank = tl.arange(0, 512)
+        valid = rank < tl.load(Visible + tl.where(final_row < ROWS, final_row, 0), mask=final_row < ROWS, other=0)
+        tl.store(Indices + final_row * 512 + rank, tl.where(valid, indices, -1), mask=final_row < ROWS)
+        tl.store(Values + final_row * 512 + rank, tl.where(valid, values, -float('inf')), mask=final_row < ROWS)
+
+@triton.jit
+def _history_prefix(state,tile,TOP:tl.constexpr,CHUNK:tl.constexpr):
+    tl.static_assert(TOP==512 and CHUNK==512)
+    packed = tl.zeros((8*TOP,),tl.float32)
+    packed = tle.dsa.insert_slice(packed,state,(0,),(2*TOP,),(1,))
+    packed = tle.dsa.insert_slice(packed,tile,(2*TOP,),(2*CHUNK,),(1,))
+    merged,consumed = tle.dsa.ascend.raw(
+        "merge_exhaust_sort4",packed,2,0,TOP,2*TOP,3*TOP,TOP,CHUNK,0,0,
+        out=[tl.zeros((4*TOP,),tl.float32),tl.zeros((4,),tl.int32)])
+    return al.extract_slice(merged,(0,),(2*TOP,),(1,))
+
+@triton.jit
+def raw_history_prepared_snapshot(PQ, PK, PW, LogicalKS, Visible, Ring, Indices, Values, Trace, WIDTH: tl.constexpr, SLOTS: tl.constexpr, TRACE: tl.constexpr, ROWS: tl.constexpr, BLOCKS):
+    with al.scope(core_mode='cube'):
+        qbase = tl.cast(PQ, tl.uint64)
+        kbase = tl.cast(PK, tl.uint64)
+        wbase = tl.cast(PW, tl.uint64)
+        rbase = tl.cast(Ring, tl.uint64)
+        group_q = qbase + tl.program_id(0).to(tl.uint64) * 8192
+        group_w = wbase + tl.program_id(0).to(tl.uint64) * 2048
+        for cube_block in range(BLOCKS):
+            cube_slot = cube_block % SLOTS
+            al.sync_block_wait('vector', 'cube', cube_slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+            key = kbase + (cube_block * 8 + 0).to(tl.uint64) * 8192
+            dest = rbase + ((tl.program_id(0) * SLOTS + cube_slot) * 8 + 0).to(tl.uint64) * 4096
+            bits = tl.full((), 981467136, tl.int64)
+            raw.call(block512_chain_op, [group_q, key, group_w, bits, dest], output_indices=[])
+            al.sync_block_set('cube', 'vector', cube_slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
+        for drain_slot in tl.static_range(SLOTS):
+            al.sync_block_wait('vector', 'cube', drain_slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+    with al.scope(core_mode='vector'):
+        state_storage = tle.dsa.alloc([8 * 1024], dtype=tl.float32, mem_addr_space=tle.dsa.ascend.UB)
+        word = tl.arange(0, 1024)
+        initial = tl.where(word % 2 == 0, -float('inf'), tl.full((), -1, tl.int32).to(tl.float32, bitcast=True))
+        for init_query in range(8):
+            init_state_slot = tle.dsa.subview(state_storage, [init_query * 1024], [1024], [1])
+            tle.dsa.to_buffer(initial, space=tle.dsa.ascend.UB, bind_buffer=init_state_slot)
+        tl.debug_barrier()
+        for initial_credit in tl.static_range(SLOTS):
+            al.sync_block_set('vector', 'cube', initial_credit, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+        for vector_block in range(BLOCKS):
+            vector_slot = vector_block % SLOTS
+            al.sync_block_wait('cube', 'vector', vector_slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
+            for update_query in range(8):
+                update_local_row = al.sub_vec_id() * 8 + update_query
+                update_row = tl.program_id(0) * 16 + update_local_row
+                tile = tl.arange(0, 8)
+                col = tl.arange(0, 64)
+                lane = tl.arange(0, 512)
+                received = tl.load(Ring + ((tl.program_id(0) * SLOTS + vector_slot) * 8 + tile[:, None]) * 1024 + update_local_row * 64 + col[None, :])
+                ks = tl.load(LogicalKS + vector_block * 512 + lane).to(tl.float32)
+                visible = tl.load(Visible + tl.where(update_row < ROWS, update_row, 0), mask=update_row < ROWS, other=0)
+                score = tl.where((update_row < ROWS) & (vector_block * 512 + lane < WIDTH) & (vector_block * 512 + lane < visible), tl.reshape(received, (512,)) * ks, -float('inf'))
+                if TRACE:
+                    tl.store(Trace + update_row * WIDTH + vector_block * 512 + lane, score, mask=(update_row < ROWS) & (vector_block * 512 + lane < WIDTH))
+                local_indices = (vector_block * 512 + lane).to(tl.uint32)
+                local32 = tle.dsa.ascend.raw('sort32', score, local_indices, 16, out=tl.zeros((1024,), tl.float32))
+                tl.debug_barrier()
+                local128 = tle.dsa.ascend.raw('mrgsort', local32, 0, 32, 64, 96, 32, 32, 32, 32, False, 15, 4, out=tl.zeros((1024,), tl.float32))
+                tl.debug_barrier()
+                pairs = tle.dsa.ascend.raw('mrgsort', local128, 0, 128, 256, 384, 128, 128, 128, 128, False, 15, 1, out=tl.zeros((1024,), tl.float32))
+                tl.debug_barrier()
+                update_state_slot = tle.dsa.subview(state_storage, [update_query * 1024], [1024], [1])
+                update_state = tle.dsa.to_tensor(update_state_slot)
+                update_state = _update_online_topk_ub_snapshot(update_state, pairs, 512, 512)
+                tle.dsa.to_buffer(update_state, space=tle.dsa.ascend.UB, bind_buffer=update_state_slot)
+                tl.debug_barrier()
+            tl.debug_barrier()
+            al.sync_block_set('vector', 'cube', vector_slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+        for final_query in range(8):
+            final_row = tl.program_id(0) * 16 + al.sub_vec_id() * 8 + final_query
+            final_state_slot = tle.dsa.subview(state_storage, [final_query * 1024], [1024], [1])
+            final_state = tle.dsa.to_tensor(final_state_slot)
+            values, indices = tle.dsa.ascend.raw('unpack_sort', final_state, 512, out=[tl.zeros((512,), tl.float32), tl.zeros((512,), tl.int32)])
+            rank = tl.arange(0, 512)
+            valid = rank < tl.load(Visible + tl.where(final_row < ROWS, final_row, 0), mask=final_row < ROWS, other=0)
+            tl.store(Indices + final_row * 512 + rank, tl.where(valid, indices, -1), mask=final_row < ROWS)
+            tl.store(Values + final_row * 512 + rank, tl.where(valid, values, -float('inf')), mask=final_row < ROWS)
+@triton.jit
+def raw_history_topk_snapshot(Staged, Visible, Indices, Values, ROWS: tl.constexpr, WIDTH: tl.constexpr, BLOCKS):
+    state_storage = tle.dsa.alloc([8 * 1024], dtype=tl.float32, mem_addr_space=tle.dsa.ascend.UB)
+    word = tl.arange(0, 1024)
+    initial = tl.where(word % 2 == 0, -float('inf'), tl.full((), -1, tl.int32).to(tl.float32, bitcast=True))
+    for init_query in range(8):
+        init_state_slot = tle.dsa.subview(state_storage, [init_query * 1024], [1024], [1])
+        tle.dsa.to_buffer(initial, space=tle.dsa.ascend.UB, bind_buffer=init_state_slot)
+    tl.debug_barrier()
+    for vector_block in range(BLOCKS):
+        for update_query in range(8):
+            update_local_row = update_query
+            update_row = tl.program_id(0) * 8 + update_query
+            lane = tl.arange(0, 512)
+            score = tl.load(Staged + update_row * WIDTH + vector_block * 512 + lane, mask=(update_row < ROWS) & (vector_block * 512 + lane < WIDTH), other=-float('inf'))
+            local_indices = (vector_block * 512 + lane).to(tl.uint32)
+            local32 = tle.dsa.ascend.raw('sort32', score, local_indices, 16, out=tl.zeros((1024,), tl.float32))
+            tl.debug_barrier()
+            local128 = tle.dsa.ascend.raw('mrgsort', local32, 0, 32, 64, 96, 32, 32, 32, 32, False, 15, 4, out=tl.zeros((1024,), tl.float32))
+            tl.debug_barrier()
+            pairs = tle.dsa.ascend.raw('mrgsort', local128, 0, 128, 256, 384, 128, 128, 128, 128, False, 15, 1, out=tl.zeros((1024,), tl.float32))
+            tl.debug_barrier()
+            update_state_slot = tle.dsa.subview(state_storage, [update_query * 1024], [1024], [1])
+            update_state = tle.dsa.to_tensor(update_state_slot)
+            update_state = _update_online_topk_ub_snapshot(update_state, pairs, 512, 512)
+            tle.dsa.to_buffer(update_state, space=tle.dsa.ascend.UB, bind_buffer=update_state_slot)
+            tl.debug_barrier()
+        tl.debug_barrier()
+    for final_query in range(8):
+        final_row = tl.program_id(0) * 8 + final_query
+        final_state_slot = tle.dsa.subview(state_storage, [final_query * 1024], [1024], [1])
+        final_state = tle.dsa.to_tensor(final_state_slot)
+        values, indices = tle.dsa.ascend.raw('unpack_sort', final_state, 512, out=[tl.zeros((512,), tl.float32), tl.zeros((512,), tl.int32)])
+        rank = tl.arange(0, 512)
+        valid = rank < tl.load(Visible + tl.where(final_row < ROWS, final_row, 0), mask=final_row < ROWS, other=0)
+        tl.store(Indices + final_row * 512 + rank, tl.where(valid, indices, -1), mask=final_row < ROWS)
+        tl.store(Values + final_row * 512 + rank, tl.where(valid, values, -float('inf')), mask=final_row < ROWS)
+@triton.jit
+def raw_history_prepared_prefix(PQ, PK, PW, LogicalKS, Visible, Ring, Indices, Values, Trace, WIDTH: tl.constexpr, SLOTS: tl.constexpr, TRACE: tl.constexpr, ROWS: tl.constexpr, BLOCKS):
+    with al.scope(core_mode='cube'):
+        qbase = tl.cast(PQ, tl.uint64)
+        kbase = tl.cast(PK, tl.uint64)
+        wbase = tl.cast(PW, tl.uint64)
+        rbase = tl.cast(Ring, tl.uint64)
+        group_q = qbase + tl.program_id(0).to(tl.uint64) * 8192
+        group_w = wbase + tl.program_id(0).to(tl.uint64) * 2048
+        for cube_block in range(BLOCKS):
+            cube_slot = cube_block % SLOTS
+            al.sync_block_wait('vector', 'cube', cube_slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+            key = kbase + (cube_block * 8 + 0).to(tl.uint64) * 8192
+            dest = rbase + ((tl.program_id(0) * SLOTS + cube_slot) * 8 + 0).to(tl.uint64) * 4096
+            bits = tl.full((), 981467136, tl.int64)
+            raw.call(block512_chain_op, [group_q, key, group_w, bits, dest], output_indices=[])
+            al.sync_block_set('cube', 'vector', cube_slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
+        for drain_slot in tl.static_range(SLOTS):
+            al.sync_block_wait('vector', 'cube', drain_slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+    with al.scope(core_mode='vector'):
+        state_storage = tle.dsa.alloc([8 * 1024], dtype=tl.float32, mem_addr_space=tle.dsa.ascend.UB)
+        word = tl.arange(0, 1024)
+        initial = tl.where(word % 2 == 0, -float('inf'), tl.full((), -1, tl.int32).to(tl.float32, bitcast=True))
+        for init_query in range(8):
+            init_state_slot = tle.dsa.subview(state_storage, [init_query * 1024], [1024], [1])
+            tle.dsa.to_buffer(initial, space=tle.dsa.ascend.UB, bind_buffer=init_state_slot)
+        tl.debug_barrier()
+        for initial_credit in tl.static_range(SLOTS):
+            al.sync_block_set('vector', 'cube', initial_credit, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+        for vector_block in range(BLOCKS):
+            vector_slot = vector_block % SLOTS
+            al.sync_block_wait('cube', 'vector', vector_slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
+            for update_query in range(8):
+                update_local_row = al.sub_vec_id() * 8 + update_query
+                update_row = tl.program_id(0) * 16 + update_local_row
+                tile = tl.arange(0, 8)
+                col = tl.arange(0, 64)
+                lane = tl.arange(0, 512)
+                received = tl.load(Ring + ((tl.program_id(0) * SLOTS + vector_slot) * 8 + tile[:, None]) * 1024 + update_local_row * 64 + col[None, :])
+                ks = tl.load(LogicalKS + vector_block * 512 + lane).to(tl.float32)
+                visible = tl.load(Visible + tl.where(update_row < ROWS, update_row, 0), mask=update_row < ROWS, other=0)
+                score = tl.where((update_row < ROWS) & (vector_block * 512 + lane < WIDTH) & (vector_block * 512 + lane < visible), tl.reshape(received, (512,)) * ks, -float('inf'))
+                if TRACE:
+                    tl.store(Trace + update_row * WIDTH + vector_block * 512 + lane, score, mask=(update_row < ROWS) & (vector_block * 512 + lane < WIDTH))
+                local_indices = (vector_block * 512 + lane).to(tl.uint32)
+                local32 = tle.dsa.ascend.raw('sort32', score, local_indices, 16, out=tl.zeros((1024,), tl.float32))
+                tl.debug_barrier()
+                local128 = tle.dsa.ascend.raw('mrgsort', local32, 0, 32, 64, 96, 32, 32, 32, 32, False, 15, 4, out=tl.zeros((1024,), tl.float32))
+                tl.debug_barrier()
+                pairs = tle.dsa.ascend.raw('mrgsort', local128, 0, 128, 256, 384, 128, 128, 128, 128, False, 15, 1, out=tl.zeros((1024,), tl.float32))
+                tl.debug_barrier()
+                update_state_slot = tle.dsa.subview(state_storage, [update_query * 1024], [1024], [1])
+                update_state = tle.dsa.to_tensor(update_state_slot)
+                update_state = _history_prefix(update_state, pairs, 512, 512)
+                tle.dsa.to_buffer(update_state, space=tle.dsa.ascend.UB, bind_buffer=update_state_slot)
+                tl.debug_barrier()
+            tl.debug_barrier()
+            al.sync_block_set('vector', 'cube', vector_slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+        for final_query in range(8):
+            final_row = tl.program_id(0) * 16 + al.sub_vec_id() * 8 + final_query
+            final_state_slot = tle.dsa.subview(state_storage, [final_query * 1024], [1024], [1])
+            final_state = tle.dsa.to_tensor(final_state_slot)
+            values, indices = tle.dsa.ascend.raw('unpack_sort', final_state, 512, out=[tl.zeros((512,), tl.float32), tl.zeros((512,), tl.int32)])
+            rank = tl.arange(0, 512)
+            valid = rank < tl.load(Visible + tl.where(final_row < ROWS, final_row, 0), mask=final_row < ROWS, other=0)
+            tl.store(Indices + final_row * 512 + rank, tl.where(valid, indices, -1), mask=final_row < ROWS)
+            tl.store(Values + final_row * 512 + rank, tl.where(valid, values, -float('inf')), mask=final_row < ROWS)
+@triton.jit
+def raw_history_topk_prefix(Staged, Visible, Indices, Values, ROWS: tl.constexpr, WIDTH: tl.constexpr, BLOCKS):
+    state_storage = tle.dsa.alloc([8 * 1024], dtype=tl.float32, mem_addr_space=tle.dsa.ascend.UB)
+    word = tl.arange(0, 1024)
+    initial = tl.where(word % 2 == 0, -float('inf'), tl.full((), -1, tl.int32).to(tl.float32, bitcast=True))
+    for init_query in range(8):
+        init_state_slot = tle.dsa.subview(state_storage, [init_query * 1024], [1024], [1])
+        tle.dsa.to_buffer(initial, space=tle.dsa.ascend.UB, bind_buffer=init_state_slot)
+    tl.debug_barrier()
+    for vector_block in range(BLOCKS):
+        for update_query in range(8):
+            update_local_row = update_query
+            update_row = tl.program_id(0) * 8 + update_query
+            lane = tl.arange(0, 512)
+            score = tl.load(Staged + update_row * WIDTH + vector_block * 512 + lane, mask=(update_row < ROWS) & (vector_block * 512 + lane < WIDTH), other=-float('inf'))
+            local_indices = (vector_block * 512 + lane).to(tl.uint32)
+            local32 = tle.dsa.ascend.raw('sort32', score, local_indices, 16, out=tl.zeros((1024,), tl.float32))
+            tl.debug_barrier()
+            local128 = tle.dsa.ascend.raw('mrgsort', local32, 0, 32, 64, 96, 32, 32, 32, 32, False, 15, 4, out=tl.zeros((1024,), tl.float32))
+            tl.debug_barrier()
+            pairs = tle.dsa.ascend.raw('mrgsort', local128, 0, 128, 256, 384, 128, 128, 128, 128, False, 15, 1, out=tl.zeros((1024,), tl.float32))
+            tl.debug_barrier()
+            update_state_slot = tle.dsa.subview(state_storage, [update_query * 1024], [1024], [1])
+            update_state = tle.dsa.to_tensor(update_state_slot)
+            update_state = _history_prefix(update_state, pairs, 512, 512)
+            tle.dsa.to_buffer(update_state, space=tle.dsa.ascend.UB, bind_buffer=update_state_slot)
+            tl.debug_barrier()
+        tl.debug_barrier()
+    for final_query in range(8):
+        final_row = tl.program_id(0) * 8 + final_query
+        final_state_slot = tle.dsa.subview(state_storage, [final_query * 1024], [1024], [1])
+        final_state = tle.dsa.to_tensor(final_state_slot)
+        values, indices = tle.dsa.ascend.raw('unpack_sort', final_state, 512, out=[tl.zeros((512,), tl.float32), tl.zeros((512,), tl.int32)])
+        rank = tl.arange(0, 512)
+        valid = rank < tl.load(Visible + tl.where(final_row < ROWS, final_row, 0), mask=final_row < ROWS, other=0)
+        tl.store(Indices + final_row * 512 + rank, tl.where(valid, indices, -1), mask=final_row < ROWS)
+        tl.store(Values + final_row * 512 + rank, tl.where(valid, values, -float('inf')), mask=final_row < ROWS)
+
+@triton.jit
+def _history_three_way(history, first, second):
+    packed = tl.zeros((4096,), tl.float32)
+    packed = tle.dsa.insert_slice(packed, history, (0,), (1024,), (1,))
+    packed = tle.dsa.insert_slice(packed, first, (1024,), (1024,), (1,))
+    packed = tle.dsa.insert_slice(packed, second, (2048,), (1024,), (1,))
+    # Exhaustion can occur after more than 1024 pairs have been merged.
+    merged, consumed = tle.dsa.ascend.raw(
+        "merge_exhaust_sort4", packed, 3, 0, 512, 1024, 1536, 512, 512, 512, 0,
+        out=[tl.zeros((4096,), tl.float32), tl.zeros((4,), tl.int32)],
+    )
+    return al.extract_slice(merged, (0,), (1024,), (1,)), consumed
+
+@triton.jit
+def raw_history_check_three_way(Input, Output, Consumed):
+    row = tl.program_id(0)
+    word = tl.arange(0, 1024)
+    base = Input + row * 3072 + word
+    history = tl.load(base)
+    first = tl.load(base + 1024)
+    second = tl.load(base + 2048)
+    prefix, consumed = _history_three_way(history, first, second)
+    tl.store(Output + row * 1024 + word, prefix)
+    tl.store(Consumed + row * 4 + tl.arange(0, 4), consumed)
+
+@triton.jit
+def raw_history_prepared_paired(PQ, PK, PW, LogicalKS, Visible, Ring, Indices, Values, Trace, WIDTH: tl.constexpr, SLOTS: tl.constexpr, TRACE: tl.constexpr, ROWS: tl.constexpr, BLOCKS):
+    with al.scope(core_mode='cube'):
+        qbase = tl.cast(PQ, tl.uint64)
+        kbase = tl.cast(PK, tl.uint64)
+        wbase = tl.cast(PW, tl.uint64)
+        rbase = tl.cast(Ring, tl.uint64)
+        group_q = qbase + tl.program_id(0).to(tl.uint64) * 8192
+        group_w = wbase + tl.program_id(0).to(tl.uint64) * 2048
+        for cube_block in range(BLOCKS):
+            cube_slot = cube_block % SLOTS
+            al.sync_block_wait('vector', 'cube', cube_slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+            key = kbase + (cube_block * 8 + 0).to(tl.uint64) * 8192
+            dest = rbase + ((tl.program_id(0) * SLOTS + cube_slot) * 8 + 0).to(tl.uint64) * 4096
+            bits = tl.full((), 981467136, tl.int64)
+            raw.call(block512_chain_op, [group_q, key, group_w, bits, dest], output_indices=[])
+            al.sync_block_set('cube', 'vector', cube_slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
+        for drain_slot in tl.static_range(SLOTS):
+            al.sync_block_wait('vector', 'cube', drain_slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+    with al.scope(core_mode='vector'):
+        state_storage = tle.dsa.alloc([8 * 1024], dtype=tl.float32, mem_addr_space=tle.dsa.ascend.UB)
+        pending = tle.dsa.alloc([8 * 1024], dtype=tl.float32, mem_addr_space=tle.dsa.ascend.UB)
+        word = tl.arange(0, 1024)
+        initial = tl.where(word % 2 == 0, -float('inf'), tl.full((), -1, tl.int32).to(tl.float32, bitcast=True))
+        for init_query in range(8):
+            init_state_slot = tle.dsa.subview(state_storage, [init_query * 1024], [1024], [1])
+            tle.dsa.to_buffer(initial, space=tle.dsa.ascend.UB, bind_buffer=init_state_slot)
+        tl.debug_barrier()
+        for initial_credit in tl.static_range(SLOTS):
+            al.sync_block_set('vector', 'cube', initial_credit, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+        for vector_block in range(BLOCKS):
+            vector_slot = vector_block % SLOTS
+            al.sync_block_wait('cube', 'vector', vector_slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
+            complete_pair = vector_block % 2 == 1
+            save_pending = (vector_block % 2 == 0) & (vector_block + 1 < BLOCKS)
+            for update_query in range(8):
+                update_local_row = al.sub_vec_id() * 8 + update_query
+                update_row = tl.program_id(0) * 16 + update_local_row
+                tile = tl.arange(0, 8)
+                col = tl.arange(0, 64)
+                lane = tl.arange(0, 512)
+                received = tl.load(Ring + ((tl.program_id(0) * SLOTS + vector_slot) * 8 + tile[:, None]) * 1024 + update_local_row * 64 + col[None, :])
+                ks = tl.load(LogicalKS + vector_block * 512 + lane).to(tl.float32)
+                visible = tl.load(Visible + tl.where(update_row < ROWS, update_row, 0), mask=update_row < ROWS, other=0)
+                score = tl.where((update_row < ROWS) & (vector_block * 512 + lane < WIDTH) & (vector_block * 512 + lane < visible), tl.reshape(received, (512,)) * ks, -float('inf'))
+                if TRACE:
+                    tl.store(Trace + update_row * WIDTH + vector_block * 512 + lane, score, mask=(update_row < ROWS) & (vector_block * 512 + lane < WIDTH))
+                local_indices = (vector_block * 512 + lane).to(tl.uint32)
+                local32 = tle.dsa.ascend.raw('sort32', score, local_indices, 16, out=tl.zeros((1024,), tl.float32))
+                tl.debug_barrier()
+                local128 = tle.dsa.ascend.raw('mrgsort', local32, 0, 32, 64, 96, 32, 32, 32, 32, False, 15, 4, out=tl.zeros((1024,), tl.float32))
+                tl.debug_barrier()
+                pairs = tle.dsa.ascend.raw('mrgsort', local128, 0, 128, 256, 384, 128, 128, 128, 128, False, 15, 1, out=tl.zeros((1024,), tl.float32))
+                tl.debug_barrier()
+                pending_slot = tle.dsa.subview(pending, [update_query * 1024], [1024], [1])
+                if save_pending:
+                    tle.dsa.to_buffer(pairs, space=tle.dsa.ascend.UB, bind_buffer=pending_slot)
+                else:
+                    state_slot = tle.dsa.subview(state_storage, [update_query * 1024], [1024], [1])
+                    previous = tle.dsa.to_tensor(state_slot)
+                    if complete_pair:
+                        first = tle.dsa.to_tensor(pending_slot)
+                        next_state, consumed = _history_three_way(previous, first, pairs)
+                    else:
+                        next_state = _history_prefix(previous, pairs, 512, 512)
+                    tle.dsa.to_buffer(next_state, space=tle.dsa.ascend.UB, bind_buffer=state_slot)
+                tl.debug_barrier()
+            tl.debug_barrier()
+            al.sync_block_set('vector', 'cube', vector_slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+        for final_query in range(8):
+            final_row = tl.program_id(0) * 16 + al.sub_vec_id() * 8 + final_query
+            final_state_slot = tle.dsa.subview(state_storage, [final_query * 1024], [1024], [1])
+            final_state = tle.dsa.to_tensor(final_state_slot)
+            values, indices = tle.dsa.ascend.raw('unpack_sort', final_state, 512, out=[tl.zeros((512,), tl.float32), tl.zeros((512,), tl.int32)])
+            rank = tl.arange(0, 512)
+            valid = rank < tl.load(Visible + tl.where(final_row < ROWS, final_row, 0), mask=final_row < ROWS, other=0)
+            tl.store(Indices + final_row * 512 + rank, tl.where(valid, indices, -1), mask=final_row < ROWS)
+            tl.store(Values + final_row * 512 + rank, tl.where(valid, values, -float('inf')), mask=final_row < ROWS)
+
+@triton.jit
+def raw_history_prepared_paired_no_merge_barrier(PQ, PK, PW, LogicalKS, Visible, Ring, Indices, Values, Trace, WIDTH: tl.constexpr, SLOTS: tl.constexpr, TRACE: tl.constexpr, ROWS: tl.constexpr, BLOCKS):
+    with al.scope(core_mode='cube'):
+        qbase = tl.cast(PQ, tl.uint64)
+        kbase = tl.cast(PK, tl.uint64)
+        wbase = tl.cast(PW, tl.uint64)
+        rbase = tl.cast(Ring, tl.uint64)
+        group_q = qbase + tl.program_id(0).to(tl.uint64) * 8192
+        group_w = wbase + tl.program_id(0).to(tl.uint64) * 2048
+        for cube_block in range(BLOCKS):
+            cube_slot = cube_block % SLOTS
+            al.sync_block_wait('vector', 'cube', cube_slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+            key = kbase + (cube_block * 8 + 0).to(tl.uint64) * 8192
+            dest = rbase + ((tl.program_id(0) * SLOTS + cube_slot) * 8 + 0).to(tl.uint64) * 4096
+            bits = tl.full((), 981467136, tl.int64)
+            raw.call(block512_chain_op, [group_q, key, group_w, bits, dest], output_indices=[])
+            al.sync_block_set('cube', 'vector', cube_slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
+        for drain_slot in tl.static_range(SLOTS):
+            al.sync_block_wait('vector', 'cube', drain_slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+    with al.scope(core_mode='vector'):
+        state_storage = tle.dsa.alloc([8 * 1024], dtype=tl.float32, mem_addr_space=tle.dsa.ascend.UB)
+        pending = tle.dsa.alloc([8 * 1024], dtype=tl.float32, mem_addr_space=tle.dsa.ascend.UB)
+        word = tl.arange(0, 1024)
+        initial = tl.where(word % 2 == 0, -float('inf'), tl.full((), -1, tl.int32).to(tl.float32, bitcast=True))
+        for init_query in range(8):
+            init_state_slot = tle.dsa.subview(state_storage, [init_query * 1024], [1024], [1])
+            tle.dsa.to_buffer(initial, space=tle.dsa.ascend.UB, bind_buffer=init_state_slot)
+        tl.debug_barrier()
+        for initial_credit in tl.static_range(SLOTS):
+            al.sync_block_set('vector', 'cube', initial_credit, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+        for vector_block in range(BLOCKS):
+            vector_slot = vector_block % SLOTS
+            al.sync_block_wait('cube', 'vector', vector_slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
+            complete_pair = vector_block % 2 == 1
+            save_pending = (vector_block % 2 == 0) & (vector_block + 1 < BLOCKS)
+            for update_query in range(8):
+                update_local_row = al.sub_vec_id() * 8 + update_query
+                update_row = tl.program_id(0) * 16 + update_local_row
+                tile = tl.arange(0, 8)
+                col = tl.arange(0, 64)
+                lane = tl.arange(0, 512)
+                received = tl.load(Ring + ((tl.program_id(0) * SLOTS + vector_slot) * 8 + tile[:, None]) * 1024 + update_local_row * 64 + col[None, :])
+                ks = tl.load(LogicalKS + vector_block * 512 + lane).to(tl.float32)
+                visible = tl.load(Visible + tl.where(update_row < ROWS, update_row, 0), mask=update_row < ROWS, other=0)
+                score = tl.where((update_row < ROWS) & (vector_block * 512 + lane < WIDTH) & (vector_block * 512 + lane < visible), tl.reshape(received, (512,)) * ks, -float('inf'))
+                if TRACE:
+                    tl.store(Trace + update_row * WIDTH + vector_block * 512 + lane, score, mask=(update_row < ROWS) & (vector_block * 512 + lane < WIDTH))
+                local_indices = (vector_block * 512 + lane).to(tl.uint32)
+                local32 = tle.dsa.ascend.raw('sort32', score, local_indices, 16, out=tl.zeros((1024,), tl.float32))
+                tl.debug_barrier()
+                local128 = tle.dsa.ascend.raw('mrgsort', local32, 0, 32, 64, 96, 32, 32, 32, 32, False, 15, 4, out=tl.zeros((1024,), tl.float32))
+                pairs = tle.dsa.ascend.raw('mrgsort', local128, 0, 128, 256, 384, 128, 128, 128, 128, False, 15, 1, out=tl.zeros((1024,), tl.float32))
+                tl.debug_barrier()
+                pending_slot = tle.dsa.subview(pending, [update_query * 1024], [1024], [1])
+                if save_pending:
+                    tle.dsa.to_buffer(pairs, space=tle.dsa.ascend.UB, bind_buffer=pending_slot)
+                else:
+                    state_slot = tle.dsa.subview(state_storage, [update_query * 1024], [1024], [1])
+                    previous = tle.dsa.to_tensor(state_slot)
+                    if complete_pair:
+                        first = tle.dsa.to_tensor(pending_slot)
+                        next_state, consumed = _history_three_way(previous, first, pairs)
+                    else:
+                        next_state = _history_prefix(previous, pairs, 512, 512)
+                    tle.dsa.to_buffer(next_state, space=tle.dsa.ascend.UB, bind_buffer=state_slot)
+                tl.debug_barrier()
+            tl.debug_barrier()
+            al.sync_block_set('vector', 'cube', vector_slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+        for final_query in range(8):
+            final_row = tl.program_id(0) * 16 + al.sub_vec_id() * 8 + final_query
+            final_state_slot = tle.dsa.subview(state_storage, [final_query * 1024], [1024], [1])
+            final_state = tle.dsa.to_tensor(final_state_slot)
+            values, indices = tle.dsa.ascend.raw('unpack_sort', final_state, 512, out=[tl.zeros((512,), tl.float32), tl.zeros((512,), tl.int32)])
+            rank = tl.arange(0, 512)
+            valid = rank < tl.load(Visible + tl.where(final_row < ROWS, final_row, 0), mask=final_row < ROWS, other=0)
+            tl.store(Indices + final_row * 512 + rank, tl.where(valid, indices, -1), mask=final_row < ROWS)
+            tl.store(Values + final_row * 512 + rank, tl.where(valid, values, -float('inf')), mask=final_row < ROWS)
+
+@triton.jit
+def raw_history_prepared_paired_no_sort_barriers(PQ, PK, PW, LogicalKS, Visible, Ring, Indices, Values, Trace, WIDTH: tl.constexpr, SLOTS: tl.constexpr, TRACE: tl.constexpr, ROWS: tl.constexpr, BLOCKS):
+    with al.scope(core_mode='cube'):
+        qbase = tl.cast(PQ, tl.uint64)
+        kbase = tl.cast(PK, tl.uint64)
+        wbase = tl.cast(PW, tl.uint64)
+        rbase = tl.cast(Ring, tl.uint64)
+        group_q = qbase + tl.program_id(0).to(tl.uint64) * 8192
+        group_w = wbase + tl.program_id(0).to(tl.uint64) * 2048
+        for cube_block in range(BLOCKS):
+            cube_slot = cube_block % SLOTS
+            al.sync_block_wait('vector', 'cube', cube_slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+            key = kbase + (cube_block * 8 + 0).to(tl.uint64) * 8192
+            dest = rbase + ((tl.program_id(0) * SLOTS + cube_slot) * 8 + 0).to(tl.uint64) * 4096
+            bits = tl.full((), 981467136, tl.int64)
+            raw.call(block512_chain_op, [group_q, key, group_w, bits, dest], output_indices=[])
+            al.sync_block_set('cube', 'vector', cube_slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
+        for drain_slot in tl.static_range(SLOTS):
+            al.sync_block_wait('vector', 'cube', drain_slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+    with al.scope(core_mode='vector'):
+        state_storage = tle.dsa.alloc([8 * 1024], dtype=tl.float32, mem_addr_space=tle.dsa.ascend.UB)
+        pending = tle.dsa.alloc([8 * 1024], dtype=tl.float32, mem_addr_space=tle.dsa.ascend.UB)
+        word = tl.arange(0, 1024)
+        initial = tl.where(word % 2 == 0, -float('inf'), tl.full((), -1, tl.int32).to(tl.float32, bitcast=True))
+        for init_query in range(8):
+            init_state_slot = tle.dsa.subview(state_storage, [init_query * 1024], [1024], [1])
+            tle.dsa.to_buffer(initial, space=tle.dsa.ascend.UB, bind_buffer=init_state_slot)
+        tl.debug_barrier()
+        for initial_credit in tl.static_range(SLOTS):
+            al.sync_block_set('vector', 'cube', initial_credit, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+        for vector_block in range(BLOCKS):
+            vector_slot = vector_block % SLOTS
+            al.sync_block_wait('cube', 'vector', vector_slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
+            complete_pair = vector_block % 2 == 1
+            save_pending = (vector_block % 2 == 0) & (vector_block + 1 < BLOCKS)
+            for update_query in range(8):
+                update_local_row = al.sub_vec_id() * 8 + update_query
+                update_row = tl.program_id(0) * 16 + update_local_row
+                tile = tl.arange(0, 8)
+                col = tl.arange(0, 64)
+                lane = tl.arange(0, 512)
+                received = tl.load(Ring + ((tl.program_id(0) * SLOTS + vector_slot) * 8 + tile[:, None]) * 1024 + update_local_row * 64 + col[None, :])
+                ks = tl.load(LogicalKS + vector_block * 512 + lane).to(tl.float32)
+                visible = tl.load(Visible + tl.where(update_row < ROWS, update_row, 0), mask=update_row < ROWS, other=0)
+                score = tl.where((update_row < ROWS) & (vector_block * 512 + lane < WIDTH) & (vector_block * 512 + lane < visible), tl.reshape(received, (512,)) * ks, -float('inf'))
+                if TRACE:
+                    tl.store(Trace + update_row * WIDTH + vector_block * 512 + lane, score, mask=(update_row < ROWS) & (vector_block * 512 + lane < WIDTH))
+                local_indices = (vector_block * 512 + lane).to(tl.uint32)
+                local32 = tle.dsa.ascend.raw('sort32', score, local_indices, 16, out=tl.zeros((1024,), tl.float32))
+                local128 = tle.dsa.ascend.raw('mrgsort', local32, 0, 32, 64, 96, 32, 32, 32, 32, False, 15, 4, out=tl.zeros((1024,), tl.float32))
+                pairs = tle.dsa.ascend.raw('mrgsort', local128, 0, 128, 256, 384, 128, 128, 128, 128, False, 15, 1, out=tl.zeros((1024,), tl.float32))
+                tl.debug_barrier()
+                pending_slot = tle.dsa.subview(pending, [update_query * 1024], [1024], [1])
+                if save_pending:
+                    tle.dsa.to_buffer(pairs, space=tle.dsa.ascend.UB, bind_buffer=pending_slot)
+                else:
+                    state_slot = tle.dsa.subview(state_storage, [update_query * 1024], [1024], [1])
+                    previous = tle.dsa.to_tensor(state_slot)
+                    if complete_pair:
+                        first = tle.dsa.to_tensor(pending_slot)
+                        next_state, consumed = _history_three_way(previous, first, pairs)
+                    else:
+                        next_state = _history_prefix(previous, pairs, 512, 512)
+                    tle.dsa.to_buffer(next_state, space=tle.dsa.ascend.UB, bind_buffer=state_slot)
+                tl.debug_barrier()
+            tl.debug_barrier()
+            al.sync_block_set('vector', 'cube', vector_slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+        for final_query in range(8):
+            final_row = tl.program_id(0) * 16 + al.sub_vec_id() * 8 + final_query
+            final_state_slot = tle.dsa.subview(state_storage, [final_query * 1024], [1024], [1])
+            final_state = tle.dsa.to_tensor(final_state_slot)
+            values, indices = tle.dsa.ascend.raw('unpack_sort', final_state, 512, out=[tl.zeros((512,), tl.float32), tl.zeros((512,), tl.int32)])
+            rank = tl.arange(0, 512)
+            valid = rank < tl.load(Visible + tl.where(final_row < ROWS, final_row, 0), mask=final_row < ROWS, other=0)
+            tl.store(Indices + final_row * 512 + rank, tl.where(valid, indices, -1), mask=final_row < ROWS)
+            tl.store(Values + final_row * 512 + rank, tl.where(valid, values, -float('inf')), mask=final_row < ROWS)
