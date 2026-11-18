@@ -493,9 +493,9 @@ for qsa_argument in "$@"; do
         qsa_worker="$qsa_repo/tools/run_qsa_packing_probe_910b.py"
         qsa_kind=raw-packing-cost-probe
     fi
-    if [[ "$qsa_argument" == --short-history-compact ]]; then
+    if [[ "$qsa_argument" == --short-history || "$qsa_argument" == --short-history-compact ]]; then
         qsa_worker="$qsa_repo/tools/run_qsa_packing_probe_910b.py"
-        qsa_kind=raw-short-history-compact
+        qsa_kind=raw-short-history
     fi
 done
 command -v timeout >/dev/null || { echo 'timeout is required'; exit 2; }

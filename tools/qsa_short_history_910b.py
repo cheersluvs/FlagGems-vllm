@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Evaluate short TopK history paths on the complete compact fixture."""
+"""Compare full inputs with and without short TopK history paths."""
 
 import ast
 import json
@@ -25,6 +25,11 @@ import qsa_single_block_probe_910b as single_block
 from probe_qsa_raw_cube_chain_910b import record_launch_mode
 from qsa_history_policy_910b import dispatcher, use_prefix
 from qsa_raw_history_merge_910b import ir_evidence as history_ir
+
+EXPECTED_BLOCK_COUNTS = {
+    "int8_compact": {1: 8, 2: 52, 3: 54},
+    "int8_first_chunk": dict.fromkeys(range(1, 9), 16),
+}
 
 
 def source():
@@ -62,7 +67,7 @@ def short_dispatcher(module, policy):
         else:
             return fallback(blocks)
         if use_prefix(blocks, policy):
-            raise ValueError(f"Compact control uses prefix merge for {blocks} blocks")
+            raise ValueError(f"Control uses prefix merge for {blocks} blocks")
 
         def check(compiled):
             if record_launch_mode(compiled, require_cube=False)["mix_mode"] == "aiv":
@@ -74,25 +79,40 @@ def short_dispatcher(module, policy):
     return choose
 
 
-def measure(benchmark, native, snapshot, candidate, path):
-    expected_routes = Counter(
-        {(1, "single_direct"): 8, (2, "first_seed"): 52, (3, "first_seed"): 54}
-    )
-    actual_routes = Counter((r["blocks"], r["mode"]) for r in candidate.dispatch_routes)
-    if actual_routes != expected_routes or snapshot.routes != candidate.routes:
-        raise ValueError(f"Unexpected compact schedule: {actual_routes}")
-    calls = {"cann_v1": native, "snapshot": snapshot, "candidate": candidate}
+def measure(case_name, benchmark, native, control, candidate, path):
+    block_counts = Counter(r["blocks"] for r in candidate.routes)
+    if (
+        block_counts != EXPECTED_BLOCK_COUNTS[case_name]
+        or control.routes != candidate.routes
+        or len(control.dispatch_routes) != len(candidate.dispatch_routes)
+    ):
+        raise ValueError(f"Unexpected {case_name} schedule: {block_counts}")
+    transitions = Counter()
+    for old, new in zip(control.dispatch_routes, candidate.dispatch_routes):
+        blocks = old["blocks"]
+        expected = {1: "single_direct", 2: "first_seed", 3: "first_seed"}.get(
+            blocks, old["mode"]
+        )
+        if new != dict(old, mode=expected) or (
+            blocks <= 3 and old["mode"] != "snapshot"
+        ):
+            raise ValueError(f"Unexpected route change: {old} -> {new}")
+        transitions[f'{old["mode"]}->{new["mode"]}'] += 1
+    calls = {"cann_v1": native, "control": control, "candidate": candidate}
     rounds = []
     result = dict(
         status="running",
         timing="FlagGems-vllm harness get_latency, --mode kernel",
-        scope="Full int8_compact; includes every piece, QW/K/KS packing, and mixed execution",
+        case=case_name,
+        scope="Full input including every piece, QW/K/KS packing, and mixed execution",
+        control="original history policy",
         logical_width=candidate.width,
-        pieces_by_blocks=dict(Counter(r["blocks"] for r in candidate.routes)),
+        pieces_by_blocks=dict(block_counts),
         rows_by_blocks={
             blocks: sum(r["count"] for r in candidate.routes if r["blocks"] == blocks)
-            for blocks in (1, 2, 3)
+            for blocks in sorted(block_counts)
         },
+        route_transitions=dict(transitions),
         rounds=rounds,
     )
 
@@ -111,7 +131,7 @@ def measure(benchmark, native, snapshot, candidate, path):
             save()
             print("SHORT_HISTORY_TIMING", len(rounds), name, latency, "ms", flush=True)
         round_result.update(
-            snapshot_over_candidate=timings["snapshot"] / timings["candidate"],
+            control_over_candidate=timings["control"] / timings["candidate"],
             cann_over_candidate=timings["cann_v1"] / timings["candidate"],
         )
         save()
@@ -119,8 +139,8 @@ def measure(benchmark, native, snapshot, candidate, path):
         status="passed",
         mean_ms={name: mean(r["latency_ms"][name] for r in rounds) for name in calls},
     )
-    for label in ("snapshot_over_candidate", "cann_over_candidate"):
+    for label in ("control_over_candidate", "cann_over_candidate"):
         result[label] = mean(r[label] for r in rounds)
     save()
-    print("SHORT_HISTORY_COMPACT", json.dumps(result), flush=True)
+    print("SHORT_HISTORY_RESULT", json.dumps(result), flush=True)
     return result

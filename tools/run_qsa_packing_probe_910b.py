@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Run packing diagnostics or the short-history compact comparison."""
+"""Run packing diagnostics or a short-history comparison."""
 
 import argparse
 import json
@@ -22,6 +22,7 @@ import sys
 from pathlib import Path
 
 from qsa_history_policy_910b import load_policy
+from qsa_short_history_910b import EXPECTED_BLOCK_COUNTS
 from run_qsa_raw_serial_harness_910b import cases, run_worker
 
 
@@ -29,7 +30,9 @@ def main():
     parser = argparse.ArgumentParser()
     probe = parser.add_mutually_exclusive_group(required=True)
     probe.add_argument("--packing-probe", action="store_true")
-    probe.add_argument("--short-history-compact", action="store_true")
+    probe.add_argument(
+        "--short-history", "--short-history-compact", action="store_true"
+    )
     for flag in (
         "serial-harness",
         "mixed-harness",
@@ -47,12 +50,12 @@ def main():
         choices=[p["name"] for p in cases()],
     )
     args = parser.parse_args()
-    if args.short_history_compact:
-        if args.cases not in (None, ["int8_compact"]):
-            parser.error("--short-history-compact requires int8_compact")
-        args.cases = ["int8_compact"]
-        mode, result_key = "short-history-compact", "short_history_compact"
-        scope = "Complete compact fixture with two rounds of stock kernel timing"
+    if args.short_history:
+        args.cases = args.cases or ["int8_compact"]
+        if any(name not in EXPECTED_BLOCK_COUNTS for name in args.cases):
+            parser.error("--short-history supports int8_compact and int8_first_chunk")
+        mode, result_key = "short-history", "short_history"
+        scope = "Complete fixtures with two rounds of stock kernel timing"
         log_key = "SHORT_HISTORY"
     else:
         args.cases = args.cases or [
@@ -94,7 +97,7 @@ def main():
         QSA_RAW_TLE_SORT_HARNESS="1",
         QSA_RAW_HISTORY_HARNESS="1",
         QSA_PACKING_PROBE="1" if args.packing_probe else "0",
-        QSA_SHORT_HISTORY_COMPACT="1" if args.short_history_compact else "0",
+        QSA_SHORT_HISTORY="1" if args.short_history else "0",
         QSA_HISTORY_POLICY=str((args.report / "history-policy.json").resolve()),
     )
     for name in dict.fromkeys(args.cases):
@@ -140,9 +143,7 @@ def main():
             if measurement.get("status") != "passed":
                 raise ValueError("Measurement did not finish")
             row.update(status="passed")
-            row[
-                "short_history_compact" if args.short_history_compact else "packing"
-            ] = measurement
+            row["short_history" if args.short_history else "packing"] = measurement
         except (KeyError, ValueError, OSError) as exc:
             row["error"] = repr(exc)
         result["cases"].append(row)
