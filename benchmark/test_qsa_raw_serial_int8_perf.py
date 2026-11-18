@@ -94,6 +94,8 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
     mixed_mode = os.environ.get("QSA_RAW_MIXED_HARNESS") == "1"
     fixed_mode = os.environ.get("QSA_RAW_TLE_SORT_HARNESS") == "1"
     history_mode = os.environ.get("QSA_RAW_HISTORY_HARNESS") == "1"
+    short_history = os.environ.get("QSA_SHORT_HISTORY_COMPACT") == "1"
+    assert not short_history or (history_mode and case_name == "int8_compact")
     assert not history_mode or fixed_mode
     assert not fixed_mode or mixed_mode
     source_text = runtime_source() + finish_source()
@@ -107,6 +109,10 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
         from qsa_raw_mixed_online_910b import source as mixed_source
 
         source_text += mixed_source() + harness_source()
+    if short_history:
+        from qsa_short_history_compact_910b import source as short_source
+
+        source_text += short_source()
     path.write_text(source_text)
     path.with_suffix(".py.txt").write_text(path.read_text())
     spec = importlib.util.spec_from_file_location("_raw_serial_kernels", path)
@@ -176,6 +182,10 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
                     online_name="raw_history_topk_snapshot",
                     dispatch=dispatcher(module, policy),
                 )
+                if short_history:
+                    from qsa_short_history_compact_910b import short_dispatcher
+
+                    options["dispatch"] = short_dispatcher(module, policy)
                 generic = PreparedRawMixedSelection(
                     context,
                     module,
@@ -229,6 +239,12 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
                 detail["generic_identity"]["history"] = "snapshot"
                 detail["history_policy"] = policy
                 detail["history_dispatch"] = mixed.dispatch_routes
+                if short_history:
+                    detail["mixed_identity"].update(
+                        history="short_history_compact",
+                        kernel="raw_history_single_or_firstseed",
+                        topk="single_direct_or_first_seed",
+                    )
         v = context["values"]
         native_call = partial(
             torch_npu.npu_quant_lightning_indexer,
@@ -289,6 +305,20 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
             dtypes=[torch.int8],
             device=f"npu:{device_index}",
         )
+        if short_history:
+            from qsa_short_history_compact_910b import measure
+
+            detail["short_history_compact"] = measure(
+                benchmark,
+                native_call,
+                generic,
+                mixed,
+                report / (case_name + "-short-history-timings.json"),
+            )
+            detail["postcheck"] = verify_pipeline(
+                torch, context, raw, native_call, "after", extra=extra
+            )
+            return detail
         if os.environ.get("QSA_PACKING_PROBE") == "1":
             from qsa_packing_cost_probe_910b import probe
 

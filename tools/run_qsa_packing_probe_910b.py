@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Run four complete fixtures with existing kernels and diagnostic-only stages."""
+"""Run packing diagnostics or the short-history compact comparison."""
 
 import argparse
 import json
@@ -27,8 +27,10 @@ from run_qsa_raw_serial_harness_910b import cases, run_worker
 
 def main():
     parser = argparse.ArgumentParser()
+    probe = parser.add_mutually_exclusive_group(required=True)
+    probe.add_argument("--packing-probe", action="store_true")
+    probe.add_argument("--short-history-compact", action="store_true")
     for flag in (
-        "packing-probe",
         "serial-harness",
         "mixed-harness",
         "tle-sort-harness",
@@ -43,14 +45,25 @@ def main():
         "--cases",
         nargs="+",
         choices=[p["name"] for p in cases()],
-        default=[
+    )
+    args = parser.parse_args()
+    if args.short_history_compact:
+        if args.cases not in (None, ["int8_compact"]):
+            parser.error("--short-history-compact requires int8_compact")
+        args.cases = ["int8_compact"]
+        mode, result_key = "short-history-compact", "short_history_compact"
+        scope = "Complete compact fixture with two rounds of stock kernel timing"
+        log_key = "SHORT_HISTORY"
+    else:
+        args.cases = args.cases or [
             "int8_first_chunk",
             "int8_budget_exact",
             "int8_compact",
             "int8_long100k",
-        ],
-    )
-    args = parser.parse_args()
+        ]
+        mode, result_key = "packing-cost-probe", "packing_probe"
+        scope = "Four full fixtures, diagnostic stages only; no acceptance mean"
+        log_key = "PACKING"
     root = Path(__file__).resolve().parents[1]
     args.report.mkdir(exist_ok=True, parents=True)
     policy = load_policy(args.resume_report)
@@ -61,9 +74,9 @@ def main():
             shutil.copy2(path, args.report / path.name)
     result = dict(
         status="running",
-        mode="packing-cost-probe",
+        mode=mode,
         production_changed=False,
-        scope="Four full fixtures, diagnostic stages only; no acceptance mean",
+        scope=scope,
         history_policy=policy,
         cases=[],
     )
@@ -80,7 +93,8 @@ def main():
         QSA_RAW_MIXED_HARNESS="1",
         QSA_RAW_TLE_SORT_HARNESS="1",
         QSA_RAW_HISTORY_HARNESS="1",
-        QSA_PACKING_PROBE="1",
+        QSA_PACKING_PROBE="1" if args.packing_probe else "0",
+        QSA_SHORT_HISTORY_COMPACT="1" if args.short_history_compact else "0",
         QSA_HISTORY_POLICY=str((args.report / "history-policy.json").resolve()),
     )
     for name in dict.fromkeys(args.cases):
@@ -99,7 +113,7 @@ def main():
             cmd,
             root,
             env,
-            args.report / (name + "-packing-console.txt"),
+            args.report / (name + "-" + mode + "-console.txt"),
             args.case_timeout,
         )
         row = dict(case=name, exit_code=rc, status="failed")
@@ -122,11 +136,17 @@ def main():
                 )
             ):
                 raise ValueError("Full pre/post correctness or worker failed")
-            row.update(status="passed", packing=detail["packing_probe"])
+            measurement = detail[result_key]
+            if measurement.get("status") != "passed":
+                raise ValueError("Measurement did not finish")
+            row.update(status="passed")
+            row[
+                "short_history_compact" if args.short_history_compact else "packing"
+            ] = measurement
         except (KeyError, ValueError, OSError) as exc:
             row["error"] = repr(exc)
         result["cases"].append(row)
-        print("PACKING_CASE", json.dumps(row), flush=True)
+        print(log_key + "_CASE", json.dumps(row), flush=True)
         save()
         if rc in (124, 134, -6, 139, -11):
             break
@@ -137,7 +157,7 @@ def main():
         else "incomplete"
     )
     save()
-    print("PACKING_SUMMARY", json.dumps(result), flush=True)
+    print(log_key + "_SUMMARY", json.dumps(result), flush=True)
     return 0 if result["status"] == "passed" else 1
 
 
