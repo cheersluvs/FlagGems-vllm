@@ -34,6 +34,7 @@ def main():
     probe.add_argument("--paired-history", action="store_true")
     probe.add_argument("--paired-handoff", action="store_true")
     probe.add_argument("--combined-history", action="store_true")
+    probe.add_argument("--early-release", action="store_true")
     probe.add_argument(
         "--short-history", "--short-history-compact", action="store_true"
     )
@@ -52,7 +53,16 @@ def main():
     selection.add_argument("--cases", nargs="+", choices=suite)
     selection.add_argument("--all-cases", action="store_true")
     args = parser.parse_args()
-    if args.combined_history:
+    if args.early_release:
+        from qsa_paired_history_910b import CASES
+
+        args.cases = args.cases or list(CASES)
+        if args.all_cases or any(name not in CASES for name in args.cases):
+            parser.error("Early release supports int8_budget_exact and int8_long100k")
+        mode, result_key = "early-release", "early_release"
+        scope = "Two full inputs with paired TopK and 512-key double-buffered handoff"
+        log_key = "EARLY_RELEASE"
+    elif args.combined_history:
         args.cases = args.cases or suite
         mode, result_key = "combined-history", "combined_history"
         scope = "Ten-input 512-key handoff with short routes and paired prefix updates"
@@ -123,6 +133,7 @@ def main():
         QSA_SHORT_HISTORY="1" if args.short_history else "0",
         QSA_PAIRED_HISTORY="1" if args.paired_history or args.paired_handoff else "0",
         QSA_PAIRED_HANDOFF="1" if args.paired_handoff else "0",
+        QSA_EARLY_RELEASE="1" if args.early_release else "0",
         QSA_COMBINED_HISTORY="1" if args.combined_history else "0",
         QSA_HISTORY_POLICY=str((args.report / "history-policy.json").resolve()),
     )
@@ -168,7 +179,10 @@ def main():
             measurement = detail[result_key]
             if measurement.get("status") != "passed":
                 raise ValueError("Measurement did not finish")
-            if args.paired_history or args.paired_handoff or args.combined_history:
+            if (
+                args.paired_history or args.paired_handoff
+                or args.combined_history or args.early_release
+            ):
                 check = json.loads(
                     (args.report / (name + "-three-way-merge.json")).read_text()
                 )

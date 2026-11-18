@@ -97,7 +97,8 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
     short_history = os.environ.get("QSA_SHORT_HISTORY") == "1"
     paired_history = os.environ.get("QSA_PAIRED_HISTORY") == "1"
     paired_handoff = os.environ.get("QSA_PAIRED_HANDOFF") == "1"
-    combined_history = os.environ.get("QSA_COMBINED_HISTORY") == "1"
+    early_release = os.environ.get("QSA_EARLY_RELEASE") == "1"
+    combined_history = os.environ.get("QSA_COMBINED_HISTORY") == "1" or early_release
     history_comparison = short_history or paired_history or combined_history
     assert not history_mode or fixed_mode
     assert not fixed_mode or mixed_mode
@@ -127,6 +128,10 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
         from qsa_paired_history_910b import handoff_source
 
         source_text += handoff_source(source_text)
+    if early_release:
+        from qsa_paired_history_910b import early_release_source
+
+        source_text += early_release_source(source_text)
     path.write_text(source_text)
     path.with_suffix(".py.txt").write_text(path.read_text())
     spec = importlib.util.spec_from_file_location("_raw_serial_kernels", path)
@@ -222,8 +227,13 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
                             module,
                             policy,
                             handoff1024=paired_handoff,
+                            early_release=early_release,
                             fallback=options["dispatch"],
                         )
+                        if early_release:
+                            control_options["dispatch"] = paired_dispatcher(
+                                module, policy, fallback=control_options["dispatch"]
+                            )
                         if paired_handoff:
                             control_options["dispatch"] = paired_dispatcher(
                                 module, policy
@@ -327,6 +337,17 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
                         topk="single_direct_first_seed_or_original",
                         handoff_keys=512,
                     )
+                if early_release:
+                    detail["mixed_identity"].update(
+                        kernel="raw_history_prepared_paired_early_release",
+                        release="after_ring_reads",
+                    )
+                    detail["generic_identity"].update(
+                        kernel="raw_history_prepared_paired",
+                        history="short_and_paired_prefix",
+                        topk="single_direct_first_seed_or_paired_prefix",
+                        release="after_topk",
+                    )
         v = context["values"]
         native_call = partial(
             torch_npu.npu_quant_lightning_indexer,
@@ -392,6 +413,9 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
                 from qsa_paired_history_910b import measure_combined as measure
 
                 measure_key = "combined_history"
+                if early_release:
+                    measure = partial(measure, early_release=True)
+                    measure_key = "early_release"
             elif paired_history:
                 from qsa_paired_history_910b import measure
 

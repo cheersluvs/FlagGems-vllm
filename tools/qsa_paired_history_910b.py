@@ -17,6 +17,7 @@
 import ast
 import json
 from collections import Counter
+from functools import partial
 
 from probe_qsa_raw_cube_chain_910b import record_launch_mode
 from qsa_history_policy_910b import dispatcher, use_prefix
@@ -171,7 +172,69 @@ for {pair} in range(tl.cdiv(BLOCKS, 2)):
     return "\n" + ast.unparse(ast.fix_missing_locations(kernel)) + "\n"
 
 
-def ir_evidence(kernel):
+def early_release_source(paired_source):
+    kernel = next(
+        node
+        for node in ast.parse(paired_source).body
+        if isinstance(node, ast.FunctionDef)
+        and node.name == "raw_history_prepared_paired"
+    )
+    kernel.name = "raw_history_prepared_paired_early_release"
+    vector = kernel.body[1].body
+    tile = next(
+        node
+        for node in vector
+        if isinstance(node, ast.For) and node.target.id == "vector_block"
+    )
+    update = next(
+        node
+        for node in tile.body
+        if isinstance(node, ast.For) and node.target.id == "update_query"
+    )
+    received = next(
+        node
+        for node in update.body
+        if isinstance(node, ast.Assign) and ast.unparse(node.targets[0]) == "received"
+    )
+    vector.insert(
+        vector.index(tile),
+        ast.parse(
+            "staged = tle.dsa.alloc([4096], dtype=tl.float32, "
+            "mem_addr_space=tle.dsa.ascend.UB)"
+        ).body[0],
+    )
+    assert ast.unparse(tile.body[-1].value.func) == "al.sync_block_set"
+    release = tile.body.pop()
+    assert ast.unparse(tile.body[1].value.func) == "al.sync_block_wait"
+    tile.body[2:2] = ast.parse(
+        """
+offset = tl.arange(0, 4096)
+staged_row = al.sub_vec_id() * 8 + offset // 512
+staged_tile = offset % 512 // 64
+staged_col = offset % 64
+ring_tile = (tl.program_id(0) * SLOTS + vector_slot) * 8 + staged_tile
+payload = tl.load(Ring + ring_tile * 1024 + staged_row * 64 + staged_col)
+tle.dsa.to_buffer(payload, space=tle.dsa.ascend.UB, bind_buffer=staged)
+tl.debug_barrier()
+"""
+    ).body + [release]
+    received.value = ast.parse(
+        "tle.dsa.to_tensor(tle.dsa.subview(staged, [update_query * 512], [512], [1]))",
+        mode="eval",
+    ).body
+    # Acknowledge from the pipe that reads the slot. Initial credits and Cube
+    # waits use the same pipe, including the drain at kernel exit.
+    for call in ast.walk(kernel):
+        if (
+            isinstance(call, ast.Call)
+            and ast.unparse(call.func) in ("al.sync_block_set", "al.sync_block_wait")
+            and ast.unparse(call.args[0]) == "'vector'"
+        ):
+            call.args[3] = ast.parse("pipe.PIPE_MTE2", mode="eval").body
+    return "\n" + ast.unparse(ast.fix_missing_locations(kernel)) + "\n"
+
+
+def ir_evidence(kernel, *, early_release=False):
     if record_launch_mode(kernel, require_cube=False)["mix_mode"] == "aiv":
         return history_ir(kernel, complete=False, expect_no_gather=True)
     text = kernel.asm.get("bcmlir", "")
@@ -186,10 +249,21 @@ def ir_evidence(kernel):
         raise RuntimeError("Unexpected paired history structure: " + repr(calls))
     if "triton_gather" in text:
         raise RuntimeError("Unexpected gather in paired history")
+    sync_ir = [
+        line.strip() for line in text.splitlines()
+        if "sync_block" in line or "barrier" in line
+    ]
+    if early_release and not any(
+        "sync_block_set[<VECTOR>, <PIPE_MTE2>, <PIPE_FIX>]" in line
+        for line in sync_ir
+    ):
+        raise RuntimeError("Expected Vector MTE2 slot release in paired-history IR")
     return dict(
         calls=calls,
         lines=lines,
         extra_pending_ub_bytes_per_vector=8 * 1024 * 4,
+        extra_payload_ub_bytes_per_vector=4096 * 4 if early_release else 0,
+        sync_ir=sync_ir,
         ub_allocations=[
             line.strip()
             for line in text.splitlines()
@@ -198,7 +272,9 @@ def ir_evidence(kernel):
     )
 
 
-def paired_dispatcher(module, policy, handoff1024=False, *, fallback=None):
+def paired_dispatcher(
+    module, policy, handoff1024=False, *, fallback=None, early_release=False
+):
     original = fallback if fallback is not None else dispatcher(module, policy)
     kernel = (
         module.raw_history_prepared_paired_handoff1024
@@ -206,13 +282,18 @@ def paired_dispatcher(module, policy, handoff1024=False, *, fallback=None):
         else module.raw_history_prepared_paired
     )
     mode = "paired_handoff1024" if handoff1024 else "paired_prefix"
+    evidence = ir_evidence
+    if early_release:
+        kernel = module.raw_history_prepared_paired_early_release
+        mode = "paired_early_release"
+        evidence = partial(ir_evidence, early_release=True)
 
     def choose(blocks):
         if blocks >= 4 and use_prefix(blocks, policy):
             return (
                 kernel,
                 module.raw_history_topk_prefix,
-                ir_evidence,
+                evidence,
                 mode,
             )
         return original(blocks)
@@ -220,7 +301,9 @@ def paired_dispatcher(module, policy, handoff1024=False, *, fallback=None):
     return choose
 
 
-def measure_combined(case_name, benchmark, native, control, candidate, path):
+def measure_combined(
+    case_name, benchmark, native, control, candidate, path, *, early_release=False
+):
     if (
         control.ring_blocks_per_slot != 1
         or candidate.ring_blocks_per_slot != 1
@@ -233,10 +316,14 @@ def measure_combined(case_name, benchmark, native, control, candidate, path):
     paired_blocks = Counter()
     for old, new in zip(control.dispatch_routes, candidate.dispatch_routes):
         mode = "paired_prefix" if old["mode"] == "prefix" else old["mode"]
+        if early_release:
+            mode = (
+                "paired_early_release" if old["mode"] == "paired_prefix" else old["mode"]
+            )
         if new != dict(old, mode=mode):
             raise ValueError(f"Unexpected combined history route: {old} -> {new}")
         transitions[f'{old["mode"]}->{mode}'] += 1
-        if mode == "paired_prefix":
+        if mode in ("paired_prefix", "paired_early_release"):
             paired_blocks[new["blocks"]] += 1
     routing = dict(
         route_transitions=dict(transitions),
@@ -245,6 +332,10 @@ def measure_combined(case_name, benchmark, native, control, candidate, path):
         handoff_keys=512,
         slots=2,
     )
+    if early_release:
+        routing.update(extra_payload_ub_bytes_per_vector=4096 * 4)
+        if not paired_blocks:
+            raise ValueError(f"No paired pieces exercised for {case_name}")
     return measure_arms(
         case_name,
         benchmark,
@@ -253,8 +344,12 @@ def measure_combined(case_name, benchmark, native, control, candidate, path):
         candidate,
         path,
         routing,
-        "COMBINED_HISTORY",
-        control_name="short-history dispatch with per-block prefix updates",
+        "EARLY_RELEASE" if early_release else "COMBINED_HISTORY",
+        control_name=(
+            "512-key paired history with slot release after TopK"
+            if early_release
+            else "short-history dispatch with per-block prefix updates"
+        ),
     )
 
 
