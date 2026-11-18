@@ -114,6 +114,53 @@ else:
     return MERGE + "\n" + ast.unparse(ast.fix_missing_locations(kernel)) + "\n"
 
 
+def sort_barrier_source():
+    from qsa_raw_history_merge_910b import harness_source
+
+    history = harness_source()
+    paired = source(history)
+    tree = ast.parse(paired)
+    control = tree.body[-1]
+    assert control.name == "raw_history_prepared_paired"
+    candidate = copy.deepcopy(control)
+    candidate.name = "raw_history_prepared_paired_no_merge_barrier"
+    update = next(
+        node for node in ast.walk(candidate)
+        if isinstance(node, ast.For) and node.target.id == "update_query"
+    )
+    i = next(
+        i for i, node in enumerate(update.body)
+        if isinstance(node, ast.Assign) and ast.unparse(node.targets[0]) == "local128"
+    )
+    first, barrier, second = update.body[i : i + 3]
+    assert ast.unparse(first.value.args[0]) == "'mrgsort'"
+    assert ast.unparse(barrier) == "tl.debug_barrier()"
+    assert ast.unparse(second.value.args[0]) == "'mrgsort'"
+    assert ast.unparse(second.value.args[1]) == "local128"
+    del update.body[i + 1]
+    return history + paired + "\n" + ast.unparse(ast.fix_missing_locations(candidate)) + "\n"
+
+
+def sort_barrier_ir(kernel, label):
+    evidence = ir_evidence(kernel)
+    text = kernel.asm["bcmlir"]
+    if isinstance(text, bytes):
+        text = text.decode()
+    lines = text.splitlines()
+    merges = [
+        i for i, line in enumerate(lines)
+        if "hivm.hir.custom" in line and '"mrgsort"' in line
+    ]
+    first, second = merges
+    interval = lines[first : second + 1]
+    barriers = sum("gpu.barrier" in line for line in interval)
+    if barriers != int(label == "full"):
+        raise RuntimeError(f"Unexpected explicit barriers between mrgsort calls: {interval}")
+    if not all("#hivm.pipe<PIPE_V>" in lines[i] for i in merges):
+        raise RuntimeError("Expected both mrgsort calls on PIPE_V")
+    return dict(**evidence, merge_interval=[line.strip() for line in interval])
+
+
 def vector_profile_source():
     from qsa_raw_history_merge_910b import harness_source
 

@@ -43,16 +43,19 @@ def main():
     parser.add_argument("--history-direct", action="store_true")
     parser.add_argument("--single-block", action="store_true")
     parser.add_argument("--first-block-seed", action="store_true")
-    parser.add_argument("--paired-vector-profile", action="store_true")
+    paired = parser.add_mutually_exclusive_group()
+    paired.add_argument("--paired-vector-profile", action="store_true")
+    paired.add_argument("--paired-sort-barrier", action="store_true")
     args = parser.parse_args()
-    if args.paired_vector_profile and (
+    paired_probe = args.paired_vector_profile or args.paired_sort_barrier
+    if paired_probe and (
         not args.cube_block512
         or args.history_full_merge
         or args.critical_path
         or args.tle_sort512
         or args.sort_buffers
     ):
-        parser.error("--paired-vector-profile requires --cube-block512 as its only variant")
+        parser.error("Paired probes require --cube-block512 without other variants")
     if args.first_block_seed and (
         not args.history_full_merge
         or args.history_boundary
@@ -218,6 +221,10 @@ def main():
             from qsa_paired_history_910b import vector_profile_ir, vector_profile_source
 
             text += vector_profile_source()
+        if args.paired_sort_barrier:
+            from qsa_paired_history_910b import sort_barrier_ir, sort_barrier_source
+
+            text += sort_barrier_source()
         path.write_text(text)
         path.with_suffix(".py.txt").write_text(path.read_text())
         spec = importlib.util.spec_from_file_location("_qsa_raw_mixed_online", path)
@@ -373,14 +380,22 @@ def main():
                 "Peel the first Vector block, preserve Cube, ring and events",
                 "Prepared timings exclude packing and full-input CANN comparison",
             ]
-        if args.paired_vector_profile:
+        if paired_probe:
             fixtures = ((128, 8192), (112, 29696))
+        if args.paired_vector_profile:
             result["mode"] = "paired_vector_profile"
             result["scope"] = "Synthetic causal chunks with two slots and 512-key handoff"
             result["limitations"] = [
                 "All arms include a block checksum and its write",
                 "Full minus sort-only includes history setup, state updates and final export",
                 "The differences are changes in mixed kernel time under overlap",
+            ]
+        if args.paired_sort_barrier:
+            result["mode"] = "paired_sort_barrier"
+            result["scope"] = "Prepared paired-history mixed kernel with or without the explicit barrier between mrgsort calls"
+            result["limitations"] = [
+                "Barrier evidence is from pre-device backend IR",
+                "Timings include the full mixed kernel on two causal chunks",
             ]
         for rows, width in fixtures:
             case_name = f"r{rows}-w{width}" if args.boundaries else str(width)
@@ -413,7 +428,7 @@ def main():
             ).clamp(max=width)
             if args.boundaries:
                 visible[-1] = width
-            if args.paired_vector_profile:
+            if paired_probe:
                 visible = torch.arange(width - rows + 1, width + 1, dtype=torch.int32)
             values = [x.to(device) for x in (q, cache, table, qs, ks, weights, visible)]
             qd, kd, td, qsd, ksd, wd, vd = values
@@ -557,6 +572,8 @@ def main():
                 configurations = ((2, "snapshot"), (2, "firstseed"))
             if args.paired_vector_profile:
                 configurations = ((2, "full"), (2, "sort_only"), (2, "score_only"))
+            if args.paired_sort_barrier:
+                configurations = ((2, "full"), (2, "no_merge_barrier"))
             for slots, label in configurations:
                 g = (
                     boundary_geometry(rows, width, slots)
@@ -615,6 +632,13 @@ def main():
                     kernel = getattr(module, "raw_paired_vector_" + label)
                     audit = guarded(shape["steps"], torch.float32, shape["steps"])
                     operands += (audit,)
+                    meta["BLOCKS"] = shape["steps"]
+                if args.paired_sort_barrier:
+                    kernel = (
+                        module.raw_history_prepared_paired
+                        if label == "full"
+                        else module.raw_history_prepared_paired_no_merge_barrier
+                    )
                     meta["BLOCKS"] = shape["steps"]
                 binaries = {}
                 for traced in (False, True):
@@ -732,6 +756,12 @@ def main():
                             f"mixed-{case_name}-{label}-trace{int(traced)}",
                         ),
                     )
+                    if args.paired_sort_barrier:
+                        entry["arms"][label] = dict(geometry=g, binaries=binaries)
+                    if args.paired_sort_barrier:
+                        entry.setdefault("barrier_ir", {}).setdefault(label, {})[
+                            str(traced)
+                        ] = sort_barrier_ir(compiled, label)
                     if not traced:
                         hosts[label] = {compiled.metadata.kernel_name: 1}
 
@@ -982,6 +1012,9 @@ def main():
                     history_and_export=med["full"] - med["sort_only"],
                     sort_and_audit_difference=med["sort_only"] - med["score_only"],
                 )
+            if args.paired_sort_barrier:
+                numerator, denominator = "full", "no_merge_barrier"
+                entry["saved_us"] = med[numerator] - med[denominator]
             ratio = med[numerator] / med[denominator]
             entry.update(samples=samples, mean_us=med)
             entry[
@@ -1035,11 +1068,11 @@ def main():
                     scope="Diagnostic work removal; not internal stage times",
                 )
                 entry.pop("call64_over_block512", None)
-            if args.paired_vector_profile:
+            if paired_probe:
                 entry.pop("call64_over_block512", None)
             if (
                 args.cube_block512
-                and not args.paired_vector_profile
+                and not paired_probe
                 and not args.critical_path
                 and not args.sort_buffers
                 and not args.tle_sort512
@@ -1086,6 +1119,7 @@ def main():
                         prefix_ratios=entry.get("prefix_ratios"),
                         history_ratios=entry.get("history_ratios"),
                         vector_deltas_us=entry.get("vector_deltas_us"),
+                        saved_us=entry.get("saved_us"),
                     )
                 ),
                 flush=True,
