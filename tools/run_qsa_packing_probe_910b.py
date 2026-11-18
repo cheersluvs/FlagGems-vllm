@@ -32,6 +32,7 @@ def main():
     probe = parser.add_mutually_exclusive_group(required=True)
     probe.add_argument("--packing-probe", action="store_true")
     probe.add_argument("--paired-history", action="store_true")
+    probe.add_argument("--paired-handoff", action="store_true")
     probe.add_argument(
         "--short-history", "--short-history-compact", action="store_true"
     )
@@ -55,17 +56,22 @@ def main():
         mode, result_key = "short-history", "short_history"
         scope = "Complete fixtures with two rounds of stock kernel timing"
         log_key = "SHORT_HISTORY"
-    elif args.paired_history:
+    elif args.paired_history or args.paired_handoff:
         from qsa_paired_history_910b import CASES
 
         args.cases = args.cases or list(CASES)
         if args.all_cases or any(name not in CASES for name in args.cases):
-            parser.error(
-                "--paired-history supports int8_budget_exact and int8_long100k"
+            parser.error("Paired probes support int8_budget_exact and int8_long100k")
+        if args.paired_handoff:
+            mode, result_key = "paired-handoff", "paired_handoff"
+            scope = (
+                "512 versus 1024-key handoff with paired TopK and stock kernel timing"
             )
-        mode, result_key = "paired-history", "paired_history"
-        scope = "Two long inputs with stock kernel timing and fixed 512-key handoff"
-        log_key = "PAIRED_HISTORY"
+            log_key = "PAIRED_HANDOFF"
+        else:
+            mode, result_key = "paired-history", "paired_history"
+            scope = "Two long inputs with stock kernel timing and fixed 512-key handoff"
+            log_key = "PAIRED_HISTORY"
     else:
         if args.all_cases:
             parser.error("--all-cases requires --short-history")
@@ -109,7 +115,8 @@ def main():
         QSA_RAW_HISTORY_HARNESS="1",
         QSA_PACKING_PROBE="1" if args.packing_probe else "0",
         QSA_SHORT_HISTORY="1" if args.short_history else "0",
-        QSA_PAIRED_HISTORY="1" if args.paired_history else "0",
+        QSA_PAIRED_HISTORY="1" if args.paired_history or args.paired_handoff else "0",
+        QSA_PAIRED_HANDOFF="1" if args.paired_handoff else "0",
         QSA_HISTORY_POLICY=str((args.report / "history-policy.json").resolve()),
     )
     for name in dict.fromkeys(args.cases):
@@ -154,7 +161,7 @@ def main():
             measurement = detail[result_key]
             if measurement.get("status") != "passed":
                 raise ValueError("Measurement did not finish")
-            if args.paired_history:
+            if args.paired_history or args.paired_handoff:
                 check = json.loads(
                     (args.report / (name + "-three-way-merge.json")).read_text()
                 )

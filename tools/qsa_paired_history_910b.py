@@ -112,6 +112,65 @@ else:
     return MERGE + "\n" + ast.unparse(ast.fix_missing_locations(kernel)) + "\n"
 
 
+def handoff_source(paired_source):
+    kernel = next(
+        node
+        for node in ast.parse(paired_source).body
+        if isinstance(node, ast.FunctionDef)
+        and node.name == "raw_history_prepared_paired"
+    )
+    kernel.name = "raw_history_prepared_paired_handoff1024"
+    for scope, side, payload_name, payload in (
+        (
+            kernel.body[0],
+            "cube",
+            "dest",
+            """
+rbase + (((tl.program_id(0) * SLOTS + cube_slot) * 2 + cube_block % 2) * 8).to(tl.uint64) * 4096
+""",
+        ),
+        (
+            kernel.body[1],
+            "vector",
+            "received",
+            """
+tl.load(Ring + (((tl.program_id(0) * SLOTS + vector_slot) * 2 + vector_block % 2) * 8
+        + tile[:, None]) * 1024 + update_local_row * 64 + col[None, :])
+""",
+        ),
+    ):
+        block, pair, slot = (f"{side}_{name}" for name in ("block", "pair", "slot"))
+        loop = next(
+            node
+            for node in scope.body
+            if isinstance(node, ast.For) and node.target.id == block
+        )
+        _, wait, *work, release = loop.body
+        assert ast.unparse(wait.value.func) == "al.sync_block_wait"
+        assert ast.unparse(release.value.func) == "al.sync_block_set"
+        ptr = next(
+            node
+            for statement in work
+            for node in ast.walk(statement)
+            if isinstance(node, ast.Assign)
+            and ast.unparse(node.targets[0]) == payload_name
+        )
+        ptr.value = ast.parse(payload.strip(), mode="eval").body
+        outer = ast.parse(
+            f"""
+for {pair} in range(tl.cdiv(BLOCKS, 2)):
+    {slot} = {pair} % SLOTS
+    for {block} in range({pair} * 2, tl.minimum({pair} * 2 + 2, BLOCKS)):
+        pass
+"""
+        ).body[0]
+        inner = outer.body[-1]
+        inner.body = work
+        outer.body = [outer.body[0], wait, inner, release]
+        scope.body[scope.body.index(loop)] = outer
+    return "\n" + ast.unparse(ast.fix_missing_locations(kernel)) + "\n"
+
+
 def ir_evidence(kernel):
     if record_launch_mode(kernel, require_cube=False)["mix_mode"] == "aiv":
         return history_ir(kernel, complete=False, expect_no_gather=True)
@@ -139,16 +198,22 @@ def ir_evidence(kernel):
     )
 
 
-def paired_dispatcher(module, policy):
+def paired_dispatcher(module, policy, handoff1024=False):
     original = dispatcher(module, policy)
+    kernel = (
+        module.raw_history_prepared_paired_handoff1024
+        if handoff1024
+        else module.raw_history_prepared_paired
+    )
+    mode = "paired_handoff1024" if handoff1024 else "paired_prefix"
 
     def choose(blocks):
         if blocks >= 4 and use_prefix(blocks, policy):
             return (
-                module.raw_history_prepared_paired,
+                kernel,
                 module.raw_history_topk_prefix,
                 ir_evidence,
-                "paired_prefix",
+                mode,
             )
         return original(blocks)
 
@@ -223,9 +288,14 @@ def check_three_way(module, torch, device, report, save_asm, case_name):
 
 
 def measure(case_name, benchmark, native, control, candidate, path):
+    handoff1024 = candidate.ring_blocks_per_slot == 2
+    control_mode = "paired_prefix" if handoff1024 else "prefix"
+    candidate_mode = "paired_handoff1024" if handoff1024 else "paired_prefix"
     blocks = Counter(route["blocks"] for route in candidate.routes)
     if (
         not blocks
+        or control.ring_blocks_per_slot != 1
+        or candidate.ring_blocks_per_slot not in (1, 2)
         or not any(b % 2 == 1 for b in blocks)
         or not any(b % 2 == 0 for b in blocks)
         or control.routes != candidate.routes
@@ -234,16 +304,26 @@ def measure(case_name, benchmark, native, control, candidate, path):
     ):
         raise ValueError(f"Unexpected paired-history schedule: {blocks}")
     for old, new in zip(control.dispatch_routes, candidate.dispatch_routes):
-        if old["mode"] != "prefix" or new != dict(old, mode="paired_prefix"):
+        if old["mode"] != control_mode or new != dict(old, mode=candidate_mode):
             raise ValueError(f"Unexpected paired-history route: {old} -> {new}")
     routing = dict(
         pieces_by_blocks=dict(blocks),
         odd_tail_pieces=sum(n for b, n in blocks.items() if b % 2),
-        control_updates_per_query_by_blocks={b: b for b in sorted(blocks)},
+        control_updates_per_query_by_blocks={
+            b: (b + 1) // 2 if handoff1024 else b for b in sorted(blocks)
+        },
         paired_updates_per_query_by_blocks={b: (b + 1) // 2 for b in sorted(blocks)},
-        handoff_keys=512,
+        handoff_keys=1024 if handoff1024 else 512,
         slots=2,
     )
+    if handoff1024:
+        routing.update(
+            control_handoff_keys=512,
+            control_handoffs_by_blocks={b: b for b in sorted(blocks)},
+            candidate_handoffs_by_blocks={b: (b + 1) // 2 for b in sorted(blocks)},
+            control_ring_bytes_per_query16_group=2 * 8192 * 4,
+            candidate_ring_bytes_per_query16_group=2 * 2 * 8192 * 4,
+        )
     return measure_arms(
         case_name,
         benchmark,
@@ -252,5 +332,10 @@ def measure(case_name, benchmark, native, control, candidate, path):
         candidate,
         path,
         routing,
-        "PAIRED_HISTORY",
+        "PAIRED_HANDOFF" if handoff1024 else "PAIRED_HISTORY",
+        control_name=(
+            "paired merge with 512-key handoff"
+            if handoff1024
+            else "original history policy"
+        ),
     )

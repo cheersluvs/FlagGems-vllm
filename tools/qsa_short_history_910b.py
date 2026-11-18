@@ -115,7 +115,16 @@ def measure(case_name, benchmark, native, control, candidate, path):
 
 
 def measure_arms(
-    case_name, benchmark, native, control, candidate, path, routing, label
+    case_name,
+    benchmark,
+    native,
+    control,
+    candidate,
+    path,
+    routing,
+    label,
+    *,
+    control_name="original history policy",
 ):
     calls = {"cann_v1": native, "control": control, "candidate": candidate}
     rounds = []
@@ -124,7 +133,7 @@ def measure_arms(
         timing="FlagGems-vllm harness get_latency, --mode kernel",
         case=case_name,
         scope="Full input including every piece, QW/K/KS packing, and mixed execution",
-        control="original history policy",
+        control=control_name,
         logical_width=candidate.width,
         rounds=rounds,
         **routing,

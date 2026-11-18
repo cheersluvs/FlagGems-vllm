@@ -41,6 +41,7 @@ class PreparedRawMixedSelection:
         online_name="raw_online_topk_from_scores",
         evidence=None,
         dispatch=None,
+        ring_blocks_per_slot=1,
     ):
         import torch
 
@@ -48,6 +49,7 @@ class PreparedRawMixedSelection:
         self.module = module
         self.kernel = getattr(module, kernel_name)
         self.online_kernel = getattr(module, online_name)
+        self.ring_blocks_per_slot = ring_blocks_per_slot
         adapter = context["adapter"]
         self.rows, self.width, self.cap = adapter.rows, adapter.width, adapter.chunk
         device = adapter.output.device
@@ -57,8 +59,9 @@ class PreparedRawMixedSelection:
         self.pw = torch.empty((max_groups, 1024), dtype=torch.float16, device=device)
         self.pk = torch.empty((tiles, 8192), dtype=torch.int8, device=device)
         self.ks = torch.empty((tiles * 64,), dtype=torch.float16, device=device)
+        ring_words_per_group = 2 * ring_blocks_per_slot * 8192
         self.ring = torch.empty(
-            (max_groups * 2 * 8192,), dtype=torch.float32, device=device
+            (max_groups * ring_words_per_group,), dtype=torch.float32, device=device
         )
         self.trace = torch.empty(
             (self.cap, self.width), dtype=torch.float32, device=device
@@ -99,7 +102,7 @@ class PreparedRawMixedSelection:
                 pw = self.pw[:groups]
                 pk = self.pk[: g["active_tiles"]]
                 lks = self.ks[: blocks * 512]
-                ring = self.ring[: groups * 2 * 8192]
+                ring = self.ring[: groups * ring_words_per_group]
                 operands = (pq, pk, pw, lks, vis, ring, target, vals, trace)
                 meta = dict(
                     WIDTH=self.width, ROWS=n, SLOTS=2, BLOCKS=blocks, num_warps=4
