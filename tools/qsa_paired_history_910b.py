@@ -119,9 +119,15 @@ def sort_barrier_source():
 
     history = harness_source()
     paired = source(history)
-    tree = ast.parse(paired)
-    control = tree.body[-1]
-    assert control.name == "raw_history_prepared_paired"
+    return history + paired + no_merge_barrier_source(paired)
+
+
+def no_merge_barrier_source(paired_source):
+    control = next(
+        node for node in ast.parse(paired_source).body
+        if isinstance(node, ast.FunctionDef)
+        and node.name == "raw_history_prepared_paired"
+    )
     candidate = copy.deepcopy(control)
     candidate.name = "raw_history_prepared_paired_no_merge_barrier"
     update = next(
@@ -138,11 +144,13 @@ def sort_barrier_source():
     assert ast.unparse(second.value.args[0]) == "'mrgsort'"
     assert ast.unparse(second.value.args[1]) == "local128"
     del update.body[i + 1]
-    return history + paired + "\n" + ast.unparse(ast.fix_missing_locations(candidate)) + "\n"
+    return "\n" + ast.unparse(ast.fix_missing_locations(candidate)) + "\n"
 
 
 def sort_barrier_ir(kernel, label):
     evidence = ir_evidence(kernel)
+    if record_launch_mode(kernel, require_cube=False)["mix_mode"] == "aiv":
+        return evidence
     text = kernel.asm["bcmlir"]
     if isinstance(text, bytes):
         text = text.decode()
@@ -412,7 +420,13 @@ def ir_evidence(kernel, *, early_release=False):
 
 
 def paired_dispatcher(
-    module, policy, handoff1024=False, *, fallback=None, early_release=False
+    module,
+    policy,
+    handoff1024=False,
+    *,
+    fallback=None,
+    early_release=False,
+    no_merge_barrier=False,
 ):
     original = fallback if fallback is not None else dispatcher(module, policy)
     kernel = (
@@ -421,11 +435,16 @@ def paired_dispatcher(
         else module.raw_history_prepared_paired
     )
     mode = "paired_handoff1024" if handoff1024 else "paired_prefix"
+    assert sum((handoff1024, early_release, no_merge_barrier)) <= 1
     evidence = ir_evidence
     if early_release:
         kernel = module.raw_history_prepared_paired_early_release
         mode = "paired_early_release"
         evidence = partial(ir_evidence, early_release=True)
+    if no_merge_barrier:
+        kernel = module.raw_history_prepared_paired_no_merge_barrier
+        mode = "paired_no_merge_barrier"
+        evidence = partial(sort_barrier_ir, label="no_merge_barrier")
 
     def choose(blocks):
         if blocks >= 4 and use_prefix(blocks, policy):
@@ -441,7 +460,15 @@ def paired_dispatcher(
 
 
 def measure_combined(
-    case_name, benchmark, native, control, candidate, path, *, early_release=False
+    case_name,
+    benchmark,
+    native,
+    control,
+    candidate,
+    path,
+    *,
+    early_release=False,
+    no_merge_barrier=False,
 ):
     if (
         control.ring_blocks_per_slot != 1
@@ -453,16 +480,27 @@ def measure_combined(
         raise ValueError(f"Unexpected combined history schedule for {case_name}")
     transitions = Counter()
     paired_blocks = Counter()
+    if no_merge_barrier:
+        old_mode = "paired_prefix"
+        candidate_mode = "paired_no_merge_barrier"
+        label = "SORT_BARRIER_TEN"
+        control_name = "two-block history merge with the barrier between mrgsort calls"
+    elif early_release:
+        old_mode = "paired_prefix"
+        candidate_mode = "paired_early_release"
+        label = "EARLY_RELEASE"
+        control_name = "512-key paired history with slot release after TopK"
+    else:
+        old_mode = "prefix"
+        candidate_mode = "paired_prefix"
+        label = "COMBINED_HISTORY"
+        control_name = "short-history dispatch with per-block prefix updates"
     for old, new in zip(control.dispatch_routes, candidate.dispatch_routes):
-        mode = "paired_prefix" if old["mode"] == "prefix" else old["mode"]
-        if early_release:
-            mode = (
-                "paired_early_release" if old["mode"] == "paired_prefix" else old["mode"]
-            )
+        mode = candidate_mode if old["mode"] == old_mode else old["mode"]
         if new != dict(old, mode=mode):
             raise ValueError(f"Unexpected combined history route: {old} -> {new}")
         transitions[f'{old["mode"]}->{mode}'] += 1
-        if mode in ("paired_prefix", "paired_early_release"):
+        if mode == candidate_mode:
             paired_blocks[new["blocks"]] += 1
     routing = dict(
         route_transitions=dict(transitions),
@@ -483,12 +521,8 @@ def measure_combined(
         candidate,
         path,
         routing,
-        "EARLY_RELEASE" if early_release else "COMBINED_HISTORY",
-        control_name=(
-            "512-key paired history with slot release after TopK"
-            if early_release
-            else "short-history dispatch with per-block prefix updates"
-        ),
+        label,
+        control_name=control_name,
     )
 
 
