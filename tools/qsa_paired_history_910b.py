@@ -114,40 +114,59 @@ else:
     return MERGE + "\n" + ast.unparse(ast.fix_missing_locations(kernel)) + "\n"
 
 
-def sort_barrier_source():
+def sort_barrier_source(*, sort32_boundary=False):
     from qsa_raw_history_merge_910b import harness_source
 
     history = harness_source()
     paired = source(history)
-    return history + paired + no_merge_barrier_source(paired)
+    control = no_merge_barrier_source(paired)
+    if sort32_boundary:
+        candidate = _remove_sort_barrier(
+            control,
+            kernel_name="raw_history_prepared_paired_no_merge_barrier",
+            candidate_name="raw_history_prepared_paired_no_sort_barriers",
+            producer="sort32",
+            output="local32",
+        )
+        return history + paired + control + candidate
+    return history + paired + control
 
 
 def no_merge_barrier_source(paired_source):
+    return _remove_sort_barrier(
+        paired_source,
+        kernel_name="raw_history_prepared_paired",
+        candidate_name="raw_history_prepared_paired_no_merge_barrier",
+        producer="mrgsort",
+        output="local128",
+    )
+
+
+def _remove_sort_barrier(source_text, *, kernel_name, candidate_name, producer, output):
     control = next(
-        node for node in ast.parse(paired_source).body
-        if isinstance(node, ast.FunctionDef)
-        and node.name == "raw_history_prepared_paired"
+        node for node in ast.parse(source_text).body
+        if isinstance(node, ast.FunctionDef) and node.name == kernel_name
     )
     candidate = copy.deepcopy(control)
-    candidate.name = "raw_history_prepared_paired_no_merge_barrier"
+    candidate.name = candidate_name
     update = next(
         node for node in ast.walk(candidate)
         if isinstance(node, ast.For) and node.target.id == "update_query"
     )
     i = next(
         i for i, node in enumerate(update.body)
-        if isinstance(node, ast.Assign) and ast.unparse(node.targets[0]) == "local128"
+        if isinstance(node, ast.Assign) and ast.unparse(node.targets[0]) == output
     )
     first, barrier, second = update.body[i : i + 3]
-    assert ast.unparse(first.value.args[0]) == "'mrgsort'"
+    assert ast.literal_eval(first.value.args[0]) == producer
     assert ast.unparse(barrier) == "tl.debug_barrier()"
     assert ast.unparse(second.value.args[0]) == "'mrgsort'"
-    assert ast.unparse(second.value.args[1]) == "local128"
+    assert ast.unparse(second.value.args[1]) == output
     del update.body[i + 1]
     return "\n" + ast.unparse(ast.fix_missing_locations(candidate)) + "\n"
 
 
-def sort_barrier_ir(kernel, label):
+def sort_barrier_ir(kernel, label, *, sort32_boundary=False):
     evidence = ir_evidence(kernel)
     if record_launch_mode(kernel, require_cube=False)["mix_mode"] == "aiv":
         return evidence
@@ -155,18 +174,35 @@ def sort_barrier_ir(kernel, label):
     if isinstance(text, bytes):
         text = text.decode()
     lines = text.splitlines()
-    merges = [
+    sort, first_merge, second_merge = [
         i for i, line in enumerate(lines)
-        if "hivm.hir.custom" in line and '"mrgsort"' in line
+        if "hivm.hir.custom" in line and ('"sort32"' in line or '"mrgsort"' in line)
     ]
-    first, second = merges
-    interval = lines[first : second + 1]
-    barriers = sum("gpu.barrier" in line for line in interval)
-    if barriers != int(label == "full"):
-        raise RuntimeError(f"Unexpected explicit barriers between mrgsort calls: {interval}")
-    if not all("#hivm.pipe<PIPE_V>" in lines[i] for i in merges):
-        raise RuntimeError("Expected both mrgsort calls on PIPE_V")
-    return dict(**evidence, merge_interval=[line.strip() for line in interval])
+    sort_interval = lines[sort : first_merge + 1]
+    merge_interval = lines[first_merge : second_merge + 1]
+    sort_barriers = sum("gpu.barrier" in line for line in sort_interval)
+    merge_barriers = sum("gpu.barrier" in line for line in merge_interval)
+    expected = (int(label == "full"), 0) if sort32_boundary else (1, int(label == "full"))
+    if (sort_barriers, merge_barriers) != expected:
+        raise RuntimeError(
+            f"Unexpected explicit sort barriers: {(sort_barriers, merge_barriers)}"
+        )
+    if not all(
+        "#hivm.pipe<PIPE_V>" in lines[i] for i in (sort, first_merge, second_merge)
+    ):
+        raise RuntimeError("Expected sort32 and both mrgsort calls on PIPE_V")
+    for interval in (sort_interval, merge_interval):
+        result = interval[0].split(" = hivm.hir.custom", 1)[0].strip()
+        if f" ins({result}," not in interval[-1]:
+            raise RuntimeError("Local sort SSA dependency changed")
+    return dict(
+        **evidence,
+        sort32_interval=[line.strip() for line in sort_interval],
+        merge_interval=[line.strip() for line in merge_interval],
+        explicit_sort_barriers=dict(
+            sort32_to_merge=sort_barriers, between_merges=merge_barriers
+        ),
+    )
 
 
 def vector_profile_source():

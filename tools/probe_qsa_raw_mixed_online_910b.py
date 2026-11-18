@@ -46,8 +46,13 @@ def main():
     paired = parser.add_mutually_exclusive_group()
     paired.add_argument("--paired-vector-profile", action="store_true")
     paired.add_argument("--paired-sort-barrier", action="store_true")
+    paired.add_argument("--paired-sort32-barrier", action="store_true")
     args = parser.parse_args()
-    paired_probe = args.paired_vector_profile or args.paired_sort_barrier
+    sort_barrier_probe = args.paired_sort_barrier or args.paired_sort32_barrier
+    paired_probe = args.paired_vector_profile or sort_barrier_probe
+    removed_barrier = (
+        "no_sort32_barrier" if args.paired_sort32_barrier else "no_merge_barrier"
+    )
     if paired_probe and (
         not args.cube_block512
         or args.history_full_merge
@@ -221,10 +226,10 @@ def main():
             from qsa_paired_history_910b import vector_profile_ir, vector_profile_source
 
             text += vector_profile_source()
-        if args.paired_sort_barrier:
+        if sort_barrier_probe:
             from qsa_paired_history_910b import sort_barrier_ir, sort_barrier_source
 
-            text += sort_barrier_source()
+            text += sort_barrier_source(sort32_boundary=args.paired_sort32_barrier)
         path.write_text(text)
         path.with_suffix(".py.txt").write_text(path.read_text())
         spec = importlib.util.spec_from_file_location("_qsa_raw_mixed_online", path)
@@ -390,9 +395,20 @@ def main():
                 "Full minus sort-only includes history setup, state updates and final export",
                 "The differences are changes in mixed kernel time under overlap",
             ]
-        if args.paired_sort_barrier:
-            result["mode"] = "paired_sort_barrier"
-            result["scope"] = "Prepared paired-history mixed kernel with or without the explicit barrier between mrgsort calls"
+        if sort_barrier_probe:
+            result["mode"] = (
+                "paired_sort32_barrier"
+                if args.paired_sort32_barrier
+                else "paired_sort_barrier"
+            )
+            boundary = (
+                "from sort32 to the first mrgsort"
+                if args.paired_sort32_barrier
+                else "between mrgsort calls"
+            )
+            result["scope"] = (
+                f"Paired-history mixed kernel with or without the barrier {boundary}"
+            )
             result["limitations"] = [
                 "Barrier evidence is from pre-device backend IR",
                 "Timings include the full mixed kernel on two causal chunks",
@@ -572,8 +588,8 @@ def main():
                 configurations = ((2, "snapshot"), (2, "firstseed"))
             if args.paired_vector_profile:
                 configurations = ((2, "full"), (2, "sort_only"), (2, "score_only"))
-            if args.paired_sort_barrier:
-                configurations = ((2, "full"), (2, "no_merge_barrier"))
+            if sort_barrier_probe:
+                configurations = ((2, "full"), (2, removed_barrier))
             for slots, label in configurations:
                 g = (
                     boundary_geometry(rows, width, slots)
@@ -633,12 +649,19 @@ def main():
                     audit = guarded(shape["steps"], torch.float32, shape["steps"])
                     operands += (audit,)
                     meta["BLOCKS"] = shape["steps"]
-                if args.paired_sort_barrier:
-                    kernel = (
-                        module.raw_history_prepared_paired
-                        if label == "full"
-                        else module.raw_history_prepared_paired_no_merge_barrier
+                if sort_barrier_probe:
+                    kernel_names = (
+                        (
+                            "raw_history_prepared_paired_no_merge_barrier",
+                            "raw_history_prepared_paired_no_sort_barriers",
+                        )
+                        if args.paired_sort32_barrier
+                        else (
+                            "raw_history_prepared_paired",
+                            "raw_history_prepared_paired_no_merge_barrier",
+                        )
                     )
+                    kernel = getattr(module, kernel_names[int(label != "full")])
                     meta["BLOCKS"] = shape["steps"]
                 binaries = {}
                 for traced in (False, True):
@@ -756,12 +779,14 @@ def main():
                             f"mixed-{case_name}-{label}-trace{int(traced)}",
                         ),
                     )
-                    if args.paired_sort_barrier:
+                    if sort_barrier_probe:
                         entry["arms"][label] = dict(geometry=g, binaries=binaries)
-                    if args.paired_sort_barrier:
+                    if sort_barrier_probe:
                         entry.setdefault("barrier_ir", {}).setdefault(label, {})[
                             str(traced)
-                        ] = sort_barrier_ir(compiled, label)
+                        ] = sort_barrier_ir(
+                            compiled, label, sort32_boundary=args.paired_sort32_barrier
+                        )
                     if not traced:
                         hosts[label] = {compiled.metadata.kernel_name: 1}
 
@@ -1012,8 +1037,8 @@ def main():
                     history_and_export=med["full"] - med["sort_only"],
                     sort_and_audit_difference=med["sort_only"] - med["score_only"],
                 )
-            if args.paired_sort_barrier:
-                numerator, denominator = "full", "no_merge_barrier"
+            if sort_barrier_probe:
+                numerator, denominator = "full", removed_barrier
                 entry["saved_us"] = med[numerator] - med[denominator]
             ratio = med[numerator] / med[denominator]
             entry.update(samples=samples, mean_us=med)
