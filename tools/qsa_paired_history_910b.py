@@ -15,6 +15,7 @@
 """Probe a three-way TopK update for pairs of 512-key blocks."""
 
 import ast
+import copy
 import json
 from collections import Counter
 from functools import partial
@@ -111,6 +112,97 @@ else:
 """
     ).body
     return MERGE + "\n" + ast.unparse(ast.fix_missing_locations(kernel)) + "\n"
+
+
+def vector_profile_source():
+    from qsa_raw_history_merge_910b import harness_source
+
+    history = harness_source()
+    tree = ast.parse(source(history))
+    helper = tree.body[0]
+    full = tree.body[-1]
+    assert helper.name == "_history_three_way"
+    assert full.name == "raw_history_prepared_paired"
+    first_config = next(
+        i for i, arg in enumerate(full.args.args) if arg.annotation is not None
+    )
+    full.args.args.insert(first_config, ast.arg(arg="Audit"))
+    kernels = []
+    for label in ("full", "sort_only", "score_only"):
+        kernel = copy.deepcopy(full)
+        kernel.name = "raw_paired_vector_" + label
+        vector = kernel.body[1].body
+        if label != "full":
+            vector[:] = [
+                node for node in vector
+                if not (
+                    isinstance(node, ast.Assign)
+                    and ast.unparse(node.targets[0]) in (
+                        "state_storage", "pending", "word", "initial"
+                    )
+                    or isinstance(node, ast.For)
+                    and node.target.id in ("init_query", "final_query")
+                )
+            ]
+        block = next(
+            node for node in vector
+            if isinstance(node, ast.For) and node.target.id == "vector_block"
+        )
+        query = next(
+            node for node in block.body
+            if isinstance(node, ast.For) and node.target.id == "update_query"
+        )
+        if label != "full":
+            first_removed = "pending_slot" if label == "sort_only" else "local_indices"
+            stop = next(
+                i for i, node in enumerate(query.body)
+                if isinstance(node, ast.Assign)
+                and ast.unparse(node.targets[0]) == first_removed
+            )
+            query.body[stop:-1] = []
+            assert [ast.unparse(node.targets[0]) for node in block.body[2:4]] == [
+                "complete_pair", "save_pending"
+            ]
+            block.body[2:4] = []
+        # Every arm publishes one checksum per block to retain consumer work.
+        values = (
+            "audit_values = score"
+            if label == "score_only"
+            else "audit_values, _ = tl.split(tl.reshape(pairs, (512, 2)))"
+        )
+        query.body[-1:-1] = ast.parse(
+            f"""
+{values}
+checksum = tl.sum(tl.where(audit_values > -float("inf"), audit_values, 0) * (lane + 1), 0)
+tl.store(Audit + update_row * BLOCKS + vector_block, checksum, mask=update_row < ROWS)
+"""
+        ).body
+        kernels.append(kernel)
+    return history + "\n" + "\n".join(
+        ast.unparse(ast.fix_missing_locations(fn)) for fn in [helper, *kernels]
+    ) + "\n"
+
+
+def vector_profile_ir(kernel, label):
+    text = kernel.asm.get("bcmlir", "")
+    if isinstance(text, bytes):
+        text = text.decode()
+    lines = [line for line in text.splitlines() if "hivm.hir.custom" in line]
+    calls = {
+        name: sum(f'"{name}"' in line for line in lines)
+        for name in ("sort32", "mrgsort", "merge_exhaust_sort4", "unpack_sort")
+    }
+    expected = (0, 0, 0, 0) if label == "score_only" else (1, 2, 0, 0)
+    if label == "full":
+        expected = (1, 2, calls["merge_exhaust_sort4"], 1)
+        if not 1 <= calls["merge_exhaust_sort4"] <= 2:
+            raise RuntimeError(f"Missing paired history update: {calls}")
+    if tuple(calls.values()) != expected:
+        raise RuntimeError(f"Unexpected {label} Vector primitives: {calls}")
+    return dict(
+        calls=calls,
+        sync=[line.strip() for line in text.splitlines() if "sync_block" in line],
+    )
 
 
 def handoff_source(paired_source):

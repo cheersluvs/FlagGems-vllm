@@ -43,7 +43,16 @@ def main():
     parser.add_argument("--history-direct", action="store_true")
     parser.add_argument("--single-block", action="store_true")
     parser.add_argument("--first-block-seed", action="store_true")
+    parser.add_argument("--paired-vector-profile", action="store_true")
     args = parser.parse_args()
+    if args.paired_vector_profile and (
+        not args.cube_block512
+        or args.history_full_merge
+        or args.critical_path
+        or args.tle_sort512
+        or args.sort_buffers
+    ):
+        parser.error("--paired-vector-profile requires --cube-block512 as its only variant")
     if args.first_block_seed and (
         not args.history_full_merge
         or args.history_boundary
@@ -205,6 +214,10 @@ def main():
             from qsa_first_block_seed_probe_910b import source as first_seed_source
 
             text += first_seed_source()
+        if args.paired_vector_profile:
+            from qsa_paired_history_910b import vector_profile_ir, vector_profile_source
+
+            text += vector_profile_source()
         path.write_text(text)
         path.with_suffix(".py.txt").write_text(path.read_text())
         spec = importlib.util.spec_from_file_location("_qsa_raw_mixed_online", path)
@@ -360,6 +373,15 @@ def main():
                 "Peel the first Vector block, preserve Cube, ring and events",
                 "Prepared timings exclude packing and full-input CANN comparison",
             ]
+        if args.paired_vector_profile:
+            fixtures = ((128, 8192), (112, 29696))
+            result["mode"] = "paired_vector_profile"
+            result["scope"] = "Synthetic causal chunks with two slots and 512-key handoff"
+            result["limitations"] = [
+                "All arms include a block checksum and its write",
+                "Full minus sort-only includes history setup, state updates and final export",
+                "The differences are changes in mixed kernel time under overlap",
+            ]
         for rows, width in fixtures:
             case_name = f"r{rows}-w{width}" if args.boundaries else str(width)
             shape = boundary_geometry(rows, width, 1)
@@ -391,6 +413,8 @@ def main():
             ).clamp(max=width)
             if args.boundaries:
                 visible[-1] = width
+            if args.paired_vector_profile:
+                visible = torch.arange(width - rows + 1, width + 1, dtype=torch.int32)
             values = [x.to(device) for x in (q, cache, table, qs, ks, weights, visible)]
             qd, kd, td, qsd, ksd, wd, vd = values
             pq = torch.empty((groups, 8192), dtype=torch.int8, device=device)
@@ -531,6 +555,8 @@ def main():
                 configurations = ((2, "snapshot"), (2, "single"))
             if args.first_block_seed:
                 configurations = ((2, "snapshot"), (2, "firstseed"))
+            if args.paired_vector_profile:
+                configurations = ((2, "full"), (2, "sort_only"), (2, "score_only"))
             for slots, label in configurations:
                 g = (
                     boundary_geometry(rows, width, slots)
@@ -585,6 +611,11 @@ def main():
                 meta = dict(WIDTH=width, SLOTS=slots, num_warps=4)
                 if args.boundaries:
                     meta["ROWS"] = rows
+                if args.paired_vector_profile:
+                    kernel = getattr(module, "raw_paired_vector_" + label)
+                    audit = guarded(shape["steps"], torch.float32, shape["steps"])
+                    operands += (audit,)
+                    meta["BLOCKS"] = shape["steps"]
                 binaries = {}
                 for traced in (False, True):
                     result["phase"] = f"compile-{case_name}-{label}-trace{traced}"
@@ -689,6 +720,10 @@ def main():
                         entry.setdefault("history_ir", {}).setdefault(label, {})[
                             str(traced)
                         ] = evidence
+                    if args.paired_vector_profile:
+                        entry.setdefault("vector_ir", {}).setdefault(label, {})[
+                            str(traced)
+                        ] = vector_profile_ir(compiled, label)
                     binaries[str(traced)] = dict(
                         launch=mode,
                         asm=save_asm(
@@ -753,6 +788,24 @@ def main():
                                     if storage.dtype == torch.int32
                                     else bool(torch.isnan(cpu_guard).all())
                                 ), "Output guard overwritten"
+                        if args.paired_vector_profile:
+                            tiles_cpu = torch.full(
+                                (rows, shape["padded_width"]), -float("inf")
+                            )
+                            tiles_cpu[:, :width] = expected
+                            tiles_cpu = tiles_cpu.view(rows, shape["steps"], 512)
+                            if label != "score_only":
+                                tiles_cpu = tiles_cpu.sort(dim=2, descending=True).values
+                            weighted = (
+                                torch.where(torch.isfinite(tiles_cpu), tiles_cpu, 0)
+                                * torch.arange(1, 513, dtype=torch.float32)
+                            ).sum(2)
+                            torch.testing.assert_close(
+                                arm["audit"].cpu(), weighted, rtol=1e-3, atol=1e-3
+                            )
+                            if label != "full":
+                                assert bool((arm["indices"].cpu() == -3).all())
+                                assert bool(torch.isnan(arm["values"].cpu()).all())
                         if args.topk_prefix and label in ("sort", "merge"):
                             padded = torch.full(
                                 (rows, shape["padded_width"]), -float("inf")
@@ -793,7 +846,7 @@ def main():
                             )
                             assert bool((arm["indices"].cpu() == -3).all())
                             assert bool(torch.isnan(arm["values"].cpu()).all())
-                        else:
+                        elif not args.paired_vector_profile or label == "full":
                             indices = arm["indices"].cpu()
                             check_rank(
                                 torch, indices, expected, visible, rtol=0, atol=0
@@ -834,14 +887,14 @@ def main():
                         output_guards_unchanged=True,
                         trace_scores_exact=True,
                         selected_scores_exact=not (
-                            args.critical_path
-                            and label == "light"
+                            (args.paired_vector_profile and label != "full")
+                            or (args.critical_path and label == "light")
                             or args.topk_prefix
                             and label in ("sort", "merge")
                         ),
                         checksum_checked=bool(
-                            args.critical_path
-                            and label == "light"
+                            args.paired_vector_profile
+                            or (args.critical_path and label == "light")
                             or args.topk_prefix
                             and label in ("sort", "merge")
                         ),
@@ -923,6 +976,12 @@ def main():
                 numerator, denominator = "snapshot", "single"
             if args.first_block_seed:
                 numerator, denominator = "snapshot", "firstseed"
+            if args.paired_vector_profile:
+                numerator, denominator = "full", "sort_only"
+                entry["vector_deltas_us"] = dict(
+                    history_and_export=med["full"] - med["sort_only"],
+                    sort_and_audit_difference=med["sort_only"] - med["score_only"],
+                )
             ratio = med[numerator] / med[denominator]
             entry.update(samples=samples, mean_us=med)
             entry[
@@ -976,8 +1035,11 @@ def main():
                     scope="Diagnostic work removal; not internal stage times",
                 )
                 entry.pop("call64_over_block512", None)
+            if args.paired_vector_profile:
+                entry.pop("call64_over_block512", None)
             if (
                 args.cube_block512
+                and not args.paired_vector_profile
                 and not args.critical_path
                 and not args.sort_buffers
                 and not args.tle_sort512
@@ -1023,6 +1085,7 @@ def main():
                         ablation_ratios=entry.get("ablation_ratios"),
                         prefix_ratios=entry.get("prefix_ratios"),
                         history_ratios=entry.get("history_ratios"),
+                        vector_deltas_us=entry.get("vector_deltas_us"),
                     )
                 ),
                 flush=True,
