@@ -49,7 +49,11 @@ qsa_tle_sort=0
 qsa_tle_harness=0
 qsa_history_full=0
 qsa_history_harness=0
+qsa_query_batch=0
 for qsa_argument in "$@"; do
+    if [[ "$qsa_argument" == --query-batch ]]; then
+        qsa_query_batch=1
+    fi
     if [[ "$qsa_argument" == --history-prefix-harness ]]; then
         qsa_history_harness=1
     fi
@@ -251,6 +255,13 @@ if [[ "$qsa_history_harness" == 1 ]]; then
     fi
     qsa_kind=raw-history-prefix-harness
 fi
+if [[ "$qsa_query_batch" == 1 ]]; then
+    if [[ "$qsa_history_full" != 1 || "$qsa_history_harness" == 1 ]]; then
+        echo '--query-batch requires --history-full-merge without harness flags'
+        exit 2
+    fi
+    qsa_kind=raw-query-batch
+fi
 # Re-activate after shell startup files have run; lock the environment at execution.
 if [[ -n "${QSA_ENV_ROOT:-}" ]]; then
     qsa_env_root=$(realpath -- "$QSA_ENV_ROOT") || exit 1
@@ -410,6 +421,11 @@ fi
 if [[ "$qsa_status" == 0 && "$qsa_history_full" == 1 ]]; then
     "$qsa_python" -u "$qsa_repo/tools/test_qsa_raw_history_merge.py" -v \
         2>&1 | tee "$qsa_report/raw-history-cpu-tests.txt"
+    qsa_status=${PIPESTATUS[0]}
+fi
+if [[ "$qsa_status" == 0 && "$qsa_query_batch" == 1 ]]; then
+    "$qsa_python" -u "$qsa_repo/tools/test_qsa_query_batch_probe.py" -v \
+        2>&1 | tee "$qsa_report/query-batch-cpu-tests.txt"
     qsa_status=${PIPESTATUS[0]}
 fi
 if [[ "$qsa_status" == 0 && "$qsa_history_harness" == 1 ]]; then

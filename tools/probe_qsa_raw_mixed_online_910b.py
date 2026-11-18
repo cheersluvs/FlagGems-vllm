@@ -39,7 +39,12 @@ def main():
     parser.add_argument("--tle-sort512", action="store_true")
     parser.add_argument("--history-full-merge", action="store_true")
     parser.add_argument("--history-boundary", action="store_true")
+    parser.add_argument("--query-batch", type=int, choices=(2, 4))
     args = parser.parse_args()
+    if args.query_batch and (not args.history_full_merge or args.history_boundary):
+        parser.error(
+            "--query-batch requires --history-full-merge without --history-boundary"
+        )
     if args.history_boundary and not args.history_full_merge:
         parser.error("--history-boundary requires --history-full-merge")
     if args.history_full_merge and (
@@ -156,6 +161,10 @@ def main():
             from qsa_raw_history_merge_910b import source as history_source
 
             text += history_source()
+        if args.query_batch:
+            from qsa_query_batch_probe_910b import source as batch_source
+
+            text += batch_source()
         path.write_text(text)
         path.with_suffix(".py.txt").write_text(path.read_text())
         spec = importlib.util.spec_from_file_location("_qsa_raw_mixed_online", path)
@@ -275,6 +284,17 @@ def main():
 
             fixtures = history_boundary_cases()
             result["mode"] = "history_boundary_tuning"
+        if args.query_batch:
+            fixtures = ((16, 512), (17, 8256), (112, 29696))
+            result["mode"] = "local_query_batch"
+            result["scope"] = (
+                "Prepared prefix mixed kernel; local sort batch1 versus selected batch; no CANN mean"
+            )
+            result["query_batch"] = args.query_batch
+            result["limitations"] = [
+                "History merge/state commits remain per query; Cube,ring and events unchanged",
+                "Prepared micro timings exclude packing and are not acceptance results",
+            ]
         for rows, width in fixtures:
             case_name = f"r{rows}-w{width}" if args.boundaries else str(width)
             shape = boundary_geometry(rows, width, 1)
@@ -438,6 +458,8 @@ def main():
                 configurations = ((2, "snapshot"), (2, "prefix"), (2, "complete"))
             if args.history_boundary:
                 configurations = ((2, "snapshot"), (2, "prefix"))
+            if args.query_batch:
+                configurations = ((2, "prefix"), (2, "batch" + str(args.query_batch)))
             for slots, label in configurations:
                 g = (
                     boundary_geometry(rows, width, slots)
@@ -520,13 +542,33 @@ def main():
                     if args.history_full_merge:
                         from qsa_raw_history_merge_910b import ir_evidence as history_ir
 
+                        if args.query_batch:
+                            entry.setdefault("query_batch_compilation", {}).setdefault(
+                                label, {}
+                            )[str(traced)] = dict(
+                                launch=mode,
+                                asm=save_asm(
+                                    compiled,
+                                    report,
+                                    f"batch-proof-{case_name}-{label}-trace{int(traced)}",
+                                ),
+                            )
+                            save()
+                        if args.query_batch and label != "prefix":
+                            from qsa_query_batch_probe_910b import (
+                                ir_evidence as batch_ir,
+                            )
+
+                            evidence = batch_ir(compiled, int(label[-1]))
+                        else:
+                            evidence = history_ir(
+                                compiled,
+                                label == "complete",
+                                expect_no_gather=label != "snapshot",
+                            )
                         entry.setdefault("history_ir", {}).setdefault(label, {})[
                             str(traced)
-                        ] = history_ir(
-                            compiled,
-                            label == "complete",
-                            expect_no_gather=label != "snapshot",
-                        )
+                        ] = evidence
                     binaries[str(traced)] = dict(
                         launch=mode,
                         asm=save_asm(
@@ -753,12 +795,14 @@ def main():
                     )
                 )
             )
+            if args.query_batch:
+                numerator, denominator = "prefix", "batch" + str(args.query_batch)
             ratio = med[numerator] / med[denominator]
             entry.update(samples=samples, mean_us=med)
             entry[
                 "call64_over_block512" if args.cube_block512 else "serial_over_buffered"
             ] = ratio
-            if args.history_full_merge:
+            if args.history_full_merge and not args.query_batch:
                 entry["snapshot_over_prefix"] = med["snapshot"] / med["prefix"]
                 entry["history_ratios"] = dict(
                     snapshot_over_prefix=entry["snapshot_over_prefix"]
@@ -766,6 +810,11 @@ def main():
                 if not args.history_boundary:
                     entry["snapshot_over_complete"] = ratio
                     entry["history_ratios"]["snapshot_over_complete"] = ratio
+                entry.pop("call64_over_block512", None)
+            if args.query_batch:
+                entry["query_batch_ratios"] = {
+                    denominator: med["prefix"] / med[denominator]
+                }
                 entry.pop("call64_over_block512", None)
             if args.tle_sort512:
                 entry["generic_over_fixed"] = ratio
