@@ -36,6 +36,7 @@ def main():
     probe.add_argument("--combined-history", action="store_true")
     probe.add_argument("--early-release", action="store_true")
     probe.add_argument("--sort-barrier-ten", action="store_true")
+    probe.add_argument("--sort32-barrier-ten", action="store_true")
     probe.add_argument(
         "--short-history", "--short-history-compact", action="store_true"
     )
@@ -54,6 +55,7 @@ def main():
     selection.add_argument("--cases", nargs="+", choices=suite)
     selection.add_argument("--all-cases", action="store_true")
     args = parser.parse_args()
+    sort_barrier_suite = args.sort_barrier_ten or args.sort32_barrier_ten
     if args.early_release:
         from qsa_paired_history_910b import CASES
 
@@ -63,6 +65,11 @@ def main():
         mode, result_key = "early-release", "early_release"
         scope = "Two full inputs with paired TopK and 512-key double-buffered handoff"
         log_key = "EARLY_RELEASE"
+    elif args.sort32_barrier_ten:
+        args.cases = args.cases or suite
+        mode, result_key = "sort32-barrier-ten", "sort32_barrier_ten"
+        scope = "Complete inputs with paired TopK and the explicit barrier after sort32 removed"
+        log_key = "SORT32_BARRIER_TEN"
     elif args.sort_barrier_ten:
         args.cases = args.cases or suite
         mode, result_key = "sort-barrier-ten", "sort_barrier_ten"
@@ -139,6 +146,7 @@ def main():
         QSA_SHORT_HISTORY="1" if args.short_history else "0",
         QSA_PAIRED_HISTORY="1" if args.paired_history or args.paired_handoff else "0",
         QSA_PAIRED_HANDOFF="1" if args.paired_handoff else "0",
+        QSA_SORT32_BARRIER_TEN="1" if args.sort32_barrier_ten else "0",
         QSA_SORT_BARRIER_TEN="1" if args.sort_barrier_ten else "0",
         QSA_EARLY_RELEASE="1" if args.early_release else "0",
         QSA_COMBINED_HISTORY="1" if args.combined_history else "0",
@@ -187,8 +195,11 @@ def main():
             if measurement.get("status") != "passed":
                 raise ValueError("Measurement did not finish")
             if (
-                args.paired_history or args.paired_handoff
-                or args.combined_history or args.early_release or args.sort_barrier_ten
+                args.paired_history
+                or args.paired_handoff
+                or args.combined_history
+                or args.early_release
+                or sort_barrier_suite
             ):
                 check = json.loads(
                     (args.report / (name + "-three-way-merge.json")).read_text()
@@ -212,11 +223,18 @@ def main():
         else "incomplete"
     )
     if (
-        (args.short_history or args.combined_history or args.sort_barrier_ten)
+        (args.short_history or args.combined_history or sort_barrier_suite)
         and result["status"] == "passed"
         and set(args.cases) == set(suite)
     ):
         measurements = [row[result_key] for row in result["cases"]]
+        if sort_barrier_suite:
+            result["paired_pieces"] = sum(
+                sum(m["paired_pieces_by_blocks"].values()) for m in measurements
+            )
+            result["paired_odd_tail_pieces"] = sum(
+                m["paired_odd_tail_pieces"] for m in measurements
+            )
         for ratio in (
             "cann_over_candidate",
             "cann_over_control",

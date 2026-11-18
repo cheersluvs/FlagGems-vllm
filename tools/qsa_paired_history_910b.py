@@ -120,16 +120,18 @@ def sort_barrier_source(*, sort32_boundary=False):
     history = harness_source()
     paired = source(history)
     control = no_merge_barrier_source(paired)
-    if sort32_boundary:
-        candidate = _remove_sort_barrier(
-            control,
-            kernel_name="raw_history_prepared_paired_no_merge_barrier",
-            candidate_name="raw_history_prepared_paired_no_sort_barriers",
-            producer="sort32",
-            output="local32",
-        )
-        return history + paired + control + candidate
-    return history + paired + control
+    candidate = no_sort32_barrier_source(control) if sort32_boundary else ""
+    return history + paired + control + candidate
+
+
+def no_sort32_barrier_source(control_source):
+    return _remove_sort_barrier(
+        control_source,
+        kernel_name="raw_history_prepared_paired_no_merge_barrier",
+        candidate_name="raw_history_prepared_paired_no_sort_barriers",
+        producer="sort32",
+        output="local32",
+    )
 
 
 def no_merge_barrier_source(paired_source):
@@ -463,6 +465,7 @@ def paired_dispatcher(
     fallback=None,
     early_release=False,
     no_merge_barrier=False,
+    no_sort32_barrier=False,
 ):
     original = fallback if fallback is not None else dispatcher(module, policy)
     kernel = (
@@ -471,7 +474,7 @@ def paired_dispatcher(
         else module.raw_history_prepared_paired
     )
     mode = "paired_handoff1024" if handoff1024 else "paired_prefix"
-    assert sum((handoff1024, early_release, no_merge_barrier)) <= 1
+    assert sum((handoff1024, early_release, no_merge_barrier, no_sort32_barrier)) <= 1
     evidence = ir_evidence
     if early_release:
         kernel = module.raw_history_prepared_paired_early_release
@@ -481,6 +484,10 @@ def paired_dispatcher(
         kernel = module.raw_history_prepared_paired_no_merge_barrier
         mode = "paired_no_merge_barrier"
         evidence = partial(sort_barrier_ir, label="no_merge_barrier")
+    if no_sort32_barrier:
+        kernel = module.raw_history_prepared_paired_no_sort_barriers
+        mode = "paired_no_sort_barriers"
+        evidence = partial(sort_barrier_ir, label="no_sort32_barrier", sort32_boundary=True)
 
     def choose(blocks):
         if blocks >= 4 and use_prefix(blocks, policy):
@@ -505,6 +512,7 @@ def measure_combined(
     *,
     early_release=False,
     no_merge_barrier=False,
+    no_sort32_barrier=False,
 ):
     if (
         control.ring_blocks_per_slot != 1
@@ -516,7 +524,12 @@ def measure_combined(
         raise ValueError(f"Unexpected combined history schedule for {case_name}")
     transitions = Counter()
     paired_blocks = Counter()
-    if no_merge_barrier:
+    if no_sort32_barrier:
+        old_mode = "paired_no_merge_barrier"
+        candidate_mode = "paired_no_sort_barriers"
+        label = "SORT32_BARRIER_TEN"
+        control_name = "two-block history merge with the barrier after sort32"
+    elif no_merge_barrier:
         old_mode = "paired_prefix"
         candidate_mode = "paired_no_merge_barrier"
         label = "SORT_BARRIER_TEN"
