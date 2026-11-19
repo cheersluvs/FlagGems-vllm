@@ -28,6 +28,7 @@ docker cp "$qsa_repo/tools/probe_qsa_metax_native.py" \
 docker exec -w /tmp "$qsa_container" env VLLM_PLUGINS=metax \
     /opt/conda/bin/python -u "$qsa_inside/probe.py" \
     --report "$qsa_inside/report" --device "${QSA_DEVICE:-0}" \
+    --suite "${QSA_SUITE:-native}" \
     --timeout "${QSA_CASE_TIMEOUT:-600}" 2>&1 | tee "$qsa_report/console.txt"
 qsa_status=${PIPESTATUS[0]}
 docker cp "$qsa_container:$qsa_inside/report/." "$qsa_report/" || qsa_status=1

@@ -24,7 +24,47 @@ import traceback
 from pathlib import Path
 
 SOURCE_SHA256 = "5b8bb9de8e5f7f122453811bd055ce752b6aab4f362551678196343a6cea6684"
-CASES = [f"{dtype}_{rows}" for dtype in ("bf16", "fp8") for rows in (4, 65)]
+NATIVE_CASES = [f"{dtype}_{rows}" for dtype in ("bf16", "fp8") for rows in (4, 65)]
+DIAGNOSTIC_CASES = [
+    "topk_4",
+    "topk_65",
+    "bf16_r16_s2_65",
+    "bf16_r16_s1_65",
+    "fp8_r16_s1_65",
+    "fp8_input_bf16_dot_65",
+]
+
+
+def score_candidate(module, q, keys, table, starts, visible, max_query_len, stages):
+    import torch
+
+    logits = torch.empty((q.shape[0], 768), dtype=torch.float32, device=q.device)
+    kernel = module._qsa_mqa_paged_prefill_kernel[
+        (table.shape[0], module.triton.cdiv(max_query_len, 16), 1)
+    ](
+        q,
+        keys,
+        table,
+        starts,
+        visible,
+        logits,
+        *q.stride()[:-1],
+        *keys.stride()[:2],
+        *table.stride()[:-1],
+        *logits.stride()[:-1],
+        q.shape[0],
+        0,
+        table.shape[1],
+        PAGE_SIZE=keys.shape[1],
+        NUM_HEADS=q.shape[1],
+        HEAD_DIM=q.shape[2],
+        TILE_R=16,
+        BLOCK_N=64,
+        K_TILES=16,
+        STAGES=stages,
+        num_warps=4,
+    )
+    return logits, getattr(getattr(kernel, "metadata", None), "shared", None)
 
 
 def worker(args):
@@ -56,9 +96,14 @@ def worker(args):
         torch.cuda.set_device(args.device)
         result["device"] = torch.cuda.get_device_name(args.device)
         result["capability"] = torch.cuda.get_device_capability(args.device)
-        dtype_name, rows = args.case.split("_")
-        rows = int(rows)
-        dtype = torch.bfloat16 if dtype_name == "bf16" else torch.float8_e4m3fn
+        rows = int(args.case.rsplit("_", 1)[1])
+        topk_only = args.case.startswith("topk_")
+        native = args.case in NATIVE_CASES
+        dtype = torch.float8_e4m3fn if args.case.startswith("fp8_") else torch.bfloat16
+        dot_dtype = (
+            torch.bfloat16 if args.case.startswith("fp8_input_bf16_dot") else dtype
+        )
+        result["dot_dtype"] = None if topk_only else str(dot_dtype)
         torch.manual_seed(1729)
         # Two requests, shuffled physical pages, nonzero query offset base.
         lengths = [rows // 2 + 1, rows - (rows // 2 + 1)]
@@ -67,12 +112,6 @@ def worker(args):
         table_cpu = torch.randperm(8, dtype=torch.int64).reshape(2, 4)
         visible_cpu = torch.tensor(
             ([0, 1, 511, 768] * ((rows + 3) // 4))[:rows], dtype=torch.int32
-        )
-        q = q_cpu.to(device="cuda", dtype=dtype)
-        k = k_cpu.to(device="cuda", dtype=dtype)
-        table = table_cpu.to(device="cuda", dtype=torch.int32)
-        starts = torch.tensor(
-            [7, 7 + lengths[0], 7 + rows], dtype=torch.int32, device="cuda"
         )
         visible = visible_cpu.to("cuda")
         reference = torch.full((rows, 768), -float("inf"))
@@ -88,15 +127,34 @@ def worker(args):
             offset += count
         mask = torch.arange(768)[None, :] < visible_cpu[:, None]
         reference[~mask] = -float("inf")
-        logits = module._prefill_logits(
-            q, k, table, starts, visible, max(lengths), 768, 0, rows
-        )
-        torch.cuda.synchronize()
-        actual = logits.float().cpu()
-        # Invisible logits are intentionally uninitialized by this baseline.
-        torch.testing.assert_close(actual[mask], reference[mask], atol=0.05, rtol=0.005)
-        error = (actual[mask] - reference[mask]).abs().max().item()
-        result["score"] = {"status": "passed", "max_abs_error": error}
+        if topk_only:
+            reference = torch.arange(768, dtype=torch.float32).expand(rows, -1).clone()
+            logits = reference.masked_fill(~mask, float("inf")).to("cuda")
+        else:
+            q = q_cpu.to(device="cuda", dtype=dot_dtype)
+            k = k_cpu.to(device="cuda", dtype=dot_dtype)
+            table = table_cpu.to(device="cuda", dtype=torch.int32)
+            starts = torch.tensor(
+                [7, 7 + lengths[0], 7 + rows], dtype=torch.int32, device="cuda"
+            )
+            if native:
+                logits = module._prefill_logits(
+                    q, k, table, starts, visible, max(lengths), 768, 0, rows
+                )
+            else:
+                stages = 2 if "_s2_" in args.case else 1
+                result["launch"] = {"tile_r": 16, "stages": stages, "num_warps": 4}
+                logits, shared = score_candidate(
+                    module, q, k, table, starts, visible, max(lengths), stages
+                )
+                result["launch"]["shared_bytes"] = shared
+            torch.cuda.synchronize()
+            actual = logits.float().cpu()
+            torch.testing.assert_close(
+                actual[mask], reference[mask], atol=0.05, rtol=0.005
+            )
+            error = (actual[mask] - reference[mask]).abs().max().item()
+            result["score"] = {"status": "passed", "max_abs_error": error}
         platform = module.current_platform
         cooperative = (
             rows <= 64
@@ -109,10 +167,15 @@ def worker(args):
         op = getattr(torch.ops._C, selected)
         result["topk_schema"] = str(op._schemas)
         output = torch.empty((rows, 512), dtype=torch.int32, device="cuda")
-        # Execute the unmodified public native entry, including its allocations.
-        module.qsa_select_paged_prefill(
-            q, k, table, starts, visible, 2048, 4, max(lengths), output, 3072
-        )
+        if native:
+            module.qsa_select_paged_prefill(
+                q, k, table, starts, visible, 2048, 4, max(lengths), output, 3072
+            )
+        else:
+            workspace = torch.empty(
+                (module._TOPK_WORKSPACE_BYTES,), dtype=torch.uint8, device="cuda"
+            )
+            module._topk(logits, visible, 2048, 4, output, workspace)
         torch.cuda.synchronize()
         indices = output.cpu().long()
         for row in range(rows):
@@ -127,7 +190,7 @@ def worker(args):
                 # Permit reordered ties; check rank against the CPU score oracle.
                 selected_scores = reference[row, selected_indices]
                 threshold = reference[row, :n].topk(512).values[-1]
-                tolerance = 0.1 + 0.01 * threshold.abs()
+                tolerance = 0 if topk_only else 0.1 + 0.01 * threshold.abs()
                 assert selected_scores.min() >= threshold - tolerance, (
                     row,
                     "TopK rank violation",
@@ -148,14 +211,16 @@ def main():
     parser.add_argument("--report", required=True)
     parser.add_argument("--device", type=int, default=0)
     parser.add_argument("--timeout", type=int, default=600)
-    parser.add_argument("--case", choices=CASES)
+    parser.add_argument("--case", choices=NATIVE_CASES + DIAGNOSTIC_CASES)
+    parser.add_argument("--suite", choices=("native", "diagnostic"), default="native")
     args = parser.parse_args()
     if args.case:
         return worker(args)
     report = Path(args.report)
     report.mkdir(parents=True, exist_ok=True)
     results = []
-    for case in CASES:
+    cases = NATIVE_CASES if args.suite == "native" else DIAGNOSTIC_CASES
+    for case in cases:
         command = [
             sys.executable,
             str(Path(__file__).resolve()),
@@ -183,7 +248,8 @@ def main():
             print((report / f"{case}.log").read_text()[-6000:], flush=True)
     summary = {
         "status": "passed" if all(x["exit_code"] == 0 for x in results) else "failed",
-        "scope": "Native BF16/FP8 smoke correctness only; no performance acceptance",
+        "suite": args.suite,
+        "scope": "Correctness only; diagnostic launches change native configuration",
         "cases": results,
     }
     (report / "summary.json").write_text(json.dumps(summary, indent=2))
