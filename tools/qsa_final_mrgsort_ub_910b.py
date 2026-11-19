@@ -64,14 +64,20 @@ def prepared_reuse_ir(kernel):
     return dict(**evidence, final_mrgsort_reuses_local32=True)
 
 
-def source(*, reuse_local32=False, drop_handoff_barrier=False, direct_history_pack=False):
+def source(
+    *, reuse_local32=False, drop_handoff_barrier=False,
+    direct_history_pack=False, join_history_pack=False,
+):
     common = sort_barrier_source(sort32_boundary=True)
     full = ast.parse(common).body[-1]
     assert full.name == "raw_history_prepared_paired_no_sort_barriers"
     first_constexpr = next(i for i, arg in enumerate(full.args.args) if arg.annotation)
     full.args.args.insert(first_constexpr, ast.arg(arg="PairTrace"))
     variants = []
-    if direct_history_pack:
+    if join_history_pack:
+        common += direct_history_pack_source(join_pack=True)
+        labels = ("reuse_local32", "join_history_pack")
+    elif direct_history_pack:
         common += direct_history_pack_source()
         labels = ("reuse_local32", "direct_history_pack")
     elif drop_handoff_barrier:
@@ -97,7 +103,7 @@ def source(*, reuse_local32=False, drop_handoff_barrier=False, direct_history_pa
         call = query.body[index].value
         assert ast.literal_eval(call.args[0]) == "mrgsort"
         assert ast.unparse(query.body[index + 1]) == "tl.debug_barrier()"
-        if label in ("reuse_local32", "no_handoff_barrier", "direct_history_pack"):
+        if label in ("reuse_local32", "no_handoff_barrier", "direct_history_pack", "join_history_pack"):
             _use_local32(call)
         elif label != "full":
             out = next(keyword for keyword in call.keywords if keyword.arg == "out")
@@ -113,12 +119,16 @@ def source(*, reuse_local32=False, drop_handoff_barrier=False, direct_history_pa
                 )
                 expression = "tle.dsa.to_tensor(sort_out)"
             out.value = ast.parse(expression, mode="eval").body
-        if label == "direct_history_pack":
+        if label in ("direct_history_pack", "join_history_pack"):
             history_merge = next(
                 node for node in ast.walk(query)
                 if isinstance(node, ast.Call) and ast.unparse(node.func) == "_history_three_way"
             )
-            history_merge.func.id = "_history_three_way_direct_pack"
+            history_merge.func.id = (
+                "_history_three_way_join_pack"
+                if label == "join_history_pack"
+                else "_history_three_way_direct_pack"
+            )
         trace_index = index + 2
         if label == "no_handoff_barrier":
             del query.body[index + 1]
@@ -264,8 +274,20 @@ def _history_input_ir(lines, last_sort):
     whole_writes = [line.strip() for line in interval if full_write.search(line)]
     subview = re.compile(rf"(%[\w.]+) = memref.subview (?:{targets})\[")
     subviews = [m[1] for line in interval if (m := subview.search(line))]
+    copies = [
+        line.strip() for line in interval
+        if "hivm.hir.copy " in line or "memref.copy " in line
+    ]
+    copy_sizes = [
+        int(match[1]) * 4 if (match := re.search(r"memref<(\d+)x(?:f32|i32)\b", line))
+        else None
+        for line in copies
+    ]
     return dict(
         input_buffer=packed,
+        copies=copies,
+        static_copy_bytes=sum(copy_sizes) if None not in copy_sizes else None,
+        pipe_v=sum("pipe_barrier[<PIPE_V>]" in line for line in interval),
         full_width_writes=whole_writes,
         subview_writes=[
             line.strip() for line in interval
@@ -305,7 +327,9 @@ def gate_output_init(evidence, label):
     copies, fills = evidence["copies"], evidence["fills"]
     if evidence["other_writes"]:
         raise RuntimeError(f"Unexpected writes to final mrgsort output in {label}")
-    if label in ("uninit", "reuse_local32", "no_handoff_barrier", "direct_history_pack"):
+    if label in (
+        "uninit", "reuse_local32", "no_handoff_barrier", "direct_history_pack", "join_history_pack"
+    ):
         if copies or fills:
             raise RuntimeError("Final mrgsort candidate still initializes its output")
         if evidence["aliases_final_input"]:
@@ -331,3 +355,16 @@ def gate_handoff_barrier(evidence, label):
     if not evidence["reuses_sort32_buffer"] or not evidence["handoff"]:
         raise RuntimeError(f"Missing local32 handoff evidence for {label}")
     return evidence["handoff"]["pipe_all"] == int(label == "reuse_local32")
+
+
+
+def history_pack_rejection(control, candidate):
+    if candidate["full_width_writes"]:
+        return "Full-width merge input write retained"
+    if control["static_copy_bytes"] is None or candidate["static_copy_bytes"] is None:
+        return "Unresolved copy extents in the post-solver packing interval"
+    if candidate["static_copy_bytes"] >= control["static_copy_bytes"]:
+        return "No reduction in static copy bytes"
+    if candidate["pipe_v"] > control["pipe_v"]:
+        return "Additional PIPE_V barriers in packing interval"
+    return None

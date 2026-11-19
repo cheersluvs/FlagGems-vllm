@@ -55,14 +55,25 @@ def raw_history_check_three_way(Input, Output, Consumed):
 """
 
 
-def direct_history_pack_source():
+def direct_history_pack_source(*, join_pack=False):
     helper = ast.parse(MERGE).body[0]
-    helper.name = "_history_three_way_direct_pack"
+    helper.name = (
+        "_history_three_way_join_pack" if join_pack else "_history_three_way_direct_pack"
+    )
     assert len(helper.body) == 6
     assert all(
         isinstance(node, ast.Assign) and ast.unparse(node.targets[0]) == "packed"
         for node in helper.body[:4]
     )
+    if join_pack:
+        helper.body[:4] = ast.parse(
+            """
+left = tl.reshape(tl.trans(tl.join(history, first)), (2048,))
+right = tl.reshape(tl.trans(tl.join(second, tl.zeros((1024,), tl.float32))), (2048,))
+packed = tl.reshape(tl.trans(tl.join(left, right)), (4096,))
+"""
+        ).body
+        return "\n" + ast.unparse(ast.fix_missing_locations(helper)) + "\n"
     helper.body[:4] = ast.parse(
         """
 workspace = tle.dsa.alloc([4096], dtype=tl.float32, mem_addr_space=tle.dsa.ascend.UB)
