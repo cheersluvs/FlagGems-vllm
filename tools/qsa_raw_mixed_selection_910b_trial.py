@@ -251,7 +251,7 @@ class PreparedRawMixedSelection:
             if not bool((guard.cpu() == -3).all()):
                 raise AssertionError("Mixed whole-output guard overwritten")
 
-    def check_chunk_scores(self, torch, entry, expected):
+    def check_chunk_scores(self, torch, entry, expected, on_trace=None):
         for item in self.by_chunk[entry["first"]]:
             n, offset = item["count"], item["offset"]
             self.trace.fill_(float("nan"))
@@ -259,8 +259,9 @@ class PreparedRawMixedSelection:
             self.values.fill_(float("nan"))
             item["execute"](True)
             torch.npu.synchronize()
+            actual = self.trace[:n].cpu()
             torch.testing.assert_close(
-                self.trace[:n].cpu(), expected[offset : offset + n], rtol=0, atol=0
+                actual, expected[offset : offset + n], rtol=0, atol=0
             )
             assert bool(
                 torch.isnan(self.trace[n:].cpu()).all()
@@ -269,6 +270,8 @@ class PreparedRawMixedSelection:
                 torch.isnan(self.values[n:].cpu()).all()
             ), "Mixed values row-tail store"
             self.check_guards()
+            if on_trace is not None:
+                on_trace(item, actual)
 
     def topk_all_from_staged(self, staged):
         for item in self.jobs:

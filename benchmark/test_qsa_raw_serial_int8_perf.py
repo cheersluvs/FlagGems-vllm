@@ -100,7 +100,9 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
     early_release = os.environ.get("QSA_EARLY_RELEASE") == "1"
     no_merge_barrier = os.environ.get("QSA_SORT_BARRIER_TEN") == "1"
     no_sort32_barrier = os.environ.get("QSA_SORT32_BARRIER_TEN") == "1"
-    reuse_local32 = os.environ.get("QSA_FINAL_MRGSORT_REUSE_LONG") == "1"
+    sort_census = os.environ.get("QSA_HISTORY_SORT_CENSUS") == "1"
+    assert not sort_census or case_name == "int8_long100k"
+    reuse_local32 = sort_census or os.environ.get("QSA_FINAL_MRGSORT_REUSE_LONG") == "1"
     combined_history = (
         os.environ.get("QSA_COMBINED_HISTORY") == "1"
         or early_release
@@ -173,7 +175,7 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
     )
     build["topk_identity"] = topk.probe_identity
     save()
-    if paired_history or combined_history:
+    if (paired_history or combined_history) and not sort_census:
         from qsa_paired_history_910b import check_three_way
 
         check_three_way(
@@ -267,16 +269,17 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
                                 module, policy
                             )
                             options["ring_blocks_per_slot"] = 2
-                generic = PreparedRawMixedSelection(
-                    context,
-                    module,
-                    report,
-                    case_name + ("-control" if history_comparison else "-snapshot"),
-                    save_asm,
-                    record_launch_mode,
-                    **control_options,
-                )
-                extra["generic"] = generic
+                if not sort_census:
+                    generic = PreparedRawMixedSelection(
+                        context,
+                        module,
+                        report,
+                        case_name + ("-control" if history_comparison else "-snapshot"),
+                        save_asm,
+                        record_launch_mode,
+                        **control_options,
+                    )
+                    extra["generic"] = generic
             mixed = PreparedRawMixedSelection(
                 context,
                 module,
@@ -286,6 +289,21 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
                 record_launch_mode,
                 **options,
             )
+            if sort_census:
+                from qsa_history_sort_census_910b import collect
+
+                census = collect(
+                    torch,
+                    context,
+                    raw,
+                    mixed,
+                    report / (case_name + "-history-sort-census.json"),
+                )
+                return dict(
+                    history_sort_census=census,
+                    history_dispatch=mixed.dispatch_routes,
+                    mixed_compiled_artifacts=mixed.artifacts,
+                )
             extra["mixed"] = mixed
             detail["mixed_identity"] = dict(
                 slots=2,

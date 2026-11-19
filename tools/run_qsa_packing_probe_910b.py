@@ -38,6 +38,7 @@ def main():
     probe.add_argument("--sort-barrier-ten", action="store_true")
     probe.add_argument("--sort32-barrier-ten", action="store_true")
     probe.add_argument("--final-mrgsort-reuse-long", action="store_true")
+    probe.add_argument("--history-sort-census", action="store_true")
     probe.add_argument(
         "--short-history", "--short-history-compact", action="store_true"
     )
@@ -66,6 +67,13 @@ def main():
         mode, result_key = "early-release", "early_release"
         scope = "Two full inputs with paired TopK and 512-key double-buffered handoff"
         log_key = "EARLY_RELEASE"
+    elif args.history_sort_census:
+        if args.all_cases or (args.cases and args.cases != ["int8_long100k"]):
+            parser.error("History sort census selects int8_long100k")
+        args.cases = ["int8_long100k"]
+        mode, result_key = "history-sort-census", "history_sort_census"
+        scope = "Conservative survivors on full int8_long100k with paired out=local32"
+        log_key = "HISTORY_SORT_CENSUS"
     elif args.final_mrgsort_reuse_long:
         if args.all_cases or (args.cases and args.cases != ["int8_long100k"]):
             parser.error("Final mrgsort reuse benchmark selects int8_long100k")
@@ -155,6 +163,7 @@ def main():
         QSA_PAIRED_HISTORY="1" if args.paired_history or args.paired_handoff else "0",
         QSA_PAIRED_HANDOFF="1" if args.paired_handoff else "0",
         QSA_FINAL_MRGSORT_REUSE_LONG="1" if args.final_mrgsort_reuse_long else "0",
+        QSA_HISTORY_SORT_CENSUS="1" if args.history_sort_census else "0",
         QSA_SORT32_BARRIER_TEN="1" if args.sort32_barrier_ten else "0",
         QSA_SORT_BARRIER_TEN="1" if args.sort_barrier_ten else "0",
         QSA_EARLY_RELEASE="1" if args.early_release else "0",
@@ -186,19 +195,10 @@ def main():
             if d.get("status") != "passed":
                 raise ValueError(d.get("traceback", d.get("error", "Worker failed")))
             detail = d["serial_harness"]
-            if (
-                rc
-                or d["status"] != "passed"
-                or not all(
-                    c.get("passed") is True
-                    for c in (
-                        d["precheck"],
-                        d["postcheck"],
-                        detail["precheck"],
-                        detail["postcheck"],
-                    )
-                )
-            ):
+            checks = [d["precheck"], d["postcheck"]]
+            if not args.history_sort_census:
+                checks.extend([detail["precheck"], detail["postcheck"]])
+            if rc or not all(c.get("passed") is True for c in checks):
                 raise ValueError("Full pre/post correctness or worker failed")
             measurement = detail[result_key]
             if measurement.get("status") != "passed":
