@@ -24,7 +24,8 @@ from qsa_short_history_910b import measure_arms
 # The inclusive prefix gives each surviving lane a one-based rank. Binary
 # lifting finds the last lane with smaller rank for each of 32 output slots.
 COMPACT = """
-prefix = tl.cumsum(keep.to(tl.int32), 0)
+# All prefix counts are in [0, 512], exactly representable by the FP32 gather.
+prefix = tl.cumsum(keep.to(tl.int32), 0).to(tl.float32)
 slot = tl.arange(0, 32)
 before = tl.full((32,), -1, tl.int32)
 for bit in tl.static_range(9):

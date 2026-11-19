@@ -46,15 +46,21 @@ class SortCensusTest(unittest.TestCase):
         program = compile(
             ast.Module(body[:pos], type_ignores=[]), "<compact32>", "exec"
         )
+        def gather(x, idx, axis):
+            self.assertEqual(x.dtype, torch.float32)
+            self.assertEqual(idx.dtype, torch.int32)
+            return x.gather(axis, idx.long())
+
         tl = SimpleNamespace(
             cumsum=torch.cumsum,
-            arange=torch.arange,
+            arange=lambda start, stop: torch.arange(start, stop, dtype=torch.int32),
             where=torch.where,
             static_range=range,
             int32=torch.int32,
+            float32=torch.float32,
             uint32=torch.uint32,
             full=lambda shape, value, dtype: torch.full(shape, value, dtype=dtype),
-            gather=lambda x, idx, axis: x.gather(axis, idx.long()),
+            gather=gather,
         )
         gen = torch.Generator().manual_seed(19)
         for count in (1, 2, 17, 31, 32):
