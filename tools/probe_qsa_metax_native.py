@@ -18,6 +18,7 @@ import argparse
 import hashlib
 import importlib
 import json
+import statistics
 import subprocess
 import sys
 import traceback
@@ -87,7 +88,9 @@ def worker(args):
             source=str(source),
             source_sha256=digest,
         )
-        assert digest == SOURCE_SHA256, "Installed QSA differs from pinned baseline"
+        installed = args.suite == "installed"
+        if not installed:
+            assert digest == SOURCE_SHA256, "Installed QSA differs from pinned baseline"
         compiler = importlib.import_module("triton.compiler.compiler")
         result["compiler"] = {
             "source": compiler.__file__,
@@ -137,7 +140,9 @@ def worker(args):
             starts = torch.tensor(
                 [7, 7 + lengths[0], 7 + rows], dtype=torch.int32, device="cuda"
             )
-            if native:
+            if installed:
+                logits = None
+            elif native:
                 logits = module._prefill_logits(
                     q, k, table, starts, visible, max(lengths), 768, 0, rows
                 )
@@ -148,24 +153,26 @@ def worker(args):
                     module, q, k, table, starts, visible, max(lengths), stages
                 )
                 result["launch"]["shared_bytes"] = shared
-            torch.cuda.synchronize()
-            actual = logits.float().cpu()
-            torch.testing.assert_close(
-                actual[mask], reference[mask], atol=0.05, rtol=0.005
+            if logits is not None:
+                torch.cuda.synchronize()
+                actual = logits.float().cpu()
+                torch.testing.assert_close(
+                    actual[mask], reference[mask], atol=0.05, rtol=0.005
+                )
+                error = (actual[mask] - reference[mask]).abs().max().item()
+                result["score"] = {"status": "passed", "max_abs_error": error}
+        if not installed:
+            platform = module.current_platform
+            cooperative = (
+                rows <= 64
+                and logits.stride(0) % 4 == 0
+                and platform.has_device_capability(90)
+                and not platform.is_device_capability_family(120)
             )
-            error = (actual[mask] - reference[mask]).abs().max().item()
-            result["score"] = {"status": "passed", "max_abs_error": error}
-        platform = module.current_platform
-        cooperative = (
-            rows <= 64
-            and logits.stride(0) % 4 == 0
-            and platform.has_device_capability(90)
-            and not platform.is_device_capability_family(120)
-        )
-        selected = "cooperative_topk" if cooperative else "persistent_topk"
-        result["topk_dispatch"] = selected
-        op = getattr(torch.ops._C, selected)
-        result["topk_schema"] = str(op._schemas)
+            selected = "cooperative_topk" if cooperative else "persistent_topk"
+            result["topk_dispatch"] = selected
+            op = getattr(torch.ops._C, selected)
+            result["topk_schema"] = str(op._schemas)
         output = torch.empty((rows, 512), dtype=torch.int32, device="cuda")
         if native:
             module.qsa_select_paged_prefill(
@@ -196,6 +203,21 @@ def worker(args):
                     "TopK rank violation",
                 )
         result["selection"] = {"status": "passed", "tie_policy": "score threshold"}
+        if installed:
+            timings = []
+            for iteration in range(7):
+                start = torch.cuda.Event(enable_timing=True)
+                end = torch.cuda.Event(enable_timing=True)
+                start.record()
+                module.qsa_select_paged_prefill(
+                    q, k, table, starts, visible, 2048, 4, max(lengths), output, 3072
+                )
+                end.record()
+                end.synchronize()
+                if iteration >= 2:
+                    timings.append(start.elapsed_time(end) * 1000)
+            result["public_entry_event_us"] = timings
+            result["median_us"] = statistics.median(timings)
         result["status"] = "passed"
     except Exception:
         result["error"] = traceback.format_exc()
@@ -212,14 +234,16 @@ def main():
     parser.add_argument("--device", type=int, default=0)
     parser.add_argument("--timeout", type=int, default=600)
     parser.add_argument("--case", choices=NATIVE_CASES + DIAGNOSTIC_CASES)
-    parser.add_argument("--suite", choices=("native", "diagnostic"), default="native")
+    parser.add_argument(
+        "--suite", choices=("native", "diagnostic", "installed"), default="native"
+    )
     args = parser.parse_args()
     if args.case:
         return worker(args)
     report = Path(args.report)
     report.mkdir(parents=True, exist_ok=True)
     results = []
-    cases = NATIVE_CASES if args.suite == "native" else DIAGNOSTIC_CASES
+    cases = DIAGNOSTIC_CASES if args.suite == "diagnostic" else NATIVE_CASES
     for case in cases:
         command = [
             sys.executable,
@@ -230,6 +254,8 @@ def main():
             str(args.device),
             "--case",
             case,
+            "--suite",
+            args.suite,
         ]
         print(f"=== {case} ===", flush=True)
         with (report / f"{case}.log").open("w") as log:
@@ -249,7 +275,11 @@ def main():
     summary = {
         "status": "passed" if all(x["exit_code"] == 0 for x in results) else "failed",
         "suite": args.suite,
-        "scope": "Correctness only; diagnostic launches change native configuration",
+        "scope": (
+            "Installed public entry smoke latency"
+            if args.suite == "installed"
+            else "Correctness only; diagnostic launches change native configuration"
+        ),
         "cases": results,
     }
     (report / "summary.json").write_text(json.dumps(summary, indent=2))
