@@ -102,8 +102,9 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
     no_sort32_barrier = os.environ.get("QSA_SORT32_BARRIER_TEN") == "1"
     sort_census = os.environ.get("QSA_HISTORY_SORT_CENSUS") == "1"
     compact32 = os.environ.get("QSA_HISTORY_COMPACT32") == "1"
-    assert not (sort_census or compact32) or case_name == "int8_long100k"
-    reuse_local32 = compact32 or sort_census or os.environ.get("QSA_FINAL_MRGSORT_REUSE_LONG") == "1"
+    presort = os.environ.get("QSA_PRESORT_REPLAY") == "1"
+    assert not (sort_census or compact32 or presort) or case_name == "int8_long100k"
+    reuse_local32 = presort or compact32 or sort_census or os.environ.get("QSA_FINAL_MRGSORT_REUSE_LONG") == "1"
     combined_history = (
         os.environ.get("QSA_COMBINED_HISTORY") == "1"
         or early_release
@@ -160,6 +161,10 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
         from qsa_history_compact32_910b import source as compact_source
 
         source_text += compact_source(source_text)
+    if presort:
+        from qsa_presorted_replay_910b import source as presort_source
+
+        source_text += presort_source(source_text)
     path.write_text(source_text)
     path.with_suffix(".py.txt").write_text(path.read_text())
     spec = importlib.util.spec_from_file_location("_raw_serial_kernels", path)
@@ -504,6 +509,14 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
             dtypes=[torch.int8],
             device=f"npu:{device_index}",
         )
+        if presort:
+            from qsa_presorted_replay_910b import run
+
+            detail["presort_replay"] = run(torch, module, mixed, benchmark, report)
+            detail["postcheck"] = verify_pipeline(
+                torch, context, raw, native_call, "after", extra=extra
+            )
+            return detail
         if history_comparison:
             if combined_history:
                 from qsa_paired_history_910b import measure_combined as measure

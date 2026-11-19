@@ -223,6 +223,8 @@ class PreparedRawMixedSelection:
                         pack_qw=pack_qw,
                         pack_k=pack_k,
                         mixed_only=mixed_only,
+                        mixed_operands=operands,
+                        mixed_meta=meta,
                     )
                 )
                 self.routes.append(

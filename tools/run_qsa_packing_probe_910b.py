@@ -38,6 +38,7 @@ def main():
     probe.add_argument("--sort-barrier-ten", action="store_true")
     probe.add_argument("--sort32-barrier-ten", action="store_true")
     probe.add_argument("--final-mrgsort-reuse-long", action="store_true")
+    probe.add_argument("--presort-replay", action="store_true")
     probe.add_argument("--history-compact32", action="store_true")
     probe.add_argument("--history-sort-census", action="store_true")
     probe.add_argument(
@@ -68,6 +69,13 @@ def main():
         mode, result_key = "early-release", "early_release"
         scope = "Two full inputs with paired TopK and 512-key double-buffered handoff"
         log_key = "EARLY_RELEASE"
+    elif args.presort_replay:
+        if args.all_cases or (args.cases and args.cases != ["int8_long100k"]):
+            parser.error("Presorted replay selects int8_long100k")
+        args.cases = ["int8_long100k"]
+        mode, result_key = "presort-replay", "presort_replay"
+        scope = "Mixed local sort and staged pair replay with matched I/O diagnostics"
+        log_key = "PRESORT"
     elif args.history_compact32:
         if args.all_cases or (args.cases and args.cases != ["int8_long100k"]):
             parser.error("Compact32 benchmark selects int8_long100k")
@@ -171,6 +179,7 @@ def main():
         QSA_PAIRED_HISTORY="1" if args.paired_history or args.paired_handoff else "0",
         QSA_PAIRED_HANDOFF="1" if args.paired_handoff else "0",
         QSA_FINAL_MRGSORT_REUSE_LONG="1" if args.final_mrgsort_reuse_long else "0",
+        QSA_PRESORT_REPLAY="1" if args.presort_replay else "0",
         QSA_HISTORY_COMPACT32="1" if args.history_compact32 else "0",
         QSA_HISTORY_SORT_CENSUS="1" if args.history_sort_census else "0",
         QSA_SORT32_BARRIER_TEN="1" if args.sort32_barrier_ten else "0",
@@ -218,6 +227,7 @@ def main():
                 or args.combined_history
                 or args.early_release
                 or sort_barrier_suite
+                or args.presort_replay
                 or args.history_compact32
                 or args.final_mrgsort_reuse_long
             ):
