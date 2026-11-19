@@ -1,0 +1,105 @@
+{
+  "status": "incomplete",
+  "mode": "history-compact32",
+  "production_changed": false,
+  "scope": "Paired local32 versus cutoff compaction and narrow sort on the complete input",
+  "history_policy": {
+    "status": "passed",
+    "threshold": 4,
+    "max_blocks": 58,
+    "margin": 1.02,
+    "rule": "all tested larger cases and both rounds pass margin",
+    "boundary_evidence": [
+      {
+        "rows": 16,
+        "blocks": 1,
+        "round_ratios": [
+          0.8951164455211146,
+          0.9207754541291405
+        ]
+      },
+      {
+        "rows": 128,
+        "blocks": 1,
+        "round_ratios": [
+          0.9055576762664177,
+          0.9157896262793193
+        ]
+      },
+      {
+        "rows": 16,
+        "blocks": 2,
+        "round_ratios": [
+          0.9596496533755178,
+          0.9701060528875097
+        ]
+      },
+      {
+        "rows": 128,
+        "blocks": 2,
+        "round_ratios": [
+          0.9782229455222393,
+          0.9637262691062599
+        ]
+      },
+      {
+        "rows": 16,
+        "blocks": 4,
+        "round_ratios": [
+          1.0371541779780888,
+          1.043124420253076
+        ]
+      },
+      {
+        "rows": 128,
+        "blocks": 4,
+        "round_ratios": [
+          1.0371319042134397,
+          1.039764012827663
+        ]
+      },
+      {
+        "rows": 16,
+        "blocks": 8,
+        "round_ratios": [
+          1.111594469410507,
+          1.1154083142819302
+        ]
+      },
+      {
+        "rows": 128,
+        "blocks": 8,
+        "round_ratios": [
+          1.1164280224316092,
+          1.1113050145332204
+        ]
+      },
+      {
+        "rows": 17,
+        "blocks": 17,
+        "round_ratios": [
+          1.1654542177129135,
+          1.167087043971466
+        ]
+      },
+      {
+        "rows": 112,
+        "blocks": 58,
+        "round_ratios": [
+          1.2217188307573867,
+          1.2252050287658776
+        ]
+      }
+    ],
+    "source_code_commit": "10c0a20908cbe40983b51fe8ec5f7fa001bb1910"
+  },
+  "cases": [
+    {
+      "case": "int8_long100k",
+      "exit_code": 1,
+      "status": "failed",
+      "error": "ValueError('Traceback (most recent call last):\\n  File \"/tmp/qsa-raw-cube-chain.Cj5JuE9n/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py\", line 1455, in call_Function\\n    ret = fn(*args, **extra_kwargs, **kws)\\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \"/tmp/qsa-raw-cube-chain.Cj5JuE9n/flagtree-corefix/triton/spec/ascend/language/core.py\", line 43, in wrapper\\n    return fn(*args, **kwargs)\\n           ^^^^^^^^^^^^^^^^^^^\\n  File \"/tmp/qsa-raw-cube-chain.Cj5JuE9n/flagtree-corefix/triton/spec/ascend/language/core.py\", line 2778, in gather\\n    return _semantic.gather(src, index, axis)\\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \"/tmp/qsa-raw-cube-chain.Cj5JuE9n/flagtree-corefix/triton/spec/ascend/language/semantic.py\", line 1794, in gather\\n    raise ValueError(f\"Expected dtype fp16/fp32/bf16/f8E5M2/f8E4M3FN/int8, but got {src.dtype}\")\\nValueError: Expected dtype fp16/fp32/bf16/f8E5M2/f8E4M3FN/int8, but got int32\\n\\nThe above exception was the direct cause of the following exception:\\n\\nTraceback (most recent call last):\\n  File \"/tmp/flaggems-qsa-compact32.ZSN2bacy/code/tools/qsa_ten_score_suite_910b.py\", line 462, in run_case\\n    record[\"serial_harness\"] = selection_benchmark(\\n                               ^^^^^^^^^^^^^^^^^^^^\\n  File \"/tmp/flaggems-qsa-compact32.ZSN2bacy/code/benchmark/test_qsa_raw_serial_int8_perf.py\", line 293, in integration\\n    mixed = PreparedRawMixedSelection(\\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \"/tmp/flaggems-qsa-compact32.ZSN2bacy/code/tools/qsa_raw_mixed_selection_910b_trial.py\", line 113, in __init__\\n    compiled = kernel.warmup(\\n               ^^^^^^^^^^^^^^\\n  File \"/tmp/qsa-raw-cube-chain.Cj5JuE9n/flagtree-corefix/triton/spec/ascend/runtime/jit.py\", line 804, in warmup\\n    return self.run(grid=grid, warmup=True, *map(MockTensor.wrap_dtype, args), **kwargs)\\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \"/tmp/qsa-raw-cube-chain.Cj5JuE9n/flagtree-corefix/triton/spec/ascend/runtime/jit.py\", line 736, in run\\n    kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup)\\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \"/tmp/qsa-raw-cube-chain.Cj5JuE9n/flagtree-corefix/triton/spec/ascend/runtime/jit.py\", line 864, in _do_compile\\n    kernel = self.compile(src, target=target, options=options.__dict__)\\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \"/tmp/qsa-raw-cube-chain.Cj5JuE9n/flagtree-corefix/triton/experimental/tle/__init__.py\", line 83, in tle_compile\\n    compiled_kernel = original_compile_fn(src, target, options)\\n                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \"/tmp/qsa-raw-cube-chain.Cj5JuE9n/flagtree-corefix/triton/spec/ascend/compiler/compiler.py\", line 309, in compile\\n    module = src.make_ir(target, options, codegen_fns, module_map, context)\\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \"/tmp/qsa-raw-cube-chain.Cj5JuE9n/flagtree-corefix/triton/spec/ascend/compiler/compiler.py\", line 83, in make_ir\\n    return ast_to_ttir(self.fn, self, context=context, options=options, codegen_fns=codegen_fns,\\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \"/tmp/qsa-raw-cube-chain.Cj5JuE9n/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py\", line 1724, in ast_to_ttir\\n    generator.visit(fn.parse())\\n  File \"/tmp/qsa-raw-cube-chain.Cj5JuE9n/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py\", line 1628, in visit\\n    ret = super().visit(node)\\n          ^^^^^^^^^^^^^^^^^^^\\n  File \"/tmp/qsa-raw-cube-chain.Cj5JuE9n/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py\", line 563, in visit_Module\\n    ast.NodeVisitor.generic_visit(self, node)\\n  File \"/tmp/qsa-raw-cube-chain.Cj5JuE9n/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py\", line 1628, in visit\\n    ret = super().visit(node)\\n          ^^^^^^^^^^^^^^^^^^^\\n  File \"/tmp/qsa-raw-cube-chain.Cj5JuE9n/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py\", line 661, in visit_FunctionDef\\n    self.visit_compound_statement(node.body)\\n  File \"/tmp/qsa-raw-cube-chain.Cj5JuE9n/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py\", line 555, in visit_compound_statement\\n    ret = self.visit(stmt)\\n          ^^^^^^^^^^^^^^^^\\n  File \"/tmp/qsa-raw-cube-chain.Cj5JuE9n/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py\", line 1628, in visit\\n    ret = super().visit(node)\\n          ^^^^^^^^^^^^^^^^^^^\\n  File \"/tmp/qsa-raw-cube-chain.Cj5JuE9n/flagtree-corefix/triton/experimental/tle/__init__.py\", line 143, in visit_With\\n    return super().visit_With(node)\\n           ^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \"/tmp/qsa-raw-cube-chain.Cj5JuE9n/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py\", line 1044, in visit_With\\n    return handler(self, node)\\n           ^^^^^^^^^^^^^^^^^^^\\n  File \"/tmp/qsa-raw-cube-chain.Cj5JuE9n/flagtree-corefix/triton/language/extra/cann/extension/code_generator.py\", line 161, in handle_scope_with\\n    generator.visit_compound_statement(node.body)\\n  File \"/tmp/qsa-raw-cube-chain.Cj5JuE9n/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py\", line 555, in visit_compound_statement\\n    ret = self.visit(stmt)\\n          ^^^^^^^^^^^^^^^^\\n  File \"/tmp/qsa-raw-cube-chain.Cj5JuE9n/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py\", line 1628, in visit\\n    ret = super().visit(node)\\n          ^^^^^^^^^^^^^^^^^^^\\n  File \"/tmp/qsa-raw-cube-chain.Cj5JuE9n/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py\", line 1276, in visit_For\\n    names, init_handles, init_tys = self._find_carries(node, liveins)\\n                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \"/tmp/qsa-raw-cube-chain.Cj5JuE9n/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py\", line 516, in _find_carries\\n    self.visit_compound_statement(node.body)\\n  File \"/tmp/qsa-raw-cube-chain.Cj5JuE9n/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py\", line 555, in visit_compound_statement\\n    ret = self.visit(stmt)\\n          ^^^^^^^^^^^^^^^^\\n  File \"/tmp/qsa-raw-cube-chain.Cj5JuE9n/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py\", line 1628, in visit\\n    ret = super().visit(node)\\n          ^^^^^^^^^^^^^^^^^^^\\n  File \"/tmp/qsa-raw-cube-chain.Cj5JuE9n/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py\", line 1276, in visit_For\\n    names, init_handles, init_tys = self._find_carries(node, liveins)\\n                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \"/tmp/qsa-raw-cube-chain.Cj5JuE9n/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py\", line 516, in _find_carries\\n    self.visit_compound_statement(node.body)\\n  File \"/tmp/qsa-raw-cube-chain.Cj5JuE9n/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py\", line 555, in visit_compound_statement\\n    ret = self.visit(stmt)\\n          ^^^^^^^^^^^^^^^^\\n  File \"/tmp/qsa-raw-cube-chain.Cj5JuE9n/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py\", line 1628, in visit\\n    ret = super().visit(node)\\n          ^^^^^^^^^^^^^^^^^^^\\n  File \"/tmp/qsa-raw-cube-chain.Cj5JuE9n/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py\", line 960, in visit_If\\n    self.visit_if_scf(cond, node)\\n  File \"/tmp/qsa-raw-cube-chain.Cj5JuE9n/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py\", line 914, in visit_if_scf\\n    self.visit_then_else_blocks(node, liveins, then_block, else_block)\\n  File \"/tmp/qsa-raw-cube-chain.Cj5JuE9n/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py\", line 825, in visit_then_else_blocks\\n    self.visit_compound_statement(node.orelse)\\n  File \"/tmp/qsa-raw-cube-chain.Cj5JuE9n/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py\", line 555, in visit_compound_statement\\n    ret = self.visit(stmt)\\n          ^^^^^^^^^^^^^^^^\\n  File \"/tmp/qsa-raw-cube-chain.Cj5JuE9n/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py\", line 1628, in visit\\n    ret = super().visit(node)\\n          ^^^^^^^^^^^^^^^^^^^\\n  File \"/tmp/qsa-raw-cube-chain.Cj5JuE9n/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py\", line 960, in visit_If\\n    self.visit_if_scf(cond, node)\\n  File \"/tmp/qsa-raw-cube-chain.Cj5JuE9n/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py\", line 914, in visit_if_scf\\n    self.visit_then_else_blocks(node, liveins, then_block, else_block)\\n  File \"/tmp/qsa-raw-cube-chain.Cj5JuE9n/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py\", line 814, in visit_then_else_blocks\\n    self.visit_compound_statement(node.body)\\n  File \"/tmp/qsa-raw-cube-chain.Cj5JuE9n/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py\", line 555, in visit_compound_statement\\n    ret = self.visit(stmt)\\n          ^^^^^^^^^^^^^^^^\\n  File \"/tmp/qsa-raw-cube-chain.Cj5JuE9n/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py\", line 1628, in visit\\n    ret = super().visit(node)\\n          ^^^^^^^^^^^^^^^^^^^\\n  File \"/tmp/qsa-raw-cube-chain.Cj5JuE9n/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py\", line 1204, in visit_For\\n    self.visit_compound_statement(node.body)\\n  File \"/tmp/qsa-raw-cube-chain.Cj5JuE9n/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py\", line 555, in visit_compound_statement\\n    ret = self.visit(stmt)\\n          ^^^^^^^^^^^^^^^^\\n  File \"/tmp/qsa-raw-cube-chain.Cj5JuE9n/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py\", line 1628, in visit\\n    ret = super().visit(node)\\n          ^^^^^^^^^^^^^^^^^^^\\n  File \"/tmp/qsa-raw-cube-chain.Cj5JuE9n/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py\", line 737, in visit_Assign\\n    values = _sanitize_value(self.visit(node.value))\\n                             ^^^^^^^^^^^^^^^^^^^^^^\\n  File \"/tmp/qsa-raw-cube-chain.Cj5JuE9n/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py\", line 1628, in visit\\n    ret = super().visit(node)\\n          ^^^^^^^^^^^^^^^^^^^\\n  File \"/tmp/qsa-raw-cube-chain.Cj5JuE9n/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py\", line 1074, in visit_Compare\\n    lhs = self.visit(node.left)\\n          ^^^^^^^^^^^^^^^^^^^^^\\n  File \"/tmp/qsa-raw-cube-chain.Cj5JuE9n/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py\", line 1628, in visit\\n    ret = super().visit(node)\\n          ^^^^^^^^^^^^^^^^^^^\\n  File \"/tmp/qsa-raw-cube-chain.Cj5JuE9n/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py\", line 1510, in visit_Call\\n    return self.call_Function(node, fn, args, kws)\\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \"/tmp/qsa-raw-cube-chain.Cj5JuE9n/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py\", line 1472, in call_Function\\n    raise CompilationError(self.jit_fn.src, node, repr(e)) from e\\ntriton.compiler.errors.CompilationError: at 64:32:\\n                else:\\n                    keep = tl.full((512,), False, tl.int1)\\n                    count = 513\\n                if count == 0:\\n                    pairs = initial\\n                elif count <= 32:\\n                    prefix = tl.cumsum(keep.to(tl.int32), 0)\\n                    slot = tl.arange(0, 32)\\n                    before = tl.full((32,), -1, tl.int32)\\n                    for bit in tl.static_range(9):\\n                        probe = before + (256 >> bit)\\n                        below = tl.gather(prefix, probe, axis=0) < slot + 1\\n                                ^\\nValueError(\\'Expected dtype fp16/fp32/bf16/f8E5M2/f8E4M3FN/int8, but got int32\\')\\n')"
+    }
+  ],
+  "process_exit_code": 1
+}
