@@ -101,8 +101,9 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
     no_merge_barrier = os.environ.get("QSA_SORT_BARRIER_TEN") == "1"
     no_sort32_barrier = os.environ.get("QSA_SORT32_BARRIER_TEN") == "1"
     sort_census = os.environ.get("QSA_HISTORY_SORT_CENSUS") == "1"
-    assert not sort_census or case_name == "int8_long100k"
-    reuse_local32 = sort_census or os.environ.get("QSA_FINAL_MRGSORT_REUSE_LONG") == "1"
+    compact32 = os.environ.get("QSA_HISTORY_COMPACT32") == "1"
+    assert not (sort_census or compact32) or case_name == "int8_long100k"
+    reuse_local32 = compact32 or sort_census or os.environ.get("QSA_FINAL_MRGSORT_REUSE_LONG") == "1"
     combined_history = (
         os.environ.get("QSA_COMBINED_HISTORY") == "1"
         or early_release
@@ -155,6 +156,10 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
         from qsa_final_mrgsort_ub_910b import prepared_reuse_source
 
         source_text += prepared_reuse_source(source_text)
+    if compact32:
+        from qsa_history_compact32_910b import source as compact_source
+
+        source_text += compact_source(source_text)
     path.write_text(source_text)
     path.with_suffix(".py.txt").write_text(path.read_text())
     spec = importlib.util.spec_from_file_location("_raw_serial_kernels", path)
@@ -256,7 +261,12 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
                             reuse_local32=reuse_local32,
                             fallback=options["dispatch"],
                         )
-                        if early_release or no_merge_barrier or no_sort32_barrier or reuse_local32:
+                        if compact32:
+                            from qsa_history_compact32_910b import dispatcher as compact_dispatch
+
+                            control_options["dispatch"] = options["dispatch"]
+                            options["dispatch"] = compact_dispatch(module, options["dispatch"])
+                        elif early_release or no_merge_barrier or no_sort32_barrier or reuse_local32:
                             control_options["dispatch"] = paired_dispatcher(
                                 module,
                                 policy,
@@ -428,6 +438,12 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
                         topk="single_direct_first_seed_or_paired_prefix",
                         final_mrgsort_out="zeros",
                     )
+                if compact32:
+                    detail["generic_identity"].update(detail["mixed_identity"])
+                    detail["mixed_identity"].update(
+                        kernel="raw_history_prepared_paired_compact32",
+                        local_sort="cutoff_compact32_or_full512",
+                    )
         v = context["values"]
         native_call = partial(
             torch_npu.npu_quant_lightning_indexer,
@@ -505,6 +521,10 @@ def test_qsa_raw_serial_kernel(monkeypatch, case_name):
                 if reuse_local32:
                     measure = partial(measure, reuse_local32=True)
                     measure_key = "final_mrgsort_reuse_long"
+                if compact32:
+                    from qsa_history_compact32_910b import measure
+
+                    measure_key = "history_compact32"
             elif paired_history:
                 from qsa_paired_history_910b import measure
 

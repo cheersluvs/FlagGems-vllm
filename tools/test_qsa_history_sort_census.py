@@ -12,9 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import ast
 import unittest
+from types import SimpleNamespace
 
 import torch
+from qsa_history_compact32_910b import COMPACT
 from qsa_history_sort_census_910b import SortCensus, replay
 
 
@@ -31,6 +34,51 @@ class SortCensusTest(unittest.TestCase):
         self.assertEqual(tail["retained"].tolist(), [[1]])
         self.assertEqual(tail["visible"].tolist(), [[2]])
         self.assertEqual(tail["ties"].tolist(), [[1]])
+
+    def test_compacted_scores_and_original_indices(self):
+        # Execute the generated packing expressions up to the hardware sort.
+        body = ast.parse(COMPACT).body
+        pos = next(
+            i
+            for i, n in enumerate(body)
+            if isinstance(n, ast.Assign) and ast.unparse(n.targets[0]) == "short_pairs"
+        )
+        program = compile(
+            ast.Module(body[:pos], type_ignores=[]), "<compact32>", "exec"
+        )
+        tl = SimpleNamespace(
+            cumsum=torch.cumsum,
+            arange=torch.arange,
+            where=torch.where,
+            static_range=range,
+            int32=torch.int32,
+            uint32=torch.uint32,
+            full=lambda shape, value, dtype: torch.full(shape, value, dtype=dtype),
+            gather=lambda x, idx, axis: x.gather(axis, idx.long()),
+        )
+        gen = torch.Generator().manual_seed(19)
+        for count in (1, 2, 17, 31, 32):
+            lanes = (
+                torch.cat(
+                    (
+                        torch.tensor([511]),
+                        torch.randperm(511, generator=gen)[: count - 1],
+                    )
+                )
+                .sort()
+                .values
+            )
+            score = torch.full((512,), -9.0)
+            score[lanes] = torch.arange(count).float() - 3
+            variables = dict(
+                tl=tl, score=score, vector_block=3, keep=score >= -3, count=count
+            )
+            exec(program, variables)
+            ids = variables["indices32"].view(torch.int32)
+            torch.testing.assert_close(ids[:count].long(), lanes + 1536)
+            torch.testing.assert_close(variables["scores32"][:count], score[lanes])
+            self.assertTrue((ids[count:] == -1).all())
+            self.assertTrue(variables["scores32"][count:].isneginf().all())
 
     def test_empty_blocks_and_ties_are_counted_separately(self):
         scores = torch.zeros((3, 1536))

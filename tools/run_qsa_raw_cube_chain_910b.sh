@@ -509,6 +509,10 @@ for qsa_argument in "$@"; do
         qsa_worker="$qsa_repo/tools/run_qsa_packing_probe_910b.py"
         qsa_kind=raw-final-mrgsort-reuse-long
     fi
+    if [[ "$qsa_argument" == --history-compact32 ]]; then
+        qsa_worker="$qsa_repo/tools/run_qsa_packing_probe_910b.py"
+        qsa_kind=raw-history-compact32
+    fi
     if [[ "$qsa_argument" == --history-sort-census ]]; then
         qsa_worker="$qsa_repo/tools/run_qsa_packing_probe_910b.py"
         qsa_kind=raw-history-sort-census
